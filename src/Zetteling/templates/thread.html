@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Thread: {{ name }}{% endblock %}
+{% block content %}
+  <h1>⛓ {{ name }}</h1>
+  <p class="meta">
+    {{ chain|length }} note{{ 's' if chain|length != 1 else '' }} in sequence ·
+    <a href="{{ url_for('export_view', source_type='thread', source_id=name) }}">export this thread</a>
+  </p>
+  <ol class="thread-chain">
+    {% for n in chain %}
+      <li>
+        <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+        <code class="muted">{{ n.id }}</code>
+      </li>
+    {% else %}
+      <li class="empty">Thread is empty.</li>
+    {% endfor %}
+  </ol>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+  <input type="search"
+         name="q"
+         placeholder="search…"
+         autofocus
+         hx-get="{{ url_for('search') }}"
+         hx-trigger="input changed delay:200ms, search"
+         hx-target="#results"
+         hx-push-url="false">
+
+  <section id="results">
+    {% if results is defined and q %}
+      {% include "_search_results.html" %}
+    {% endif %}
+  </section>
+
+  <section id="recent">
+    {% if kind_counts is defined %}
+      <nav class="kind-tabs" aria-label="Filter by kind">
+        {% for k, label in [('research', 'research'), ('journal', 'journal'), ('teaching', 'teaching'), ('life', 'life'), ('all', 'all')] %}
+          <a href="{{ url_for('index', kind=k) }}"
+             class="kind-tab {% if active_kind == k %}active{% endif %} kind-tab-{{ k }}">
+            {{ label }}<span class="kind-count">{{ kind_counts[k] if k in kind_counts else 0 }}</span>
+          </a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+
+    {% if active_kind == 'journal' %}
+      <p style="margin: 0.5rem 0 1rem;">
+        <a href="{{ url_for('journal_new') }}" class="today-btn">📝 new entry</a>
+      </p>
+    {% endif %}
+
+    <h2>
+      {% if active_kind == 'all' or active_kind is not defined %}Recent
+      {% else %}Recent in {{ active_kind }}
+      {% endif %}
+    </h2>
+
+    <ul class="note-list">
+      {% for n in recent %}
+        <li>
+          {% if active_kind == 'all' or active_kind is not defined %}
+            <span class="kind-stripe kind-stripe-{{ n.kind or 'research' }}" title="{{ n.kind or 'research' }}"></span>
+          {% endif %}
+          <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+          <span class="meta">{{ n.modified[:10] }}</span>
+        </li>
+      {% else %}
+        <li class="empty">
+          {% if active_kind and active_kind != 'all' %}
+            No {{ active_kind }} notes yet.
+            <a href="{{ url_for('new', kind=active_kind) }}">Create the first one</a>.
+          {% else %}
+            No notes yet. <a href="{{ url_for('new') }}">Create your first one</a>,
+            or visit <a href="{{ url_for('help_page') }}">help</a> for a tour of the basics.
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endblock %}

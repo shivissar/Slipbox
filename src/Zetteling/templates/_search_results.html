@@ -1,0 +1,11 @@
+<h2>Search: <em>{{ q }}</em></h2>
+<ul class="note-list">
+  {% for r in results %}
+    <li>
+      <a href="{{ url_for('view', note_id=r.id) }}">{{ r.title }}</a>
+      <p class="snip">{{ r.snip|safe }}</p>
+    </li>
+  {% else %}
+    <li class="empty">No matches.</li>
+  {% endfor %}
+</ul>

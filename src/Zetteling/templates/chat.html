@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Interrogate: {{ note.title }}{% endblock %}
+{% block content %}
+  <p class="meta">
+    <a href="{{ url_for('view', note_id=note.id) }}">← back to the note</a>
+  </p>
+
+  <h1>Interrogate: {{ note.title }}</h1>
+
+  {% if not provider %}
+    <div class="flash error">
+      <strong>No AI chat provider is configured.</strong> Configure one in
+      <a href="{{ url_for('settings_page') }}">settings</a> to use this
+      feature.
+    </div>
+  {% endif %}
+
+  {% if error %}
+    <div class="flash error">{{ error }}</div>
+  {% endif %}
+
+  <p class="meta" style="font-size: 0.78rem;">
+    Provider: <code>{{ provider.name if provider else '(none)' }}</code> ·
+    Conversation is held in memory and wiped when the app restarts. If
+    something useful comes up, copy it into a new note in your own words.
+  </p>
+
+  <div class="chat-log" id="chat-log">
+    {% for msg in conversation %}
+      <div class="chat-msg chat-msg-{{ msg.role }}">
+        <div class="chat-role">{{ msg.role }}</div>
+        <div class="chat-content">{{ msg.content }}</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if conversation %}
+    <form method="post" action="{{ url_for('note_chat_clear', note_id=note.id) }}" style="margin: 1rem 0;">
+      <button type="submit" class="link-btn">Clear conversation</button>
+    </form>
+  {% endif %}
+
+  {% if provider %}
+    <div class="suggested-prompts">
+      {% for prompt in suggested_prompts %}
+        <button type="button" class="prompt-chip" data-prompt="{{ prompt }}">{{ prompt }}</button>
+      {% endfor %}
+    </div>
+
+    <form id="chat-form">
+      <label>Your question or remark
+        <textarea name="message" id="chat-input" rows="4" placeholder="Ask a probing question, push back on a claim, or pick a prompt above…" required></textarea>
+      </label>
+      <button type="submit" id="chat-submit">Send</button>
+      <span id="chat-status" class="meta" style="margin-left: 0.8rem; font-size: 0.82rem;"></span>
+    </form>
+  {% endif %}
+
+  <script>
+  (function () {
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('chat-input');
+    const submitBtn = document.getElementById('chat-submit');
+    const status = document.getElementById('chat-status');
+    const log = document.getElementById('chat-log');
+    if (!form || !input) return;
+
+    const STREAM_URL = "{{ url_for('note_chat_stream', note_id=note.id) }}";
+
+    // Suggested-prompt chips
+    document.querySelectorAll('.prompt-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        input.value = chip.dataset.prompt;
+        input.focus();
+      });
+    });
+
+    // Cmd/Ctrl+Enter submits
+    input.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    function appendMessage(role, initial) {
+      const msg = document.createElement('div');
+      msg.className = 'chat-msg chat-msg-' + role;
+
+      const roleEl = document.createElement('div');
+      roleEl.className = 'chat-role';
+      roleEl.textContent = role;
+      msg.appendChild(roleEl);
+
+      const contentEl = document.createElement('div');
+      contentEl.className = 'chat-content';
+      contentEl.textContent = initial || '';
+      msg.appendChild(contentEl);
+
+      log.appendChild(msg);
+      msg.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      return contentEl;
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      // Optimistically show the user's message in the log
+      appendMessage('user', message);
+
+      // Placeholder for the assistant's streaming response
+      const assistantEl = appendMessage('assistant', '');
+      assistantEl.textContent = '…';
+
+      // Disable the form while streaming
+      input.value = '';
+      input.disabled = true;
+      submitBtn.disabled = true;
+      status.textContent = 'thinking…';
+
+      try {
+        const response = await fetch(STREAM_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ message }),
+        });
+
+        if (!response.ok) {
+          assistantEl.textContent = 'HTTP ' + response.status + ' from server';
+          return;
+        }
+
+        // Server-Sent Events parser. The server emits:
+        //   event: chunk\ndata: "text"\n\n
+        //   event: error\ndata: "message"\n\n
+        //   event: done\ndata: ""\n\n
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulated = '';
+        let gotFirstChunk = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split on double newline = end of SSE event
+          let sepIdx;
+          while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, sepIdx);
+            buffer = buffer.slice(sepIdx + 2);
+
+            // Parse a single event: lines of "event: X" and "data: Y"
+            let eventName = 'message';
+            let dataLine = '';
+            for (const line of rawEvent.split('\n')) {
+              if (line.startsWith('event: ')) eventName = line.slice(7).trim();
+              else if (line.startsWith('data: ')) dataLine = line.slice(6);
+            }
+
+            let payload = '';
+            try { payload = JSON.parse(dataLine); }
+            catch (err) { payload = dataLine; }
+
+            if (eventName === 'chunk') {
+              if (!gotFirstChunk) {
+                assistantEl.textContent = '';
+                gotFirstChunk = true;
+                status.textContent = 'streaming…';
+              }
+              accumulated += payload;
+              assistantEl.textContent = accumulated;
+              // Auto-scroll if the user is near the bottom
+              const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+              if (nearBottom) window.scrollTo(0, document.body.scrollHeight);
+            } else if (eventName === 'error') {
+              assistantEl.textContent = '[Error] ' + payload;
+              status.textContent = 'error';
+            } else if (eventName === 'done') {
+              status.textContent = '';
+            }
+          }
+        }
+      } catch (err) {
+        assistantEl.textContent = '[Request failed] ' + err.message;
+        status.textContent = 'error';
+      } finally {
+        input.disabled = false;
+        submitBtn.disabled = false;
+        input.focus();
+      }
+    });
+  })();
+  </script>
+{% endblock %}

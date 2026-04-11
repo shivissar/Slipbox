@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Threads{% endblock %}
+{% block content %}
+  <h1>Threads</h1>
+  <p class="meta">Folgezettel-style sequences. A note can belong to multiple threads.</p>
+  {% if threads %}
+    <ul class="note-list">
+      {% for name, count in threads %}
+        <li>
+          <a href="{{ url_for('thread_view', thread_name=name) }}">⛓ {{ name }}</a>
+          <span class="meta">{{ count }} note{{ 's' if count != 1 else '' }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No threads yet. Add a <code>threads:</code> field to a note's frontmatter to start one.</p>
+  {% endif %}
+{% endblock %}

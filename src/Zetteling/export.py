@@ -1,0 +1,157 @@
+"""
+export.py — Pandoc-based export pipeline.
+
+Takes a collection of notes (a single note, a thread chain, or a tag
+group), concatenates their bodies into a single Markdown document, and
+shells out to pandoc to convert to the requested format. If pandoc is
+not installed, the feature is disabled gracefully — same pattern as
+bib.py with bibtexparser.
+"""
+
+# Copyright (c) 2026 Shiv Issar
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+import os
+import shutil
+import stat
+import subprocess
+import tempfile
+from pathlib import Path
+
+from . import db
+from . import notes
+from . import settings
+
+
+def _find_pandoc():
+    bundled = Path(__file__).parent / "resources" / "bin" / "pandoc"
+    if bundled.exists():
+        try:
+            mode = bundled.stat().st_mode
+            bundled.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        except OSError:
+            pass
+        return str(bundled)
+    return shutil.which("pandoc")
+
+
+PANDOC_PATH = _find_pandoc()
+PANDOC_AVAILABLE = PANDOC_PATH is not None
+
+# Formats we expose. The keys are pandoc's --to/--write values.
+SUPPORTED_FORMATS = {
+    "docx":     {"label": "Word (.docx)",       "ext": "docx", "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    "html":     {"label": "HTML",               "ext": "html", "mime": "text/html"},
+    "latex":    {"label": "LaTeX (.tex)",       "ext": "tex",  "mime": "application/x-tex"},
+    "markdown": {"label": "Markdown (.md)",     "ext": "md",   "mime": "text/markdown"},
+    "plain":    {"label": "Plain text (.txt)",  "ext": "txt",  "mime": "text/plain"},
+    "epub":     {"label": "EPUB",               "ext": "epub", "mime": "application/epub+zip"},
+    "odt":      {"label": "OpenDocument (.odt)","ext": "odt",  "mime": "application/vnd.oasis.opendocument.text"},
+}
+
+
+def _strip_frontmatter(body):
+    """Pandoc treats YAML front matter as document metadata, which can
+    cause surprising title-page behavior. We strip it before passing to
+    pandoc and let pandoc use the title from the first H1 heading."""
+    lines = body.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return body
+    for i, line in enumerate(lines[1:], 1):
+        if line.strip() == "---":
+            return "\n".join(lines[i + 1:]).lstrip()
+    return body
+
+
+def _note_to_markdown(note, include_title=True):
+    """Convert a Note to a Markdown chunk for inclusion in an export."""
+    body = _strip_frontmatter(note.body)
+    if include_title and not body.lstrip().startswith("# "):
+        return f"# {note.title}\n\n{body}"
+    return body
+
+
+def _load_note(note_id):
+    meta = db.get_note_meta(note_id)
+    if not meta:
+        return None
+    path = notes.NOTES_DIR / meta["filename"]
+    if not path.exists():
+        return None
+    return notes.parse_file(path)
+
+
+def collect_notes_for_source(source_type, source_id):
+    """Returns a list of Notes for a given source.
+    source_type ∈ {'note', 'thread', 'tag'}, source_id is the id/name."""
+    if source_type == "note":
+        n = _load_note(source_id)
+        return [n] if n else []
+    if source_type == "thread":
+        chain = db.thread_chain(source_id)
+        out = []
+        for entry in chain:
+            n = _load_note(entry["id"])
+            if n:
+                out.append(n)
+        return out
+    if source_type == "tag":
+        out = []
+        for entry in db.notes_by_tag(source_id):
+            n = _load_note(entry["id"])
+            if n:
+                out.append(n)
+        return out
+    return []
+
+
+def build_combined_markdown(notes_list, title=None):
+    """Concatenate a list of Notes into a single Markdown document with
+    an optional top-level title."""
+    parts = []
+    if title:
+        parts.append(f"% {title}\n")
+    for n in notes_list:
+        parts.append(_note_to_markdown(n))
+        parts.append("")  # blank line between notes
+    return "\n".join(parts)
+
+
+def run_pandoc(markdown_text, fmt, citeproc=False):
+    """Run pandoc on the given markdown text. Returns (output_bytes, error_str)."""
+    if not PANDOC_AVAILABLE:
+        return None, "pandoc is not installed on this system"
+    if fmt not in SUPPORTED_FORMATS:
+        return None, f"unsupported format: {fmt}"
+
+    ext = SUPPORTED_FORMATS[fmt]["ext"]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        in_path = Path(tmpdir) / "input.md"
+        out_path = Path(tmpdir) / f"output.{ext}"
+        in_path.write_text(markdown_text, encoding="utf-8")
+
+        cmd = [PANDOC_PATH, str(in_path), "-o", str(out_path), "--from=markdown", f"--to={fmt}"]
+        cmd += ["--standalone"]
+
+        if citeproc:
+            bib_path = settings.get_bib_path()
+            if bib_path and Path(bib_path).exists():
+                cmd += ["--citeproc", f"--bibliography={bib_path}"]
+
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, timeout=30, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return None, "pandoc timed out after 30 seconds"
+        except Exception as e:
+            return None, f"failed to run pandoc: {e}"
+
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            return None, f"pandoc exited with code {result.returncode}: {stderr.strip()}"
+
+        if not out_path.exists():
+            return None, "pandoc produced no output file"
+
+        return out_path.read_bytes(), None

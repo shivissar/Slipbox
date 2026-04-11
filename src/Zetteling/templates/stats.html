@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Stats{% endblock %}
+{% block content %}
+  <h1>Writing stats</h1>
+  <p class="meta">Observation only — no streaks, no goals, no nagging.</p>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="num">{{ summary.total_notes }}</span>
+      <span class="label">Notes</span>
+    </div>
+    <div class="stat-card">
+      <span class="num">{{ '{:,}'.format(summary.total_words) }}</span>
+      <span class="label">Total words</span>
+    </div>
+    <div class="stat-card">
+      <span class="num">{{ summary.mean_words }}</span>
+      <span class="label">Mean per note</span>
+    </div>
+    <div class="stat-card">
+      <span class="num">{{ summary.median_words }}</span>
+      <span class="label">Median per note</span>
+    </div>
+  </div>
+
+  <h2>Notes per day, last 30 days</h2>
+  {% set max_n = (per_day | map(attribute=1) | max) or 1 %}
+  <div class="sparkline">
+    {% for date, count in per_day %}
+      <div class="bar" style="height: {{ ((count / max_n) * 100) | round(1) }}%"
+           title="{{ date }}: {{ count }} note{{ 's' if count != 1 else '' }}"></div>
+    {% endfor %}
+  </div>
+  <p class="meta" style="font-size: 0.78rem; display: flex; justify-content: space-between;">
+    <span>{{ per_day[0][0] }}</span>
+    <span>{{ per_day[-1][0] }}</span>
+  </p>
+
+  <h2>Hour-of-day distribution</h2>
+  {% set max_h = (hours | max) or 1 %}
+  <div class="sparkline" style="height: 80px;">
+    {% for h in hours %}
+      <div class="bar" style="height: {{ ((h / max_h) * 100) | round(1) }}%"
+           title="{{ '%02d:00'|format(loop.index0) }}: {{ h }} note{{ 's' if h != 1 else '' }}"></div>
+    {% endfor %}
+  </div>
+  <p class="meta" style="font-size: 0.78rem; display: flex; justify-content: space-between;">
+    <span>00:00</span>
+    <span>12:00</span>
+    <span>23:00</span>
+  </p>
+
+  <h2>Most-linked notes</h2>
+  {% if most_linked %}
+    <ul class="note-list">
+      {% for n in most_linked %}
+        <li>
+          <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+          <span class="meta">{{ n.link_count }} backlink{{ 's' if n.link_count != 1 else '' }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No linked notes yet. Use <code>[[id]]</code> in a note body to create wikilinks.</p>
+  {% endif %}
+
+  <h2>Top tags</h2>
+  {% if all_tags %}
+    <ul class="tag-cloud">
+      {% for tag, count in all_tags %}
+        <li>
+          <a href="{{ url_for('tag_view', tag_name=tag) }}">#{{ tag }}</a>
+          <span class="count">{{ count }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No tags yet.</p>
+  {% endif %}
+{% endblock %}

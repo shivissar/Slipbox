@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Privacy{% endblock %}
+{% block content %}
+  <article class="help">
+    <h1>Privacy</h1>
+
+    <p>Zetteling collects <strong>no data about you</strong>. There is no telemetry, no analytics, no crash reporting, no update check, no "phone home." The Flask server binds to <code>127.0.0.1</code> and only accepts connections from your own machine.</p>
+
+    <p>However, Zetteling can optionally send <strong>your note content</strong> to AI services that <strong>you</strong> explicitly configure. This page is a complete account of what gets sent where, under which circumstances, and how to turn it off.</p>
+
+    <h2>What stays on your machine no matter what</h2>
+    <p>Your notes, your bibliography, your settings, the full-text search index, the semantic search vector index, the chat history for note interrogation, the trash, the SQLite database — every byte of every thing this app touches lives in the project folder on your own disk and goes nowhere else <em>except</em> via the specific AI-feature paths listed below, which only activate if you've configured a provider.</p>
+
+    <h2>What gets sent over the network from the browser, not the app</h2>
+    <p>Two narrow exceptions, both initiated by your browser rather than the app itself:</p>
+    <ul>
+      <li>The HTML loads HTMX from a CDN (<code>unpkg.com/htmx.org</code>) on first page load. If you want even this to be local, download <code>htmx.min.js</code> and serve it from <code>static/</code> — change the <code>&lt;script&gt;</code> tag in <code>templates/base.html</code>.</li>
+      <li>If you deploy to a VPS behind Caddy and HTTPS, certificate provisioning involves Let's Encrypt's ACME servers. That's a Caddy operation, not a Zetteling operation, and it only happens on first start and during renewals.</li>
+    </ul>
+
+    <h2>AI features and what they transmit</h2>
+
+    <p><strong>If no AI provider is configured: nothing is transmitted, ever.</strong> The entire AI subsystem stays dormant unless you pick a provider and supply credentials on the <a href="{{ url_for('settings_page') }}">settings page</a>. You can verify this by leaving the provider dropdowns on "none" — the AI features will simply refuse to run.</p>
+
+    <p>If you do configure a provider, here is every path through which note content can leave your machine, and exactly which feature triggers which path:</p>
+
+    <h3>Which features send data, and when</h3>
+    <dl>
+      <dt>Semantic search / find-related-notes (M4.2)</dt>
+      <dd><strong>This is the only feature that sends data automatically, without a per-request button click.</strong> When a semantic-search embed provider is configured, every note save triggers an embedding request: the note's title and body are sent to the embed provider, which returns a vector that's stored in your local database. The vector is stored locally; only the text is transmitted. If you create or edit 50 notes in a session with an embed provider active, that's 50 embedding requests. To turn this off completely, set the embed provider to "none" on the settings page — the related-notes panel will disappear from note views, but no other feature is affected.</dd>
+
+      <dt>Note interrogation / chat (M4.3)</dt>
+      <dd>Triggered only when you click "interrogate" on a note view and then type a message. Each message sends the note's full text plus your conversation history so far to the chat provider. The conversation is kept in memory only (never written to disk) and is wiped when the server restarts. To use this feature without any network transmission, configure Ollama as your chat provider — everything stays on your hardware.</dd>
+
+      <dt>Tag suggestions (M4.4)</dt>
+      <dd>Triggered only when you click "Suggest tags" on the editor form. The note's current title, body, and the full list of your existing tags are sent to the chat provider. The response is filtered against your existing vocabulary so the model cannot invent new tags. One request per button click; never automatic.</dd>
+
+      <dt>Test connection button (settings page)</dt>
+      <dd>Triggered only when you click "Test" next to a provider field on the settings page. Sends a minimal "say hello" request to the configured endpoint to verify the API key works. No note content is involved.</dd>
+    </dl>
+
+    <p>Everything outside of these four paths happens locally. Full-text search is SQLite FTS5. Wikilinks, backlinks, threads, tags, the bibliography picker, export to Word/PDF, stats — all local, all the time, regardless of AI configuration.</p>
+
+    <h3>Anthropic (Claude)</h3>
+    <p>Requests go to <code>api.anthropic.com</code>. Your API key is sent in an HTTP header. Anthropic's data handling policy is documented at <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a> and varies by API tier; generally Anthropic does not train on API inputs by default, but this is subject to change and you should read their current policy before sending sensitive material.</p>
+
+    <h3>OpenAI-compatible providers (OpenAI, OpenRouter, Together, Groq, DeepSeek, and others)</h3>
+    <p>Requests go to whichever base URL you configure. Your API key is sent in the Authorization header. Data handling depends entirely on which provider you point at — read their privacy policies before using sensitive material. <strong>Some of these providers train on API inputs by default; some retain data indefinitely.</strong> The convenience of a single OpenAI-compatible interface across providers comes at the cost of policy heterogeneity, and Zetteling cannot tell you what any given provider does with your data.</p>
+
+    <h3>Google Gemini</h3>
+    <p>Requests go to <code>generativelanguage.googleapis.com</code> via the official <code>google-genai</code> SDK. Your API key is sent as a query parameter or header depending on the endpoint. Google's data handling policy for the Gemini API is documented at <a href="https://ai.google.dev/gemini-api/terms">ai.google.dev/gemini-api/terms</a>. <strong>Note especially that the free tier of Gemini allows Google to use your inputs for product improvement.</strong> If you are on the free tier and your notes contain unpublished research, interview transcripts, IRB-sensitive material, or anything else that should not leave your control, use a paid tier or switch to Ollama.</p>
+
+    <h3>Ollama (local)</h3>
+    <p>Nothing leaves your machine. Ollama runs the model on your own hardware, so when you trigger an AI feature with Ollama configured the request goes from Zetteling to <code>localhost:11434</code> (or whatever local URL you specified) and stays there. The API key field is unused. This is the privacy-correct option for sensitive material, at the cost of speed and model size — local models are smaller and slower than top-tier cloud models, but a Mac Mini M4 can run a 7B–14B parameter model comfortably for both chat and embeddings. You can mix providers: use Ollama for embeddings (which run constantly) and Anthropic or Gemini for chat (which runs occasionally), or any other combination.</p>
+
+    <h3>Voyage AI (embeddings only)</h3>
+    <p>Requests go to <code>api.voyageai.com</code>. Your API key is sent in the Authorization header. Voyage AI is a separate company from Anthropic, though Anthropic recommends them as their preferred embeddings partner because Anthropic does not train or host embedding models of their own. Voyage's data handling policy is documented at <a href="https://www.voyageai.com/privacy">voyageai.com/privacy</a> and should be read before sending sensitive material. Voyage is embeddings-only — it will not work for chat, note interrogation, or tag suggestions, only for the semantic related-notes feature.</p>
+
+    <h2>How API keys are stored</h2>
+    <p>All API keys are stored in plain text in <code>settings.json</code> in the project directory, alongside your other settings. There is no good way to encrypt-at-rest in a self-hosted single-user app without forcing you to enter a password every launch, which would be worse UX than the problem it solves. The mitigation: <code>settings.json</code> stays on local disk, in the project folder, and should <strong>not</strong> be synced to cloud storage. The cloud-backup section of the README recommends syncing only the <code>notes/</code> folder, not the project root. If you do want to back up settings, back them up to an encrypted local disk.</p>
+
+    <h2>The privacy policy in one sentence</h2>
+    <p>Nothing leaves your machine unless you configured an AI provider and either clicked an AI button or saved a note with semantic-search embedding enabled; everything else is entirely local, forever, and without exception.</p>
+  </article>
+
+    <h2 id="trust-model">Trust model and when it breaks</h2>
+
+    <p><strong>Zetteling's default assumption: you are the sole author of
+    every note in your corpus.</strong> All markdown rendering, all AI
+    operations, all search indexing, all export flows treat notes as content
+    you wrote and therefore trust. This assumption is correct for the default
+    single-user local install and keeps the app simple.</p>
+
+    <p>The assumption is violated, silently and without warning, by each of
+    the following workflow changes. Each one has a mitigation.</p>
+
+    <h3>Importing external markdown</h3>
+    <p>If you copy-paste a markdown file from someone else, or bulk-import an
+    old Evernote, Obsidian, or Notion export, or accept a collaborator's
+    research notes — the imported content is no longer self-authored. A
+    malicious note could contain embedded HTML or JavaScript that runs in
+    your browser when you view it, which could then use Zetteling's own API
+    to read, modify, or delete other notes.</p>
+    <p><strong>Mitigation:</strong> enable <code>sanitize_note_html</code> on
+    the settings page before importing external content. This strips
+    dangerous HTML while keeping safe markdown features.</p>
+
+    <h3>Syncing notes with another person via Syncthing</h3>
+    <p>Same problem as imports, just continuous. If you share a Syncthing
+    folder with a research partner, their notes appear in your corpus and
+    become inputs to all of Zetteling's features.</p>
+    <p><strong>Mitigation:</strong> enable sanitization, plus a conversation
+    with your collaborator about what they put in shared notes.</p>
+
+    <h3>Exposing Zetteling remotely via Caddy or another reverse proxy</h3>
+    <p>Even with basic auth, the web interface becomes reachable from
+    somewhere other than loopback. Two concerns come into play: session
+    tampering and cross-site request forgery. An attacker who gets you to
+    visit a malicious page while you are logged in could trigger POSTs to
+    Zetteling using your browser's authenticated session.</p>
+    <p><strong>Mitigation:</strong> set <code>ZETTEL_SECRET_KEY</code> to a
+    strong random value (Zetteling logs a warning at startup if you have not),
+    enable sanitization, and prefer deployment behind an authenticating proxy
+    that strips cross-origin POSTs. For single-user remote use, the Caddy
+    basic-auth setup in the README is the minimum acceptable configuration.</p>
+
+    <h3>Publishing notes to a public web view</h3>
+    <p>Zetteling does not currently support this, but if you ever build an
+    export-to-static-site pipeline from your corpus, every visitor to the
+    published site becomes a potential XSS victim for any untrusted content
+    that found its way into your notes. This matters even if only ONE note
+    was imported from somewhere else months ago and you forgot about it.</p>
+    <p><strong>Mitigation:</strong> sanitize at publication time, regardless
+    of what the source notes look like.</p>
+
+    <h3>Feeding notes into an LLM pipeline (local or cloud)</h3>
+    <p>Notes you trust may contain prompt-injection payloads intended to
+    manipulate the LLM into ignoring its instructions or exfiltrating other
+    content. This is an emerging concern across the whole personal-knowledge-
+    management space, not specific to Zetteling. Worth being aware of if you
+    start using the Interrogate feature on imported notes.</p>
+    <p><strong>Mitigation:</strong> treat untrusted notes as you would treat
+    untrusted user input in any other LLM application. There is no airtight
+    technical defense against prompt injection today.</p>
+
+    <h3>Using Pandoc export on untrusted notes</h3>
+    <p>Pandoc can execute raw LaTeX, which can run arbitrary commands. If you
+    export a note containing crafted LaTeX to PDF, you are running someone
+    else's code. The same caveat applies to other output formats that allow
+    embedded scripting.</p>
+    <p><strong>Mitigation:</strong> do not export untrusted notes to formats
+    that allow embedded code. Export to plain text or sanitized HTML instead.</p>
+
+    <p style="margin-top: 2rem;">Zetteling's design philosophy is that the
+    default state should be simple and the hardening should be explicit and
+    opt-in, rather than defending against adversaries you do not have. This
+    section exists so the moment you <em>do</em> have them, you know what to
+    change.</p>
+
+{% endblock %}

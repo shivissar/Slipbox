@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Citekeys{% endblock %}
+{% block content %}
+  <h1>Citekeys</h1>
+  {% if bib_path %}
+    <p class="meta">Source: <code>{{ bib_path }}</code> · {{ entries|length }} entries</p>
+  {% else %}
+    <p class="meta">No bibliography configured. Set <code>ZETTEL_BIB_PATH</code> in your environment to point at a Better BibTeX export from Zotero.</p>
+  {% endif %}
+  {% if entries %}
+    <ul class="bib-list">
+      {% for e in entries %}
+        <li id="{{ e.citekey }}">
+          <strong>@{{ e.citekey }}</strong>
+          {% if e.year %}<span class="year">({{ e.year }})</span>{% endif %}
+          <div class="muted">{{ e.author }}</div>
+          <div class="cite-title">{{ e.title }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

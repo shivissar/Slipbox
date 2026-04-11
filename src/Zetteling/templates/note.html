@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ note.title }}{% endblock %}
+{% block content %}
+  <article>
+    <h1>{{ note.title }}</h1>
+    <p class="meta">
+      <code>{{ note.id }}</code> ·
+      <span class="kind-label kind-label-{{ note.kind or 'research' }}">{{ note.kind or 'research' }}</span> ·
+      modified {{ note.modified[:16].replace('T', ' ') }}
+    </p>
+
+    {% if note.tags %}
+      <p class="tags">
+        {% for t in note.tags %}
+          <a class="tag" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>
+        {% endfor %}
+      </p>
+    {% endif %}
+
+    {% if thread_contexts %}
+      <div class="threads">
+        {% for tc in thread_contexts %}
+          <div class="thread-strip">
+            <span class="thread-name">
+              <a href="{{ url_for('thread_view', thread_name=tc.name) }}">⛓ {{ tc.name }}</a>
+            </span>
+            <span class="thread-nav">
+              {% if tc.prev %}
+                ← <a href="{{ url_for('view', note_id=tc.prev.id) }}">{{ tc.prev.title or tc.prev.id }}</a>
+              {% else %}
+                <span class="muted">← (start)</span>
+              {% endif %}
+              &nbsp;·&nbsp;
+              {% if tc.next %}
+                <a href="{{ url_for('view', note_id=tc.next.id) }}">{{ tc.next.title or tc.next.id }}</a> →
+              {% else %}
+                <span class="muted">(end) →</span>
+              {% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="rendered">
+      {{ rendered|safe }}
+    </div>
+
+    {% if note.refs %}
+      <p class="refs"><strong>Refs:</strong> {{ note.refs|join(', ') }}</p>
+    {% endif %}
+
+    {% if similar %}
+      <aside class="related">
+        <h2>Related (semantic)</h2>
+        <ul class="note-list">
+          {% for r in similar %}
+            <li>
+              <span class="kind-stripe kind-stripe-{{ r.kind or 'research' }}" title="{{ r.kind or 'research' }}"></span>
+              <a href="{{ url_for('view', note_id=r.id) }}">{{ r.title }}</a>
+              <span class="meta">distance {{ '%.2f' | format(r.distance) }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </aside>
+    {% endif %}
+
+    {% if backlinks %}
+      <aside class="backlinks">
+        <h2>Backlinks ({{ backlinks|length }})</h2>
+        <ul class="note-list">
+          {% for b in backlinks %}
+            <li>
+              <span class="kind-stripe kind-stripe-{{ b.kind or 'research' }}" title="{{ b.kind or 'research' }}"></span>
+              <a href="{{ url_for('view', note_id=b.id) }}">{{ b.title }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      </aside>
+    {% endif %}
+
+    <p class="note-actions">
+      <a href="{{ url_for('edit', note_id=note.id) }}">edit</a>
+      {% if chat_available %}
+        · <a href="{{ url_for('note_chat', note_id=note.id) }}">interrogate{% if chat_length %} ({{ chat_length // 2 }} turns){% endif %}</a>
+      {% endif %}
+      <a href="{{ url_for('split_picker', note_id=note.id) }}">split view</a>
+      <a href="{{ url_for('export_view', source_type='note', source_id=note.id) }}">export</a>
+      <form method="post" action="{{ url_for('delete', note_id=note.id) }}"
+            class="inline"
+            onsubmit="return confirm('Move this note to the trash?\n\nIt will be moved to notes/.trash/ — recoverable via Finder, but hidden from the index.');">
+        <button type="submit" class="danger">delete</button>
+      </form>
+    </p>
+  </article>
+{% endblock %}

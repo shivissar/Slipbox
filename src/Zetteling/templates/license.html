@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}License{% endblock %}
+{% block content %}
+  <article class="help">
+    <h1>License</h1>
+
+    <p>Zetteling is released under the <strong>PolyForm Noncommercial
+    License 1.0.0</strong>. This is a source-available license that
+    permits free use, modification, and redistribution for any
+    non-commercial purpose. Commercial use is not permitted.</p>
+
+    <h2>In plain English</h2>
+
+    <p>You may use Zetteling for any personal, academic, or non-profit
+    purpose without asking permission, including:</p>
+    <ul>
+      <li>Running it on your own machine to take notes for research,
+        teaching, writing, or personal projects</li>
+      <li>Modifying the source code to suit your workflow</li>
+      <li>Sharing modified versions with colleagues, students, or
+        collaborators under the same license</li>
+      <li>Using it inside a charitable organization, educational
+        institution, public research body, or government institution</li>
+      <li>Building on it for your own research, including academic
+        publications about how you extended or used the tool</li>
+    </ul>
+
+    <p>You may <strong>not</strong>:</p>
+    <ul>
+      <li>Sell Zetteling or a derivative work of it</li>
+      <li>Offer Zetteling as a paid hosted service</li>
+      <li>Incorporate Zetteling into a commercial product or service
+        that generates revenue</li>
+      <li>Use Zetteling as part of the commercial operations of a
+        for-profit company (personal use by employees on their own
+        research or notes is fine; shipping a feature built on Zetteling
+        to paying customers is not)</li>
+    </ul>
+
+    <h2>A note on terminology</h2>
+
+    <p>The PolyForm Noncommercial license is <em>source-available</em>
+    rather than "open source" in the strict technical sense. The
+    <a href="https://opensource.org/osd">Open Source Definition</a>
+    maintained by the Open Source Initiative prohibits any restriction
+    on field of endeavor, including restrictions on commercial use,
+    so licenses like this one are not OSI-approved open source.
+    They are better described as "source-available" or "freely
+    available for non-commercial use." The distinction matters mostly
+    for people who are careful about licensing terminology; for most
+    users, the practical difference is whether they work at a for-profit
+    company that wants to ship a product using Zetteling (not allowed)
+    or use it for their own research (allowed, regardless of employer).</p>
+
+    <p>The PolyForm project is a working group of experienced
+    open-source lawyers who drafted this license specifically to
+    fill the gap between permissive open-source licenses and commercial
+    terms. It has been adopted by a growing number of academic and
+    small-author projects for exactly the reasons Zetteling uses it.
+    The canonical text and FAQ live at
+    <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/">
+    polyformproject.org/licenses/noncommercial/1.0.0</a>.</p>
+
+    <h2>Full license text</h2>
+
+    <p class="meta">The exact text below is what governs your use of
+    Zetteling. If there is ever a conflict between the plain-English
+    summary above and the text below, the text below wins.</p>
+
+    <pre style="white-space: pre-wrap; border: 1px solid var(--border); padding: 1rem; background: var(--bg-alt); font-size: 0.85rem; line-height: 1.5;">{{ license_text }}</pre>
+
+    <p style="margin-top: 2rem;" class="meta">Zetteling is authored by
+    Shiv Issar, Ph.D. If you are uncertain whether your intended use is
+    permitted by this license, the charitable and good-faith reading
+    applies: personal, academic, and research use is always fine;
+    anything that generates revenue for a for-profit entity is not.
+    For anything in between, reach out and ask.</p>
+
+  </article>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Split with…{% endblock %}
+{% block content %}
+  <h1>Open alongside <em>{{ note.title }}</em></h1>
+  <p class="meta">Pick a second note to view side-by-side.</p>
+  <ul class="note-list">
+    {% for n in recent %}
+      {% if n.id != note.id %}
+        <li>
+          <a href="{{ url_for('split_view', id1=note.id, id2=n.id) }}">{{ n.title }}</a>
+          <span class="meta">{{ n.modified[:10] }}</span>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+{% endblock %}

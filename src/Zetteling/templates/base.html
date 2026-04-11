@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Zetteling{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  <header>
+    <a href="{{ url_for('index') }}" class="brand">Zetteling</a>
+    <nav>
+      <a href="{{ url_for('index', kind='research') }}" class="nav-kind nav-kind-research">research</a>
+      <a href="{{ url_for('index', kind='journal') }}" class="nav-kind nav-kind-journal">journal</a>
+      <a href="{{ url_for('index', kind='teaching') }}" class="nav-kind nav-kind-teaching">teaching</a>
+      <a href="{{ url_for('index', kind='life') }}" class="nav-kind nav-kind-life">life</a>
+      <span class="nav-sep">·</span>
+      <a href="{{ url_for('tags_index') }}">tags</a>
+      <a href="{{ url_for('threads_index') }}">threads</a>
+      <a href="{{ url_for('citekeys_index') }}">cite</a>
+      <a href="{{ url_for('stats_page') }}">stats</a>
+      <a href="{{ url_for('help_page') }}">help</a>
+      <a href="{{ url_for('new') }}">+ new</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <div class="footer-row">
+      <a href="{{ url_for('about_page') }}" class="version">v{{ version }}</a>
+      <span class="sep">·</span>
+      <a href="{{ url_for('settings_page') }}">settings</a>
+      <span class="sep">·</span>
+      <a href="{{ url_for('privacy_page') }}">privacy</a>
+      <span class="sep">·</span>
+      <a href="{{ url_for('license_page') }}">license</a>
+      <span class="sep">·</span>
+      <a href="{{ url_for('about_page') }}">about</a>
+      <span class="sep">·</span>
+      <button id="theme-toggle" type="button" title="Toggle light/dark">theme</button>
+    </div>
+    <div class="attribution">{{ attribution }}</div>
+  </footer>
+<script>
+  // Theme toggle: localStorage drives a data-theme attribute on <html>.
+  // Default behavior is "follow system" (no attribute set), which lets
+  // the prefers-color-scheme media query in CSS take effect.
+  (function () {
+    const KEY = 'zettel-theme';
+    const html = document.documentElement;
+    const stored = localStorage.getItem(KEY);
+    if (stored === 'dark' || stored === 'light') html.setAttribute('data-theme', stored);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        const cur = html.getAttribute('data-theme');
+        const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Cycle: system → opposite of system → other → system
+        let next;
+        if (!cur) next = sysDark ? 'light' : 'dark';
+        else if (cur === 'dark') next = 'light';
+        else next = null;  // back to system
+        if (next) {
+          html.setAttribute('data-theme', next);
+          localStorage.setItem(KEY, next);
+        } else {
+          html.removeAttribute('data-theme');
+          localStorage.removeItem(KEY);
+        }
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

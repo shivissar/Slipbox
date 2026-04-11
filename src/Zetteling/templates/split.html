@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ left.title }} ↔ {{ right.title }}{% endblock %}
+{% block content %}
+  <div class="split-container">
+    <article class="split-pane">
+      <p class="picker">
+        <a href="{{ url_for('view', note_id=left.id) }}">open alone</a> ·
+        <a href="{{ url_for('split_picker', note_id=right.id) }}">change left</a>
+      </p>
+      <h1>{{ left.title }}</h1>
+      <p class="meta"><code>{{ left.id }}</code></p>
+      {% if left.tags %}
+        <p class="tags">
+          {% for t in left.tags %}<a class="tag" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>{% endfor %}
+        </p>
+      {% endif %}
+      <div class="rendered">{{ left_html|safe }}</div>
+    </article>
+
+    <article class="split-pane">
+      <p class="picker">
+        <a href="{{ url_for('view', note_id=right.id) }}">open alone</a> ·
+        <a href="{{ url_for('split_picker', note_id=left.id) }}">change right</a>
+      </p>
+      <h1>{{ right.title }}</h1>
+      <p class="meta"><code>{{ right.id }}</code></p>
+      {% if right.tags %}
+        <p class="tags">
+          {% for t in right.tags %}<a class="tag" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>{% endfor %}
+        </p>
+      {% endif %}
+      <div class="rendered">{{ right_html|safe }}</div>
+    </article>
+  </div>
+{% endblock %}

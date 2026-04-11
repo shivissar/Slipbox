@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Tags{% endblock %}
+{% block content %}
+  <h1>Tags</h1>
+  {% if tags %}
+    <ul class="tag-cloud">
+      {% for tag, count in tags %}
+        <li>
+          <a href="{{ url_for('tag_view', tag_name=tag) }}">#{{ tag }}</a>
+          <span class="count">{{ count }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No tags yet.</p>
+  {% endif %}
+{% endblock %}

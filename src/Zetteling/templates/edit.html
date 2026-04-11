@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit: " + note.title if note else "New note" }}{% endblock %}
+{% block content %}
+  <form method="post" id="edit-form">
+    <label>Title
+      <input type="text" name="title" value="{{ note.title if note else '' }}" required>
+    </label>
+
+    <fieldset class="kind-fieldset">
+      <legend>Kind</legend>
+      {% set current_kind = note.kind if note else (preselect_kind or 'research') %}
+      {% for k in ['research', 'journal', 'teaching', 'life'] %}
+        <label class="kind-radio kind-radio-{{ k }}">
+          <input type="radio" name="kind" value="{{ k }}"
+                 {% if current_kind == k %}checked{% endif %}>
+          <span>{{ k }}</span>
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <label>Tags <small>(comma-separated)</small>
+      <input type="text" name="tags" id="tags-input" value="{{ note.tags|join(', ') if note else '' }}">
+    </label>
+    <p style="margin: -0.5rem 0 1rem;">
+      <button type="button" id="suggest-tags-btn">Suggest tags</button>
+      <span id="suggest-tags-result" class="suggest-tags-chips"></span>
+    </p>
+
+    {% if not note %}
+      <fieldset class="thread-fieldset" id="thread-fieldset">
+        <legend>Thread (optional)</legend>
+        <label class="radio-row">
+          <input type="radio" name="thread_action" value="" checked>
+          <span>No thread</span>
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="thread_action" value="new">
+          <span>Start a new thread named:</span>
+          <input type="text" name="new_thread_name" placeholder="e.g. dissonance-arc"
+                 onfocus="document.querySelector('input[name=thread_action][value=new]').checked = true;">
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="thread_action" value="existing"
+                 {% if not all_threads %}disabled{% endif %}>
+          <span>Add to existing thread:</span>
+          <select name="existing_thread_name" {% if not all_threads %}disabled{% endif %}
+                  onfocus="document.querySelector('input[name=thread_action][value=existing]').checked = true;">
+            {% if all_threads %}
+              <option value="">— select —</option>
+              {% for tname, count in all_threads %}
+                <option value="{{ tname }}">{{ tname }} ({{ count }} note{{ 's' if count != 1 else '' }})</option>
+              {% endfor %}
+            {% else %}
+              <option>(no threads exist yet)</option>
+            {% endif %}
+          </select>
+        </label>
+        <p class="meta" style="font-size: 0.78rem; margin-top: 0.4rem;">
+          Threads are folgezettel-style sequences. Adding to an existing
+          thread automatically updates the previous tail to point at this
+          new note.
+        </p>
+      </fieldset>
+    {% endif %}
+
+    <label>Body <small>(markdown · type @ for citations · [[id]] for wikilinks)</small>
+      <textarea name="body" id="body" rows="22">{{ note.body if note else '' }}</textarea>
+    </label>
+    <button type="submit">Save</button>
+    {% if note %}
+      <a href="{{ url_for('view', note_id=note.id) }}">cancel</a>
+    {% endif %}
+  </form>
+
+  <div id="cite-picker" hidden>
+    <input type="text" id="cite-search" placeholder="search citekeys, titles, authors…" autocomplete="off">
+    <ul id="cite-results"></ul>
+    <p class="muted small">esc to close</p>
+  </div>
+
+  <script>
+  // Minimal in-textarea citation picker.
+  // Triggers on '@' typed at a word boundary; pop-up positioned at form bottom
+  // (avoids the headache of computing caret pixel coordinates inside a textarea).
+  (function () {
+    const ta = document.getElementById('body');
+    const picker = document.getElementById('cite-picker');
+    const search = document.getElementById('cite-search');
+    const list = document.getElementById('cite-results');
+    if (!ta || !picker) return;
+
+    let triggerPos = -1;     // textarea index just BEFORE the '@'
+    let selectedIdx = 0;
+    let currentResults = [];
+
+    function openPicker(pos) {
+      triggerPos = pos;
+      picker.hidden = false;
+      search.value = '';
+      fetchResults('');
+      setTimeout(() => search.focus(), 0);
+    }
+
+    function closePicker() {
+      picker.hidden = true;
+      triggerPos = -1;
+      ta.focus();
+    }
+
+    async function fetchResults(q) {
+      try {
+        const r = await fetch('/api/citekeys?q=' + encodeURIComponent(q));
+        currentResults = await r.json();
+        selectedIdx = 0;
+        renderResults();
+      } catch (e) {
+        list.innerHTML = '<li class="muted">error fetching</li>';
+      }
+    }
+
+    function renderResults() {
+      if (!currentResults.length) {
+        list.innerHTML = '<li class="muted">no matches</li>';
+        return;
+      }
+      list.innerHTML = currentResults.map((r, i) =>
+        `<li data-i="${i}" class="${i === selectedIdx ? 'sel' : ''}">
+           <strong>@${r.citekey}</strong>
+           <span class="muted"> ${escapeHtml(r.author || '')} ${r.year ? '(' + r.year + ')' : ''}</span>
+           <div class="cite-title">${escapeHtml(r.title || '')}</div>
+         </li>`
+      ).join('');
+      list.querySelectorAll('li[data-i]').forEach(el => {
+        el.addEventListener('click', () => {
+          insertCitation(currentResults[parseInt(el.dataset.i)]);
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function insertCitation(entry) {
+      if (!entry || triggerPos < 0) return;
+      // Find the end of whatever the user has typed since '@'
+      const before = ta.value.substring(0, triggerPos);
+      const after = ta.value.substring(ta.selectionStart);
+      const inserted = '@' + entry.citekey;
+      ta.value = before + inserted + after;
+      const newPos = before.length + inserted.length;
+      ta.setSelectionRange(newPos, newPos);
+      closePicker();
+    }
+
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === '@') {
+        // Capture the position where '@' is about to land
+        triggerPos = ta.selectionStart;
+        // Defer opening so '@' actually gets typed first
+        setTimeout(() => openPicker(triggerPos), 0);
+      }
+    });
+
+    search.addEventListener('input', () => fetchResults(search.value));
+    search.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closePicker(); e.preventDefault(); }
+      else if (e.key === 'ArrowDown') {
+        selectedIdx = Math.min(selectedIdx + 1, currentResults.length - 1);
+        renderResults(); e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        selectedIdx = Math.max(selectedIdx - 1, 0);
+        renderResults(); e.preventDefault();
+      } else if (e.key === 'Enter') {
+        insertCitation(currentResults[selectedIdx]);
+        e.preventDefault();
+      }
+    });
+  })();
+  </script>
+<script>
+(function () {
+  const btn = document.getElementById('suggest-tags-btn');
+  const result = document.getElementById('suggest-tags-result');
+  const tagsInput = document.getElementById('tags-input');
+  if (!btn || !result || !tagsInput) return;
+
+  btn.addEventListener('click', async function () {
+    const title = document.querySelector('input[name="title"]').value;
+    const body = document.querySelector('textarea[name="body"]').value;
+    if (!title.trim() && !body.trim()) {
+      result.innerHTML = '<span class="suggest-msg">add a title or body first</span>';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'thinking…';
+    result.innerHTML = '';
+    try {
+      const params = new URLSearchParams();
+      params.set('title', title);
+      params.set('body', body);
+      const r = await fetch('/api/tags/suggest', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: params.toString(),
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        result.innerHTML = '<span class="suggest-msg suggest-err">' + data.message + '</span>';
+        return;
+      }
+      if (data.tags.length === 0) {
+        result.innerHTML = '<span class="suggest-msg">no suggestions returned</span>';
+        return;
+      }
+      // Render each tag as a clickable chip
+      data.tags.forEach(function (tag) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'suggest-chip';
+        chip.textContent = tag;
+        chip.addEventListener('click', function () {
+          // Append to tags input if not already there
+          const existing = tagsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+          if (!existing.includes(tag)) {
+            existing.push(tag);
+            tagsInput.value = existing.join(', ');
+          }
+          chip.classList.add('used');
+        });
+        result.appendChild(chip);
+      });
+    } catch (e) {
+      result.innerHTML = '<span class="suggest-msg suggest-err">request failed: ' + e + '</span>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Suggest tags';
+    }
+  });
+})();
+</script>
+<script>
+(function () {
+  // Show the thread fieldset only for research kind, hide for others.
+  // Runs on page load and whenever the kind radio changes.
+  const threadFs = document.getElementById('thread-fieldset');
+  if (!threadFs) return;
+  function sync() {
+    const selected = document.querySelector('input[name="kind"]:checked');
+    const kind = selected ? selected.value : 'research';
+    threadFs.style.display = (kind === 'research') ? '' : 'none';
+  }
+  document.querySelectorAll('input[name="kind"]').forEach(function (r) {
+    r.addEventListener('change', sync);
+  });
+  sync();
+})();
+</script>
+{% endblock %}

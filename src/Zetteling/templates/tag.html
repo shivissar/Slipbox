@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}#{{ tag }}{% endblock %}
+{% block content %}
+  <h1>#{{ tag }}</h1>
+  <p class="meta">
+    {{ notes|length }} note{{ 's' if notes|length != 1 else '' }} ·
+    <a href="{{ url_for('export_view', source_type='tag', source_id=tag) }}">export all</a>
+  </p>
+  <ul class="note-list">
+    {% for n in notes %}
+      <li>
+        <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+        <span class="meta">{{ n.modified[:10] }}</span>
+      </li>
+    {% else %}
+      <li class="empty">No notes with this tag.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
