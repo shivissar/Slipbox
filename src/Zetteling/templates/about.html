@@ -23,7 +23,35 @@
     <h2>Version history</h2>
 
     <dl class="changelog">
-      <dt>v4.0.0 — current</dt>
+      <dt>v4.0.2 — current</dt>
+      <dd>Replaced the <code>bibtexparser</code> dependency with an
+        in-house minimal parser in <code>bib.py</code>. Background:
+        v4.0.1 pinned bibtexparser to <code>&gt;=1.4,&lt;2</code> on
+        the reasoning that 2.x is still in beta, but Briefcase's
+        wheel-only resolver on Python 3.13 couldn't find a 1.x wheel
+        for macOS arm64 and silently dropped the dependency, leaving
+        the bibliography feature permanently inactive. The in-house
+        parser is around 60 lines, handles the Better BibTeX export
+        subset Zetteling actually uses (citekey, title, author/editor,
+        year), verified against a 2,729-entry library. Removes the
+        dependency-resolution problem class entirely.</dd>
+
+      <dt>v4.0.1</dt>
+      <dd>Hotfix for the bibliography integration. v4.0.0 shipped with
+        a bibtexparser 2.x beta pulled in during the Briefcase build,
+        whose API differs from the stable 1.x API the Zetteling code
+        is written against. Symptom: configured bibliography paths
+        resulted in zero loaded entries with a silent parse error in
+        the app logs — <code>module 'bibtexparser' has no attribute
+        'load'</code>. Fix: pinned bibtexparser to
+        <code>&gt;=1.4,&lt;2</code> in <code>pyproject.toml</code> so
+        the Briefcase resolver stays on stable 1.x until 2.x ships as
+        a stable release (as of this writing, only 2.x betas exist on
+        PyPI). No code changes. If you installed v4.0.0 and wondered
+        why the <code>@citekey</code> autocomplete never worked, this
+        is why.</dd>
+
+      <dt>v4.0.0</dt>
       <dd>Migrated from Flask + pywebview to BeeWare / Toga. Flask
         still powers all of the application logic; the change is at
         the packaging and window layer, where a Toga shell now hosts
