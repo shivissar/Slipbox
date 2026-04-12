@@ -37,7 +37,7 @@ from . import notes
 from . import settings
 from . import watcher
 
-__version__ = "4.0.0"
+__version__ = "4.0.2"
 
 app = Flask(__name__)
 

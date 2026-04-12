@@ -15,12 +15,11 @@ changes the path through the UI.
 import threading
 from pathlib import Path
 
-try:
-    import bibtexparser
-    BIBTEXPARSER_AVAILABLE = True
-except ImportError:
-    bibtexparser = None
-    BIBTEXPARSER_AVAILABLE = False
+import re
+
+# Kept for compatibility with flask_app.py; always True since the parser
+# is now in-house with no external dependency.
+BIBTEXPARSER_AVAILABLE = True
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -32,38 +31,92 @@ _observer = None
 _observer_lock = threading.Lock()
 
 
-def _author_short(entry):
-    """Extract a short 'Last, First; Last, First' author string."""
-    raw = entry.get("author") or entry.get("editor") or ""
-    parts = [p.strip() for p in raw.split(" and ") if p.strip()]
-    return "; ".join(parts) if parts else ""
+_ENTRY_RE = re.compile(r'@(\w+)\s*\{\s*([^,\s]+)\s*,', re.IGNORECASE)
+
+
+def _strip_braces(s):
+    s = s.strip()
+    while s.startswith('{') and s.endswith('}'):
+        s = s[1:-1].strip()
+    return s
+
+
+def _split_fields(body):
+    fields = {}
+    i, n = 0, len(body)
+    while i < n:
+        m = re.match(r'\s*(\w+)\s*=\s*', body[i:])
+        if not m:
+            i += 1
+            continue
+        key = m.group(1).lower()
+        i += m.end()
+        if i >= n:
+            break
+        if body[i] == '{':
+            depth, j = 1, i + 1
+            while j < n and depth > 0:
+                if body[j] == '{': depth += 1
+                elif body[j] == '}': depth -= 1
+                j += 1
+            val = body[i+1:j-1]
+            i = j
+        elif body[i] == '"':
+            j = i + 1
+            while j < n and body[j] != '"':
+                j += 1
+            val = body[i+1:j]
+            i = j + 1
+        else:
+            j = i
+            while j < n and body[j] not in ',\n':
+                j += 1
+            val = body[i:j].strip()
+            i = j
+        fields[key] = val
+        while i < n and body[i] in ', \t\n\r':
+            i += 1
+    return fields
 
 
 def parse_bib_file(path):
-    """Parse a .bib file into a list of dicts ready for replace_bib_entries."""
-    if not BIBTEXPARSER_AVAILABLE:
-        return []
+    """Parse a .bib file into a list of dicts. Minimal in-house parser — handles
+    the Better BibTeX export subset Zetteling needs (citekey, title, author/editor,
+    year). No external dependencies."""
     path = Path(path)
     if not path.exists():
         return []
-    with open(path, encoding="utf-8") as f:
-        try:
-            bib_db = bibtexparser.load(f)
-        except Exception as e:
-            print(f"[bib] parse error in {path}: {e}")
-            return []
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        print(f"[bib] read error in {path}: {e}")
+        return []
     out = []
-    for entry in bib_db.entries:
-        citekey = entry.get("ID", "").strip()
-        if not citekey:
-            continue
-        out.append({
-            "citekey": citekey,
-            "title": (entry.get("title") or "").strip("{}"),
-            "author": _author_short(entry),
-            "year": (entry.get("year") or "").strip(),
-            "raw": str(entry),
-        })
+    i = 0
+    while i < len(text):
+        m = _ENTRY_RE.search(text, i)
+        if not m:
+            break
+        citekey = m.group(2).strip()
+        depth, j = 1, m.end()
+        while j < len(text) and depth > 0:
+            if text[j] == '{': depth += 1
+            elif text[j] == '}': depth -= 1
+            j += 1
+        body = text[m.end():j-1]
+        fields = _split_fields(body)
+        entry_type = m.group(1).lower()
+        if citekey:
+            author_raw = fields.get("author") or fields.get("editor") or ""
+            parts = [p.strip() for p in author_raw.split(" and ") if p.strip()]
+            out.append({
+                "citekey": citekey,
+                "title": _strip_braces(fields.get("title", "")),
+                "author": "; ".join(parts),
+                "year": _strip_braces(fields.get("year", "")),
+                "raw": f"@{entry_type}{{{citekey}, ...}}",
+            })
+        i = j
     return out
 
 
@@ -116,11 +169,6 @@ def stop_bib_watcher():
 def start_bib_watcher():
     """Start the bib watcher if a bib path is configured. Returns the observer or None."""
     global _observer
-    if not BIBTEXPARSER_AVAILABLE:
-        print("[bib] bibtexparser not installed; bibliography feature inactive")
-        print("[bib] to enable: pip install bibtexparser")
-        return None
-
     path_str = settings.get_bib_path()
     if not path_str:
         print("[bib] no bib path configured; bibliography feature inactive")
