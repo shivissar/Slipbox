@@ -63,3 +63,16 @@ logs/
 
 # Briefcase local configuratoin
 .briefcase/
+
+# Data files that shouldn't be committed
+*.db
+*.sqlite
+*.sqlite-journal
+*.bib
+.env
+.env.*
+
+# Local backups (git history supersedes these)
+.backups/
+*.backup
+*.backup-*
