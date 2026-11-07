@@ -38,6 +38,10 @@ DEFAULTS = {
     "sanitize_note_html": False,
     # v5.0.1: save the note being edited a moment after typing stops.
     "autosave": True,
+    # v5.1: locked notes. Kinds whose notes are always locked, and minutes
+    # of inactivity before locked notes close again (0 = only on quit).
+    "locked_kinds": [],
+    "lock_after_minutes": 15,
     # v5.0: appearance. Allowed values live in themes.py.
     "theme_mode": "auto",
     "theme_light": "meadow",

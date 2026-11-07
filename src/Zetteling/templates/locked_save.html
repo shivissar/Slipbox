@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
+{% block title %}Not saved{% endblock %}
+{% block main %}
+<main class="pane col card">
+  <div class="pane-body vault-page">
+    <div class="vault-card">
+      <div class="locked-icon" aria-hidden="true">{{ icon("lock") }}</div>
+      <h1>Not saved yet</h1>
+      <p>{{ message }}</p>
+      <p>Go back: your text is still in the editor. Unlock there with your password, then save again.</p>
+      <div class="vault-actions"><button type="button" class="btn btn-primary" onclick="history.back()">Go back to the editor</button></div>
+    </div>
+  </div>
+</main>
+{% endblock %}

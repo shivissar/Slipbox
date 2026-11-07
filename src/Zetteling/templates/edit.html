@@ -7,11 +7,19 @@
 <form method="post" id="edit-form" class="edit-form" autocomplete="off"
       data-autosave="{{ '1' if autosave else '0' }}"
       data-save-url="{{ url_for('edit', note_id=note.id) if note else url_for('new') }}"
-      data-new="{{ '0' if note else '1' }}">
+      data-new="{{ '0' if note else '1' }}"
+      data-locked="{{ '1' if note and note.locked else '0' }}"
+      data-locked-kinds="{{ vault_state.locked_kinds|join(',') }}">
   <main class="pane col card" aria-label="Editor">
     <div class="pane-bar">
       <strong>{{ "Editing" if note else "New note" }}</strong>
+      {%- if (note and note.locked) or (not note and preselect_kind in vault_state.locked_kinds) %}<span class="chip chip-lock" title="The text of this note is encrypted on disk">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
       <span class="chip chip-warn" id="dirty-chip" role="status" aria-live="polite" hidden>Not saved yet</span>
+      <span class="inline-unlock" id="inline-unlock" hidden>
+        <label class="sr-only" for="inline-unlock-pw">Password for locked notes</label>
+        <input type="password" id="inline-unlock-pw" placeholder="Password to save" autocomplete="current-password">
+        <button type="button" class="btn btn-primary" id="inline-unlock-btn">Unlock</button>
+      </span>
       <span class="grow"></span>
       <a class="btn btn-quiet" href="{{ url_for('view', note_id=note.id) if note else url_for('index') }}" data-cancel>{{ "Done" if autosave else "Cancel" }}</a>
       <button type="submit" class="btn btn-primary" title="Save (⌘S)">Save <span class="kbd-hint">⌘S</span></button>
@@ -57,11 +65,15 @@
       <div class="rail-section">
         <label class="field-label" for="tags-input">Tags <span class="muted" style="font-weight: 600">(comma-separated)</span></label>
         <input type="text" name="tags" id="tags-input" value="{{ note.tags|join(', ') if note else '' }}" placeholder="e.g. situated-action, autonomy">
+        {%- if note and note.locked %}
+        <p class="hint">Tag suggestions are off for locked notes: their text is never sent to an AI provider.</p>
+        {%- else %}
         <div class="suggest-row">
           <button type="button" class="btn" id="suggest-tags-btn">Suggest tags</button>
           <span id="suggest-tags-result" class="suggest-row"></span>
         </div>
         <p class="hint">Suggestions come from your existing tags, chosen by your AI provider from the title and the first 4,000 characters.</p>
+        {%- endif %}
       </div>
 
       {%- if not note %}

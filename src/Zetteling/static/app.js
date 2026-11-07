@@ -239,6 +239,8 @@
     sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>',
     moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>',
     search: '<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path>',
+    lock: '<rect x="5" y="11" width="14" height="9" rx="2.5"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path>',
+    unlock: '<rect x="5" y="11" width="14" height="9" rx="2.5"></rect><path d="M8 11V8a4 4 0 0 1 7.6-1.7"></path>',
   };
   function svg(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || ICONS.go) + "</svg>"; }
 
@@ -247,7 +249,17 @@
     noteKind: body.getAttribute("data-note-kind"),
     chat: body.getAttribute("data-chat") === "on",
     threads: (body.getAttribute("data-threads") || "").split("|").filter(Boolean),
+    vault: body.getAttribute("data-vault") || "none",
+    noteLocked: body.getAttribute("data-note-locked") === "1",
   };
+  function postTo(url) {
+    // Submit a small POST form (the server answers with a redirect).
+    var f = document.createElement("form");
+    f.method = "post"; f.action = url; f.hidden = true;
+    var nx = document.createElement("input"); nx.type = "hidden"; nx.name = "next";
+    nx.value = window.location.pathname + window.location.search;
+    f.appendChild(nx); document.body.appendChild(f); f.submit();
+  }
   function currentKind() {
     var params = new URLSearchParams(window.location.search);
     var k = ctx.noteKind || params.get("kind");
@@ -261,6 +273,10 @@
       c.push({ group: "This note", label: "Edit", hint: "⌘E", icon: "edit", href: "/note/" + n + "/edit" });
       if (ctx.chat) c.push({ group: "This note", label: "Interrogate", hint: "⌘I", icon: "chat", href: "/note/" + n + "/chat" });
       c.push({ group: "This note", label: "Open another note beside this one", icon: "split", href: "/note/" + n + "/split" });
+      if (ctx.noteLocked) c.push({ group: "This note", label: "Remove the lock from this note", icon: "unlock", run: function () {
+        if (window.confirm("Remove the lock from this note? Its text will be saved as plain text again.")) postTo("/note/" + n + "/remove-lock");
+      } });
+      else c.push({ group: "This note", label: "Lock this note", sub: "Encrypt its text on disk", icon: "lock", run: function () { postTo("/note/" + n + "/lock"); } });
       c.push({ group: "This note", label: "Export note…", sub: "Word, LaTeX, Markdown, EPUB, ODT, HTML, text", icon: "export", href: "/export/note/" + n });
       ctx.threads.forEach(function (t) {
         c.push({ group: "This note", label: "Export thread “" + t + "”…", icon: "export", href: "/export/thread/" + encodeURIComponent(t) });
@@ -280,6 +296,9 @@
     c.push({ group: "Go to", label: "Appearance and themes", icon: "sliders", href: "/settings#appearance" });
     c.push({ group: "Go to", label: "Help and shortcuts", icon: "help", href: "/help" });
     c.push({ group: "Go to", label: "About, privacy and licence", icon: "help", href: "/about" });
+    if (ctx.vault === "open") c.push({ group: "Locked notes", label: "Lock notes now", sub: "Close all locked notes until you enter the password", icon: "lock", run: function () { postTo("/vault/lock"); } });
+    else if (ctx.vault === "closed") c.push({ group: "Locked notes", label: "Unlock locked notes", icon: "unlock", href: "/unlock?next=" + encodeURIComponent(window.location.pathname) });
+    else c.push({ group: "Locked notes", label: "Set up locked notes", sub: "Choose a password to encrypt chosen notes", icon: "lock", href: "/settings#locked" });
     c.push({ group: "Appearance", label: "Always light", icon: "sun", run: function () { setMode("light"); } });
     c.push({ group: "Appearance", label: "Always dark", icon: "moon", run: function () { setMode("dark"); } });
     c.push({ group: "Appearance", label: "Match my Mac (light or dark)", icon: "sliders", run: function () { setMode("auto"); } });
@@ -433,6 +452,7 @@
     var cancel = $("[data-cancel]");
     var draft = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     var seq = 0, timer = null, inflight = false, failed = false, needsEmbed = false, submitting = false;
+    var lockedOut = false;  // last save was refused because locked notes are closed
 
     var hidden = function (name) {
       var el = editForm.querySelector('input[type="hidden"][name="' + name + '"]');
@@ -443,7 +463,8 @@
 
     var STATUS = {
       dirty: ["Not saved yet", true], saving: ["Saving…", false], saved: ["Saved", false],
-      title: ["Add a title to start saving", true], error: ["Couldn’t save. Retrying…", true]
+      title: ["Add a title to start saving", true], error: ["Couldn’t save. Retrying…", true],
+      locked: ["Locked notes are closed: unlock to save", true]
     };
     var setStatus = function (key) {
       if (!dirtyChip) return;
@@ -474,22 +495,23 @@
 
     var saveNow = function () {
       timer = null;
-      if (!dirty || submitting) return;
+      if (!dirty || submitting || lockedOut) return;
       if (!canAutosave()) { setStatus(hasTitle() ? "dirty" : "title"); return; }
       // Don't create a new note mid-title: wait until the cursor moves on.
       if (!noteId && document.activeElement === titleInput) { setStatus("dirty"); return; }
       if (inflight) { schedule(); return; }
       inflight = true; failed = false; dirty = false; setStatus("saving");
       fetch(saveUrl, { method: "POST", body: payload("1"), headers: { "Accept": "application/json" } })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j && j.ok, j: j }; }); })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j && j.ok, j: j, status: r.status }; }); })
         .then(function (res) {
+          if (res.status === 423) { lockedOut = true; dirty = true; showInlineUnlock(); return; }
           if (!res.ok) throw new Error((res.j && res.j.message) || "save failed");
           needsEmbed = true;
           if (!noteId && res.j.edit_url) becameNote(res.j);
           setStatus(dirty ? "saving" : "saved");
         })
         .catch(function () { dirty = true; failed = true; setStatus("error"); })
-        .then(function () { inflight = false; if (dirty) schedule(failed ? 3000 : 1500); });
+        .then(function () { inflight = false; if (dirty && !lockedOut) schedule(failed ? 3000 : 1500); });
     };
     var schedule = function (ms) {
       if (!auto) return;
@@ -497,8 +519,37 @@
       timer = setTimeout(saveNow, ms || 1500);
     };
 
-    var markDirty = function () {
+    // Locked notes closed (idle lock, or a kind that is always locked):
+    // unlock right here, without leaving the editor, then save.
+    var unlockBox = $("#inline-unlock"), unlockPw = $("#inline-unlock-pw"), unlockBtn = $("#inline-unlock-btn");
+    var showInlineUnlock = function () {
+      setStatus("locked");
+      if (unlockBox) { unlockBox.hidden = false; if (unlockPw) unlockPw.focus(); }
+    };
+    var doInlineUnlock = function () {
+      if (!unlockPw || !unlockPw.value) return;
+      unlockBtn.disabled = true; unlockBtn.textContent = "Unlocking…";
+      var fd = new FormData(); fd.set("password", unlockPw.value);
+      fetch("/unlock", { method: "POST", body: fd, headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          unlockBtn.disabled = false; unlockBtn.textContent = "Unlock";
+          if (!j.ok) { unlockPw.value = ""; unlockPw.placeholder = j.message || "Wrong password"; return; }
+          unlockPw.value = ""; unlockBox.hidden = true; lockedOut = false;
+          body.setAttribute("data-vault", "open");
+          if (auto) { dirty = true; saveNow(); } else setStatus("dirty");
+        })
+        .catch(function () { unlockBtn.disabled = false; unlockBtn.textContent = "Unlock"; });
+    };
+    if (unlockBtn) unlockBtn.addEventListener("click", doInlineUnlock);
+    if (unlockPw) unlockPw.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); doInlineUnlock(); }
+    });
+
+    var markDirty = function (e) {
+      if (e && e.target && unlockBox && unlockBox.contains(e.target)) return;
       dirty = true;
+      if (lockedOut) { setStatus("locked"); return; }  // wait for the inline unlock
       if (!auto) { setStatus("dirty"); return; }
       setStatus(canAutosave() ? "saving" : "title");
       schedule();
@@ -506,7 +557,8 @@
     editForm.addEventListener("input", markDirty);
     editForm.addEventListener("change", markDirty);
     if (titleInput) titleInput.addEventListener("blur", function () { if (auto && dirty) schedule(200); });
-    editForm.addEventListener("submit", function () {
+    editForm.addEventListener("submit", function (e) {
+      if (lockedOut) { e.preventDefault(); showInlineUnlock(); return; }
       allowLeave = true; submitting = true; clearTimeout(timer);
       hidden("_seq").value = String(++seq);
     });
@@ -523,6 +575,16 @@
       needsEmbed = false; dirty = false;
     });
     var unsafeToLeave = function () { return dirty && !allowLeave && !canAutosave(); };
+    // Used by the idle lock: save what's typed before locked notes close.
+    window.__zettelFlush = function () {
+      clearTimeout(timer);
+      if (!auto) return Promise.resolve(!dirty);
+      if (dirty && !canAutosave()) return Promise.resolve(false);  // e.g. a new note with no title yet
+      if (!(dirty || needsEmbed)) return Promise.resolve(true);
+      return fetch(saveUrl, { method: "POST", body: payload("leave"), headers: { "Accept": "application/json" } })
+        .then(function (r) { dirty = !r.ok; needsEmbed = false; return r.ok; })
+        .catch(function () { return false; });
+    };
     window.addEventListener("beforeunload", function (e) {
       if (unsafeToLeave()) { e.preventDefault(); e.returnValue = ""; }
     });
@@ -711,6 +773,9 @@
         if (!title.trim() && !ta.value.trim()) { sOut.innerHTML = '<span class="suggest-msg">Add a title or some text first.</span>'; return; }
         sBtn.disabled = true; sBtn.textContent = "Thinking…"; sOut.innerHTML = "";
         var params = new URLSearchParams(); params.set("title", title); params.set("body", ta.value);
+        params.set("note_id", body.getAttribute("data-note-id") || "");
+        var kindPick = editForm.querySelector('input[name="kind"]:checked');
+        params.set("kind", kindPick ? kindPick.value : "");
         fetch("/api/tags/suggest", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString() })
           .then(function (r) { return r.json(); })
           .then(function (data) {
@@ -820,4 +885,34 @@
       });
     });
   }
+
+  /* ------------------------------------------------------------------ *
+   * Locked notes: close them after the idle time chosen in Settings
+   * (the server does the same check on the next request), and show
+   * progress while a password is checked (Argon2id takes a moment).
+   * ------------------------------------------------------------------ */
+  var idleLimit = parseInt(body.getAttribute("data-vault-idle") || "0", 10);
+  if (ctx.vault === "open" && idleLimit > 0) {
+    var lastInput = Date.now(), locking = false;
+    var bump = function () { lastInput = Date.now(); };
+    ["keydown", "mousedown", "mousemove", "wheel", "touchstart", "scroll"].forEach(function (ev) {
+      window.addEventListener(ev, bump, { passive: true, capture: true });
+    });
+    setInterval(function () {
+      if (locking || Date.now() - lastInput < idleLimit * 1000) return;
+      locking = true;
+      var flush = window.__zettelFlush ? window.__zettelFlush() : Promise.resolve(true);
+      flush.then(function (saved) {
+        if (!saved) { locking = false; lastInput = Date.now(); return; }  // keep unsaved text; try later
+        return fetch("/vault/lock", { method: "POST", headers: { "Accept": "application/json" } })
+          .then(function () { window.location.reload(); });
+      }).catch(function () { locking = false; });
+    }, 10000);
+  }
+  document.querySelectorAll("[data-unlock-form]").forEach(function (f) {
+    f.addEventListener("submit", function () {
+      var b = f.querySelector('button[type="submit"]');
+      if (b) { b.disabled = true; b.textContent = "Unlocking…"; }
+    });
+  });
 })();

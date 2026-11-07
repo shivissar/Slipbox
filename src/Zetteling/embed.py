@@ -144,6 +144,11 @@ def embed_note(note):
       already embedded (avoids redundant re-embedding on unchanged saves)
     - Retries up to 3 times with exponential backoff on transient errors
     """
+    if getattr(note, "locked", False):
+        # Locked notes are never sent to an AI provider, and any vector
+        # made before the note was locked is removed.
+        db.delete_embedding(note.id)
+        return False
     provider = ai.get_embed_provider()
     if not provider:
         return False
@@ -237,6 +242,8 @@ def _reindex_worker():
                 continue
             try:
                 note = notes.parse_file(path)
+                if note.locked:
+                    continue
                 text = _embed_text_for_note(note)
                 vec = provider.embed(text)
                 db.store_embedding(

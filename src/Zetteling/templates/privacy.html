@@ -59,6 +59,9 @@
     <h2>How API keys are stored</h2>
     <p>All API keys are stored in plain text in <code>settings.json</code> in the project directory, alongside your other settings. There is no good way to encrypt-at-rest in a self-hosted single-user app without forcing you to enter a password every launch, which would be worse UX than the problem it solves. The mitigation: <code>settings.json</code> stays on local disk, in the project folder, and should <strong>not</strong> be synced to cloud storage. The cloud-backup section of the README recommends syncing only the <code>notes/</code> folder, not the project root. If you do want to back up settings, back them up to an encrypted local disk.</p>
 
+    <h2>Locked notes</h2>
+    <p>If you lock a note, its text is encrypted on your Mac with AES-256-GCM before it is written to disk, under a key protected by your password (Argon2id) and by a recovery key only you hold. A locked note’s text is never sent to any AI provider, never added to the search index and never used for related notes. Its title, tags, kind, threads and dates stay in plain text. Neither your password nor the decrypted text is ever written to disk. See <a href="{{ url_for('help_page') }}#locked-notes">Help → Locked notes</a> for the details and the limits.</p>
+
     <h2>The privacy policy in one sentence</h2>
     <p>Nothing leaves your machine unless you configured an AI provider and either clicked an AI button or saved a note with semantic-search embedding enabled; everything else is entirely local, forever, and without exception.</p>
 

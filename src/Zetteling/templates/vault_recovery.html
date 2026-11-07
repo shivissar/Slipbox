@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Your recovery key{% endblock %}
+{% block main %}
+<main class="pane col card">
+  <div class="pane-body vault-page">
+    <div class="vault-card vault-card-wide">
+      <div class="locked-icon" aria-hidden="true">{{ icon("lock") }}</div>
+      <h1>Save your recovery key</h1>
+      {{ squiggle() }}
+      <p>Locked notes are set up. If you ever forget your password, this key is the <strong>only</strong> way to open your locked notes. Zetteling doesn’t keep a copy, and it won’t show it again.</p>
+      <p class="recovery-key" aria-label="Recovery key">{{ code }}</p>
+      <ul class="vault-tips">
+        <li>Print this page, or write the key down, and keep it somewhere safe away from this Mac.</li>
+        <li>A password manager is also a good place for it.</li>
+        <li>Don’t keep it in a note: locked notes can’t help you if you’re locked out.</li>
+      </ul>
+      <p class="hint">Password protection: {{ kdf }}. Note text: AES-256-GCM. Details are on the <a href="{{ url_for('help_page') }}#locked-notes">help page</a>.</p>
+      <div class="vault-actions">
+        <button type="button" class="btn" onclick="window.print()">Print</button>
+        <label class="check-row"><input type="checkbox" id="saved-key"> I’ve saved my recovery key</label>
+        <a class="btn btn-primary" id="done-key" href="{{ url_for('settings_page') }}#locked" aria-disabled="true" tabindex="-1">Continue</a>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+  (function () {
+    var box = document.getElementById("saved-key"), done = document.getElementById("done-key");
+    var sync = function () { done.setAttribute("aria-disabled", box.checked ? "false" : "true"); done.tabIndex = box.checked ? 0 : -1; };
+    box.addEventListener("change", sync);
+    done.addEventListener("click", function (e) { if (!box.checked) e.preventDefault(); });
+  })();
+</script>
+{% endblock %}

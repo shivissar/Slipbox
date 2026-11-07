@@ -2,7 +2,7 @@
 [tool.briefcase]
 project_name = "Zetteling"
 bundle = "com.shivissar"
-version = "5.0.1"
+version = "5.1.0"
 url = "https://shivissar.com/Zetteling"
 license.file = "LICENSE"
 author = "Shiv Issar, Ph.D."
@@ -35,6 +35,8 @@ requires = [
     "numpy>=1.26",
     "google-genai>=1.0",
     "bleach>=6.0",
+    # 5.1 locked notes (vault.py): AES-GCM, HKDF and Argon2id (44+).
+    "cryptography>=44",
 ]
 test_requires = [
     "pytest",

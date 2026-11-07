@@ -10,6 +10,7 @@
         <a href="#appearance">Appearance</a>
         <a href="#general">Folders</a>
         <a href="#writing">Writing</a>
+        <a href="#locked">Locked notes</a>
         <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
         <a href="#bibliography">Bibliography</a>
         <a href="#about">About and legal</a>
@@ -286,6 +287,82 @@
             <span class="muted small">Appearance saves itself; everything below it saves with this button.</span>
           </div>
         </form>
+
+        {# ---------------- Locked notes (own forms, outside the main form) ---------------- #}
+        <section class="set-section" id="locked">
+          <h2>Locked notes</h2>
+          {%- if vault_msg %}<div class="flash {{ 'error' if vault_err else 'success' }}">{{ vault_msg }}</div>{% endif %}
+          {%- if not vault_state.set_up %}
+          <div class="set-group">
+            <div class="set-row stack">
+              <div class="set-text"><strong>Encrypt the notes you choose</strong>
+                <span>A locked note’s text is encrypted on disk, so it reads as gibberish in Finder, other apps, backups and sync services. Its title, tags, kind, threads and dates stay readable, so your lists and threads still work. Locked notes are never sent to an AI provider. <a href="{{ url_for('help_page') }}#locked-notes">How it works</a></span>
+              </div>
+              <form method="post" action="{{ url_for('vault_setup') }}" class="vault-form" data-unlock-form>
+                <label class="field-label" for="v-pw">Choose a password</label>
+                <input type="password" id="v-pw" name="password" minlength="10" autocomplete="new-password" required>
+                <label class="field-label" for="v-pw2">The same password again</label>
+                <input type="password" id="v-pw2" name="confirm" minlength="10" autocomplete="new-password" required>
+                <p class="hint">At least 10 characters. Four or five unrelated words make a strong password that’s easy to remember. Next you’ll get a recovery key: without the password or that key, locked notes can’t be opened by anyone, including you.</p>
+                <button type="submit" class="btn btn-primary">Set up locked notes</button>
+              </form>
+            </div>
+          </div>
+          {%- else %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>{{ icon("unlock" if vault_state.open else "lock", "i sm") }} {{ "Open" if vault_state.open else "Closed" }}</strong>
+                <span>{{ locked_count }} locked note{{ '' if locked_count == 1 else 's' }}. {% if vault_state.open %}Readable until you quit{% if vault_state.idle_seconds %} or leave Zetteling idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.{% else %}Enter your password to read or edit them.{% endif %}</span>
+              </div>
+              {%- if vault_state.open %}
+              <form method="post" action="{{ url_for('vault_lock') }}" class="inline"><input type="hidden" name="next" value="/settings#locked"><button type="submit" class="btn">{{ icon("lock") }}Lock now</button></form>
+              {%- else %}
+              <a class="btn btn-primary" href="{{ url_for('unlock_page', next='/settings#locked') }}">{{ icon("unlock") }}Unlock</a>
+              {%- endif %}
+            </div>
+            <form method="post" action="{{ url_for('vault_settings') }}" class="set-row stack">
+              <div class="set-text"><strong>Always lock these kinds</strong><span>New notes of a ticked kind are created locked. Ticking a kind also locks the notes of that kind you already have (locked notes need to be open). Unticking leaves existing locked notes as they are.</span></div>
+              <div class="kind-checks">
+                {%- for k in kinds %}
+                <label class="check-row"><input type="checkbox" name="locked_kinds" value="{{ k }}" {% if k in vault_state.locked_kinds %}checked{% endif %}> <span class="dot dot-{{ k }}" aria-hidden="true"></span>{{ k|capitalize }}</label>
+                {%- endfor %}
+              </div>
+              <div class="set-text"><strong>Close locked notes after</strong><span>How long Zetteling can sit idle before locked notes need the password again. Quitting always closes them.</span></div>
+              <div class="vault-inline">
+                <select name="lock_after_minutes" aria-label="Close locked notes after">
+                  {%- for m, label in [(5, "5 minutes idle"), (15, "15 minutes idle"), (30, "30 minutes idle"), (60, "1 hour idle"), (0, "Only when I quit")] %}
+                  <option value="{{ m }}" {% if vault_state.idle_seconds == m * 60 %}selected{% endif %}>{{ label }}</option>
+                  {%- endfor %}
+                </select>
+                <button type="submit" class="btn">Save</button>
+              </div>
+            </form>
+            <form method="post" action="{{ url_for('vault_password') }}" class="set-row stack" data-unlock-form>
+              <div class="set-text"><strong>Change password</strong><span>Your recovery key keeps working. Old backups of your notes still open with the old password.</span></div>
+              <div class="vault-grid">
+                <input type="password" name="old_password" placeholder="Current password" autocomplete="current-password" required aria-label="Current password">
+                <input type="password" name="new_password" placeholder="New password" minlength="10" autocomplete="new-password" required aria-label="New password">
+                <input type="password" name="confirm" placeholder="New password again" minlength="10" autocomplete="new-password" required aria-label="New password again">
+                <button type="submit" class="btn">Change password</button>
+              </div>
+            </form>
+            <div class="set-row">
+              <div class="set-text"><strong>Forgot your password?</strong><span>Use the recovery key you saved when you set up locked notes.</span></div>
+              <a class="btn" href="{{ url_for('vault_recover') }}">Use recovery key</a>
+            </div>
+            {%- if vault_state.open and locked_count %}
+            <form method="post" action="{{ url_for('vault_remove_all') }}" class="set-row"
+                  onsubmit="return confirm('Remove the lock from all {{ locked_count }} locked notes?\n\nTheir text will be saved as plain text again, readable in any app.');">
+              <div class="set-text"><strong>Remove all locks</strong><span>Turns every locked note back into plain text and unticks the kinds above.</span></div>
+              <button type="submit" class="btn btn-danger">Remove all locks</button>
+            </form>
+            {%- endif %}
+            <div class="set-row">
+              <div class="set-text"><strong>Encryption</strong><span>Note text: AES-256-GCM, a new key for every save. Password: {{ vault_kdf }}. Keys are stored, wrapped, in <code>.zetteling-vault.json</code> in your notes folder and inside each locked note. <a href="{{ url_for('help_page') }}#locked-notes">Details</a></span></div>
+            </div>
+          </div>
+          {%- endif %}
+        </section>
 
         {# ---------------- About ---------------- #}
         <section class="set-section" id="about">

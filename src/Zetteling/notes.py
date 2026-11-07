@@ -18,6 +18,7 @@ from pathlib import Path
 import frontmatter
 
 from . import settings
+from . import vault
 NOTES_DIR = Path(settings.get_notes_dir())
 NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -61,6 +62,11 @@ class Note:
     refs: list = field(default_factory=list)
     mtime: float = 0.0
     outgoing_links: set = field(default_factory=set)
+    # 5.1 locked notes: the body is encrypted on disk (see vault.py).
+    locked: bool = False
+    cipher: str = ""          # the armoured body as read from disk
+    unreadable: bool = False  # locked and not decrypted (closed or damaged)
+    damaged: bool = False
 
     @property
     def path(self):
@@ -98,11 +104,26 @@ def parse_file(path):
         raise ValueError(f"Cannot determine ID for {path.name}")
 
     title = fm.get("title") or _first_h1(post.content) or path.stem
+    content = post.content
+    locked = bool(fm.get("locked")) or vault.looks_locked(content)
+    cipher, unreadable, damaged = "", False, False
+    if locked:
+        cipher = content
+        content = ""
+        if vault.is_unlocked():
+            try:
+                content = vault.decrypt_body(note_id, cipher)
+            except vault.Damaged:
+                unreadable = damaged = True
+            except vault.VaultLocked:
+                unreadable = True
+        else:
+            unreadable = True
     return Note(
         id=note_id,
         filename=path.name,
         title=title,
-        body=post.content,
+        body=content,
         created=str(fm.get("created", "")),
         modified=str(fm.get("modified", "")),
         type=fm.get("type", "zettel"),
@@ -111,16 +132,38 @@ def parse_file(path):
         threads=list(fm.get("threads", []) or []),
         refs=list(fm.get("refs", []) or []),
         mtime=path.stat().st_mtime,
-        outgoing_links=extract_wikilinks(post.content),
+        outgoing_links=extract_wikilinks(content),
+        locked=locked,
+        cipher=cipher,
+        unreadable=unreadable,
+        damaged=damaged,
     )
 
 
 def write_note(note):
-    """Serialize a Note back to disk with updated frontmatter."""
+    """Serialize a Note back to disk with updated frontmatter.
+
+    A locked note's body is encrypted before it touches the disk. If the
+    note was read while locked notes were closed (unreadable), only its
+    frontmatter changes and the encrypted body is written back untouched;
+    a locked body is never written in plain text."""
+    if note.locked:
+        if note.unreadable:
+            if not note.cipher:
+                raise vault.VaultLocked("Locked notes are closed.")
+            content = note.cipher
+        else:
+            content = vault.encrypt_body(note.id, note.body)  # raises if closed
+            note.cipher = content
+    else:
+        content = note.body
     note.modified = now_iso()
-    note.outgoing_links = extract_wikilinks(note.body)
+    note.outgoing_links = set() if note.unreadable else extract_wikilinks(note.body)
+    meta = {}
+    if note.locked:
+        meta["locked"] = True
     post = frontmatter.Post(
-        note.body,
+        content,
         id=note.id,
         title=note.title,
         created=note.created,
@@ -130,6 +173,7 @@ def write_note(note):
         tags=note.tags,
         threads=note.threads,
         refs=note.refs,
+        **meta,
     )
     note.path.write_text(frontmatter.dumps(post), encoding="utf-8")
     note.mtime = note.path.stat().st_mtime
@@ -148,7 +192,7 @@ def soft_delete(note):
     return dest
 
 
-def create_note(title, body="", tags=None, type_="zettel", kind=DEFAULT_KIND):
+def create_note(title, body="", tags=None, type_="zettel", kind=DEFAULT_KIND, locked=False):
     note_id = now_id()
     # Avoid collision if two notes are made in the same minute
     base = make_filename(note_id, title)
@@ -168,6 +212,7 @@ def create_note(title, body="", tags=None, type_="zettel", kind=DEFAULT_KIND):
         type=type_,
         kind=normalize_kind(kind),
         tags=list(tags or []),
+        locked=bool(locked),
     )
     write_note(note)
     return note

@@ -35,6 +35,7 @@
       <a href="#ai-features">AI features</a> &middot;
       <a href="#trust-model">Trust model</a> &middot;
       <a href="#external-editing">External editing</a> &middot;
+      <a href="#locked-notes">Locked notes</a> &middot;
       <a href="#deleting">Deleting &amp; trash</a> &middot;
       <a href="#exporting">Exporting</a> &middot;
       <a href="#stats">Stats</a> &middot;
@@ -200,6 +201,51 @@
     <p>This is the whole point of the plain-Markdown design: nothing locks you in. Open your notes folder in Finder, edit any <code>.md</code> file in any editor &mdash; Obsidian, VS Code, vim, TextEdit, whatever &mdash; and save. The watcher picks up the change within a second or two and the index updates. The web UI will show your changes on the next page reload.</p>
 
     <p>Two practical notes. First, the watcher only looks at the top level of your notes folder &mdash; do not put files in subdirectories. If you want to organize your notes spatially, use tags and threads rather than folders. Second, if you rename a file's 14-digit ID prefix, you have effectively created a new note and orphaned all wikilinks pointing at the old ID. Don't do that. Edit the title, the body, the tags freely; leave the ID alone.</p>
+
+    <h2 id="locked-notes">Locked notes</h2>
+    <p>A locked note’s text is encrypted on disk. Open its file in Finder, TextEdit, another Markdown app, a backup or a sync service, and the text reads as a block of random characters. Without your password or recovery key, nobody can read it, including you.</p>
+
+    <h3>Using locked notes</h3>
+    <ul>
+      <li><strong>Set up once.</strong> In <a href="{{ url_for('settings_page') }}#locked">Settings → Locked notes</a>, choose a password of at least 10 characters (four or five unrelated words work well). You then get a <strong>recovery key</strong>, shown once. Print it or keep it in a password manager: if you forget your password, it is the only way back in.</li>
+      <li><strong>Lock a note</strong> with the padlock button above it, or <kbd>⌘K</kbd> → “Lock this note”.</li>
+      <li><strong>Lock a whole kind.</strong> Under <em>Always lock these kinds</em>, tick a kind (Journal, say). Its existing notes are locked straight away, and new notes of that kind are created locked. A note you move into a ticked kind is locked when you save it.</li>
+      <li><strong>Opening them.</strong> The first time you open a locked note, Zetteling asks for your password. Locked notes then stay open until you quit, or until Zetteling has been idle for the time you choose (5, 15, 30 or 60 minutes, or only on quit). If they close while you’re editing, what you’ve typed is saved first; if it can’t be, the editor asks for the password before saving. <kbd>⌘K</kbd> → “Lock notes now” closes them at once.</li>
+      <li><strong>Removing a lock</strong> (the open-padlock button on a locked note) turns it back into a plain Markdown file. <em>Remove all locks</em> in Settings does this for every locked note.</li>
+      <li><strong>Changing your password</strong> doesn’t change the encrypted text, so it’s quick, and your recovery key keeps working. <strong>Forgot it?</strong> Use <em>Use recovery key</em> in Settings, or the link on the unlock screen, to set a new one.</li>
+    </ul>
+
+    <h3>What stays readable</h3>
+    <p>By design, only the text is encrypted. A locked note’s <strong>title</strong>, tags, kind, thread names and order, created and modified dates, ID and filename (which includes the title) stay in plain text, so your note list, threads and title search keep working. The size of the encrypted block also gives away roughly how long the note is.</p>
+
+    <h3>What locked notes don’t do</h3>
+    <ul>
+      <li><strong>No AI.</strong> A locked note is never sent to an AI provider: Interrogate, tag suggestions and related notes are off for it, and any related-notes data made before you locked it is deleted.</li>
+      <li><strong>Search finds titles and tags, not text.</strong> A locked note’s text is kept out of the search index, even while it’s open, and the text indexed before you locked it is erased from the index.</li>
+      <li><strong>Links inside a locked note</strong> don’t show up as backlinks on the notes they point to.</li>
+      <li><strong>Exports are not encrypted.</strong> Exporting a locked note produces an ordinary Word, LaTeX or HTML file, and the export page says so.</li>
+      <li><strong>Earlier copies stay as they were.</strong> Locking a note doesn’t reach copies made before: Time Machine, version history in iCloud Drive or Dropbox, Git history, or earlier exports. If those matter, delete them there. The disk itself may also keep old blocks of the file until they’re reused; FileVault, which encrypts the whole disk, covers that.</li>
+      <li><strong>While open, the text is in memory.</strong> Anything that can read Zetteling’s memory on your Mac could read open notes. Python can’t promise to wipe memory, so quitting is the surest way to close them.</li>
+    </ul>
+
+    <h3 id="encryption-details">The encryption, in detail</h3>
+    <p>Locked notes use standard, widely reviewed building blocks, the current recommendations for each job:</p>
+    <table class="spec-table">
+      <thead><tr><th>Part</th><th>What it uses</th><th>Settings</th></tr></thead>
+      <tbody>
+        <tr><td>Note text</td><td>AES-256 (FIPS 197) in Galois/Counter Mode, GCM (NIST SP 800-38D)</td><td>256-bit key, random 96-bit nonce, 128-bit authentication tag. The vault ID and the note’s ID are bound in as associated data, so encrypted text can’t be swapped between notes unnoticed.</td></tr>
+        <tr><td>A new key for every save</td><td>HKDF with SHA-256 (RFC 5869; SHA-256 is FIPS 180-4)</td><td>A fresh random 256-bit salt each time a locked note is saved derives a one-use AES key from the data key. No key encrypts twice, which stays clear of SP 800-38D’s limits on random nonces under one key.</td></tr>
+        <tr><td>Data key</td><td>256 random bits from the operating system’s secure random generator</td><td>Made once, when you set up locked notes. It never touches the disk unencrypted.</td></tr>
+        <tr><td>Password to key</td><td>Argon2id (RFC 9106), the memory-hard function RFC 9106 recommends</td><td>RFC 9106’s first recommended setting: 2 GiB of memory, 1 pass, 4 lanes, 128-bit salt, 256-bit output. A Mac that can’t spare 2 GiB uses the RFC’s second recommended setting: 64 MiB, 3 passes, 4 lanes.{% if vault_kdf %} <strong>Your notes use: {{ vault_kdf }}.</strong>{% endif %} The deliberate slowness is why unlocking takes a second or two.</td></tr>
+        <tr><td>Storing the data key</td><td>AES-256-GCM key wrapping</td><td>The data key is kept encrypted twice: once under the key from your password, once under the key from your recovery key.</td></tr>
+        <tr><td>Recovery key</td><td>256 random bits, written as 52 base32 characters (RFC 4648)</td><td>Turned into a key with HKDF-SHA-256. Shown once and never stored.</td></tr>
+        <tr><td>Library</td><td>pyca/cryptography{% if crypto_versions.cryptography %} {{ crypto_versions.cryptography }}{% endif %}{% if crypto_versions.openssl %}, using {{ crypto_versions.openssl }}{% endif %}</td><td>Zetteling implements no cryptographic primitives of its own.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Tampering.</strong> GCM’s authentication tag detects any change to the encrypted text. A locked note that has been altered or damaged won’t open; Zetteling says so rather than showing corrupted text.</p>
+    <p><strong>Where the keys are.</strong> The wrapped keys and Argon2id settings (never your password or the data key) are kept in <code>.zetteling-vault.json</code> in your notes folder, and a copy travels inside every locked note, so a note can still be opened with your password if that file goes missing. Back up your whole notes folder, hidden files included (in Finder, <kbd>⇧⌘.</kbd> shows them).</p>
+    <p><strong>What a locked file looks like.</strong> The usual frontmatter, with <code>locked: true</code>, followed by a block between <code>-----BEGIN ZETTELING LOCKED NOTE-----</code> and <code>-----END ZETTELING LOCKED NOTE-----</code>.</p>
+    <p><strong>Limits.</strong> The scheme combines standard parts in a standard way, but Zetteling’s use of them hasn’t been independently audited. If your work needs certified encryption (some ethics protocols and data-protection rules require it), check with your institution, and consider an encrypted disk image or FileVault as well.</p>
 
     <h2 id="deleting">Deleting and the trash</h2>
     <p>The delete button moves the note's file into a <code>.trash</code> subdirectory of your notes folder with a timestamp suffix appended to the filename. The note disappears from the index immediately. The file itself is still on your disk, recoverable.</p>

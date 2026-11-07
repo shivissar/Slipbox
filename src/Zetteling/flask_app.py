@@ -22,6 +22,7 @@ from markdown.inlinepatterns import InlineProcessor
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from flask import send_file
+from markupsafe import Markup
 import io
 import platform
 import subprocess
@@ -34,11 +35,12 @@ from . import db
 from . import embed
 from . import export
 from . import notes
+from . import vault
 from . import settings
 from . import themes
 from . import watcher
 
-__version__ = "5.0.1"
+__version__ = "5.1.0"
 
 app = Flask(__name__)
 
@@ -90,10 +92,114 @@ def inject_globals():
         "appearance": themes.current(),
         "nav_counts": db.sidebar_counts(),
         "kinds": KINDS,
+        "vault_state": _vault_state(),
     }
 
 
 KINDS = ("research", "journal", "teaching", "life")
+
+
+# ---------- 5.1 locked notes: state, idle lock, helpers ---------- #
+
+# Requests that don't count as the person using the app.
+_BACKGROUND_PATHS = ("/static/", "/api/embed/status", "/api/vault/status", "/favicon")
+
+
+def _lock_after_minutes():
+    try:
+        return max(0, int(settings.get("lock_after_minutes", 15) or 0))
+    except (TypeError, ValueError):
+        return 15
+
+
+def _locked_kinds():
+    kinds = settings.get("locked_kinds", []) or []
+    return [k for k in kinds if k in KINDS]
+
+
+def _kind_locked(kind):
+    return (kind or "").strip().lower() in _locked_kinds()
+
+
+def _vault_state():
+    set_up = vault.is_set_up()
+    return {
+        "set_up": set_up,
+        "open": vault.is_unlocked(),
+        "idle_seconds": _lock_after_minutes() * 60,
+        "locked_kinds": _locked_kinds(),
+    }
+
+
+@app.before_request
+def _same_origin_posts():
+    """Refuse changes requested by other websites. A page open in any
+    browser on this Mac could otherwise post to Zetteling's local port
+    (for example, to remove the locks from notes while they're open)."""
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+    source = request.headers.get("Origin") or request.headers.get("Referer")
+    if not source:
+        return None  # not sent by a browser page (tests, scripts)
+    from urllib.parse import urlsplit
+    if source == "null" or urlsplit(source).netloc != request.host:
+        abort(403)
+    return None
+
+
+@app.before_request
+def _vault_activity():
+    """Close locked notes after the chosen idle time, then count this
+    request as activity (unless it's a background request)."""
+    vault.autolock_if_idle(_lock_after_minutes())
+    path = request.path or ""
+    if not path.startswith(_BACKGROUND_PATHS):
+        vault.touch()
+
+
+@app.after_request
+def _no_store(response):
+    """Pages and API replies can contain decrypted locked notes; keep them
+    out of the web view's on-disk cache. Static files still cache."""
+    if not (request.path or "").startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _safe_next(target, fallback="/"):
+    target = (target or "").strip()
+    if not target.startswith("/") or target.startswith("//") or "\\" in target:
+        return fallback
+    return target
+
+
+def _locked_placeholder(note):
+    if note.damaged:
+        return Markup('<p class="locked-note-msg">This locked note can\u2019t be opened: '
+                      "it was changed outside Zetteling or is damaged.</p>")
+    return Markup('<p class="locked-note-msg">This note is locked. Unlock locked notes to read it.</p>')
+
+
+def _locked_response(mode, message="Locked notes are closed. Enter your password to save this note."):
+    if mode == "save":
+        return render_template("locked_save.html", message=message), 423
+    return jsonify({"ok": False, "locked": True, "message": message}), 423
+
+
+def _lock_note(note):
+    """Encrypt a readable note in place. The caller scrubs the index."""
+    note.locked = True
+    notes.write_note(note)
+    db.upsert_note(note)
+    embed.delete_embedding_for_note(note.id)
+    chat.clear_conversation(note.id)
+
+
+def _unlock_note(note):
+    note.locked = False
+    note.cipher = ""
+    notes.write_note(note)
+    db.upsert_note(note)
 
 
 # ---------- Wikilink markdown extension ---------- #
@@ -373,7 +479,7 @@ def view(note_id):
     note = _find_note_by_id(note_id)
     if not note:
         abort(404)
-    rendered = _render_note_html(note.body)
+    rendered = None if note.unreadable else _render_note_html(note.body)
     backlinks = db.get_backlinks(note_id)
     thread_contexts = []
     for t in db.threads_for_note(note_id):
@@ -420,7 +526,7 @@ def _note_page_context(note, rendered):
         "active_kind": kind,
         "list_cards": _list_for(kind),
         "chat_length": chat.conversation_length(note.id),
-        "chat_available": ai.get_provider() is not None,
+        "chat_available": ai.get_provider() is not None and not note.locked,
         "refs_resolved": [
             {"key": k, "entry": db.get_bib_entry(k)} for k in (note.refs or [])
         ],
@@ -519,19 +625,37 @@ def edit(note_id):
         abort(404)
     if request.method == "POST":
         mode = _save_mode()
-        with _SAVE_LOCK:
-            fresh = _claim_seq()
-            if fresh:
-                _apply_edit_form(note, request.form)
-                if mode != "auto" and not note.threads:
-                    _apply_thread_action(note, request.form)
-                notes.write_note(note)
-                db.upsert_note(note)
-        if fresh and mode != "auto":
+        if note.unreadable:
+            if note.damaged:
+                return _locked_response(mode, "This locked note is damaged, so it can't be saved.")
+            return _locked_response(mode)
+        newly_locked = False
+        try:
+            with _SAVE_LOCK:
+                fresh = _claim_seq()
+                if fresh:
+                    old_kind = note.kind
+                    _apply_edit_form(note, request.form)
+                    if not note.locked and note.kind != old_kind and _kind_locked(note.kind):
+                        note.locked = newly_locked = True
+                    if mode != "auto" and not note.threads:
+                        _apply_thread_action(note, request.form)
+                    notes.write_note(note)
+                    db.upsert_note(note)
+        except vault.VaultLocked:
+            return _locked_response(mode)
+        if newly_locked:
+            embed.delete_embedding_for_note(note.id)
+            db.scrub_index()
+        elif fresh and mode != "auto":
             embed.embed_note(note)
         if mode == "save":
             return redirect(url_for("view", note_id=note.id))
-        return jsonify({"ok": True, "id": note.id, "modified": note.modified})
+        return jsonify({"ok": True, "id": note.id, "modified": note.modified, "locked": note.locked})
+    if note.unreadable:
+        if note.damaged:
+            return redirect(url_for("view", note_id=note.id))
+        return redirect(url_for("unlock_page", next=url_for("edit", note_id=note.id)))
     return render_template("edit.html", note=note, autosave=bool(settings.get("autosave", True)))
 
 
@@ -555,32 +679,43 @@ def new():
         if mode != "save" and not title:
             # Autosave waits for a title, so filenames get a real slug.
             return jsonify({"ok": False, "message": "Add a title to start saving."}), 400
-        with _SAVE_LOCK:
-            existing_id = _DRAFTS.get(token) if token else None
-            note = _find_note_by_id(existing_id) if existing_id else None
-            fresh = _claim_seq()
-            if note is None:
-                kind = request.form.get("kind", "research").strip().lower()
-                if kind not in KINDS:
-                    kind = "research"
-                tags_raw = request.form.get("tags", "")
-                note = notes.create_note(
-                    title or "Untitled",
-                    body=request.form.get("body", ""),
-                    tags=[t.strip() for t in tags_raw.split(",") if t.strip()],
-                    kind=kind,
-                )
-                if token:
-                    _DRAFTS[token] = note.id
-                fresh = True
-            elif fresh:
-                _apply_edit_form(note, request.form)
-            if fresh:
-                if mode != "auto" and not note.threads:
-                    _apply_thread_action(note, request.form)
-                notes.write_note(note)
-                db.upsert_note(note)
-        if fresh and mode != "auto":
+        try:
+            with _SAVE_LOCK:
+                existing_id = _DRAFTS.get(token) if token else None
+                note = _find_note_by_id(existing_id) if existing_id else None
+                if note is not None and note.unreadable:
+                    raise vault.VaultLocked("closed")
+                fresh = _claim_seq()
+                if note is None:
+                    kind = request.form.get("kind", "research").strip().lower()
+                    if kind not in KINDS:
+                        kind = "research"
+                    tags_raw = request.form.get("tags", "")
+                    note = notes.create_note(
+                        title or "Untitled",
+                        body=request.form.get("body", ""),
+                        tags=[t.strip() for t in tags_raw.split(",") if t.strip()],
+                        kind=kind,
+                        locked=_kind_locked(kind),
+                    )
+                    if token:
+                        _DRAFTS[token] = note.id
+                    fresh = True
+                elif fresh:
+                    old_kind = note.kind
+                    _apply_edit_form(note, request.form)
+                    if not note.locked and note.kind != old_kind and _kind_locked(note.kind):
+                        note.locked = True
+                if fresh:
+                    if mode != "auto" and not note.threads:
+                        _apply_thread_action(note, request.form)
+                    notes.write_note(note)
+                    db.upsert_note(note)
+        except vault.VaultLocked:
+            return _locked_response(mode)
+        if note.locked:
+            embed.delete_embedding_for_note(note.id)
+        elif fresh and mode != "auto":
             embed.embed_note(note)
         if mode == "save":
             return redirect(url_for("view", note_id=note.id))
@@ -590,10 +725,13 @@ def new():
             "modified": note.modified,
             "edit_url": url_for("edit", note_id=note.id),
             "view_url": url_for("view", note_id=note.id),
+            "locked": note.locked,
         })
     preselect_kind = request.args.get("kind", "research").strip().lower()
     if preselect_kind not in ("research", "journal", "teaching", "life"):
         preselect_kind = "research"
+    if _kind_locked(preselect_kind) and not vault.is_unlocked():
+        return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
     return render_template(
         "edit.html",
         note=None,
@@ -620,11 +758,14 @@ def journal_new():
     from datetime import datetime
     now = datetime.now()
     title = now.strftime("%Y-%m-%d %H:%M")  # e.g. "2026-04-09 14:32"
+    if _kind_locked("journal") and not vault.is_unlocked():
+        return redirect(url_for("unlock_page", next=url_for("journal_new")))
     note = notes.create_note(
         title,
         body="",
         tags=[],
         kind="journal",
+        locked=_kind_locked("journal"),
     )
     db.upsert_note(note)
     embed.embed_note(note)
@@ -662,7 +803,14 @@ def thread_view(thread_name):
 
 @app.route("/help")
 def help_page():
-    return render_template("help.html")
+    """Help. The locked-notes section reports the exact crypto library and
+    password settings this copy uses."""
+    return render_template(
+        "help.html",
+        crypto_versions=vault.library_versions(),
+        vault_kdf=vault.kdf_description() if vault.is_set_up() else "",
+        argon2_available=vault.HAVE_ARGON2,
+    )
 
 
 @app.route("/citekeys")
@@ -742,6 +890,10 @@ def settings_page():
     env_notes_override = os.environ.get("ZETTEL_NOTES_DIR", "").strip()
     return render_template(
         "settings.html",
+        vault_msg=request.args.get("vault_msg", "")[:200],
+        vault_err=request.args.get("vault_err") == "1",
+        vault_kdf=vault.kdf_description() if vault.is_set_up() else "",
+        locked_count=len(db.locked_ids()),
         current=current,
         env_override=env_override,
         env_notes_override=env_notes_override,
@@ -809,6 +961,9 @@ def note_chat(note_id):
     if not note_path.exists():
         abort(404)
     note = notes.parse_file(note_path)
+    if note.locked:
+        # Locked notes are never sent to an AI provider.
+        return redirect(url_for("view", note_id=note_id))
 
     error = None
     if request.method == "POST":
@@ -863,6 +1018,9 @@ def note_chat_stream(note_id):
     if not note_path.exists():
         abort(404)
     note = notes.parse_file(note_path)
+    if note.locked:
+        return Response('event: error\ndata: "Locked notes are never sent to an AI provider."\n\n',
+                        mimetype="text/event-stream")
 
     user_message = request.form.get("message", "").strip()
     if not user_message:
@@ -893,6 +1051,10 @@ def api_tags_suggest():
     invent new ones."""
     title = request.form.get("title", "").strip()
     body = request.form.get("body", "").strip()
+    note_id = request.form.get("note_id", "").strip()
+    kind = request.form.get("kind", "").strip().lower()
+    if (note_id and db.is_locked(note_id)) or _kind_locked(kind):
+        return jsonify({"ok": False, "tags": [], "message": "Locked notes are never sent to an AI provider."})
     if not title and not body:
         return jsonify({"ok": False, "tags": [], "message": "No content to analyze"})
     existing = [t for t, _ in db.all_tags()]
@@ -979,9 +1141,9 @@ def split_view(id1, id2):
     if not left or not right:
         abort(404)
     MD.reset()
-    left_html = _render_note_html(left.body)
+    left_html = _locked_placeholder(left) if left.unreadable else _render_note_html(left.body)
     MD.reset()
-    right_html = _render_note_html(right.body)
+    right_html = _locked_placeholder(right) if right.unreadable else _render_note_html(right.body)
     return render_template(
         "split.html",
         left=left, right=right,
@@ -1009,6 +1171,8 @@ def export_view(source_type, source_id):
     notes_list = export.collect_notes_for_source(source_type, source_id)
     if not notes_list:
         abort(404)
+    if any(n.unreadable for n in notes_list):
+        return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
 
     # Determine a sensible title for the export
     if source_type == "note":
@@ -1072,6 +1236,166 @@ def export_view(source_type, source_id):
         error=None,
         export_dir=settings.get_export_dir(),
     )
+
+
+# ---------- 5.1 locked notes: routes ---------- #
+
+
+def _wants_json():
+    best = request.accept_mimetypes.best_match(["application/json", "text/html"])
+    return best == "application/json" and request.accept_mimetypes[best] > request.accept_mimetypes["text/html"]
+
+
+def _to_settings(msg, error=False):
+    return redirect(url_for("settings_page", vault_msg=msg, vault_err="1" if error else None) + "#locked")
+
+
+@app.route("/unlock", methods=["GET", "POST"])
+def unlock_page():
+    nxt = _safe_next(request.values.get("next"), url_for("index"))
+    if not vault.is_set_up():
+        return _to_settings("Set up locked notes first.", error=True)
+    error = None
+    if request.method == "POST":
+        try:
+            vault.unlock(request.form.get("password", ""))
+        except vault.VaultError as e:
+            error = str(e)
+            if _wants_json():
+                return jsonify({"ok": False, "message": error}), 403
+        else:
+            if _wants_json():
+                return jsonify({"ok": True})
+            return redirect(nxt)
+    elif vault.is_unlocked():
+        return redirect(nxt)
+    return render_template("unlock.html", next=nxt, error=error)
+
+
+@app.route("/vault/lock", methods=["POST"])
+def vault_lock():
+    vault.lock()
+    if _wants_json():
+        return jsonify({"ok": True})
+    return redirect(_safe_next(request.form.get("next"), url_for("index")))
+
+
+@app.route("/api/vault/status")
+def api_vault_status():
+    return jsonify(_vault_state())
+
+
+@app.route("/vault/setup", methods=["POST"])
+def vault_setup():
+    pw = request.form.get("password", "")
+    if pw != request.form.get("confirm", ""):
+        return _to_settings("The two passwords don't match.", error=True)
+    try:
+        code = vault.setup(pw)
+    except vault.VaultError as e:
+        return _to_settings(str(e), error=True)
+    return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description())
+
+
+@app.route("/vault/password", methods=["POST"])
+def vault_password():
+    new = request.form.get("new_password", "")
+    if new != request.form.get("confirm", ""):
+        return _to_settings("The two new passwords don't match.", error=True)
+    try:
+        vault.change_password(request.form.get("old_password", ""), new)
+    except vault.VaultError as e:
+        return _to_settings(str(e), error=True)
+    return _to_settings("Password changed. Your recovery key still works.")
+
+
+@app.route("/vault/recover", methods=["GET", "POST"])
+def vault_recover():
+    error = None
+    if request.method == "POST":
+        new = request.form.get("new_password", "")
+        if new != request.form.get("confirm", ""):
+            error = "The two new passwords don't match."
+        else:
+            try:
+                vault.recover(request.form.get("recovery", ""), new)
+            except vault.VaultError as e:
+                error = str(e)
+            else:
+                return _to_settings("New password set. Your recovery key still works.")
+    return render_template("vault_recover.html", error=error)
+
+
+@app.route("/vault/settings", methods=["POST"])
+def vault_settings():
+    kinds = [k for k in request.form.getlist("locked_kinds") if k in KINDS]
+    try:
+        minutes = int(request.form.get("lock_after_minutes", "15"))
+    except ValueError:
+        minutes = 15
+    if minutes not in (0, 5, 15, 30, 60):
+        minutes = 15
+    added = [k for k in kinds if k not in _locked_kinds()]
+    if added and not vault.is_unlocked():
+        return _to_settings("Unlock locked notes first, so existing notes of that kind can be locked.", error=True)
+    settings.save({"locked_kinds": kinds, "lock_after_minutes": minutes})
+    count = 0
+    for k in added:
+        for nid in db.ids_for_kind(k):
+            note = _find_note_by_id(nid)
+            if note and not note.locked and not note.unreadable:
+                _lock_note(note)
+                count += 1
+    if count:
+        db.scrub_index()
+    msg = "Saved."
+    if count:
+        msg = "Saved. Locked %d existing note%s." % (count, "" if count == 1 else "s")
+    return _to_settings(msg)
+
+
+@app.route("/vault/remove-all", methods=["POST"])
+def vault_remove_all():
+    if not vault.is_unlocked():
+        return _to_settings("Unlock locked notes first.", error=True)
+    count = 0
+    for nid in db.locked_ids():
+        note = _find_note_by_id(nid)
+        if note and note.locked and not note.unreadable:
+            _unlock_note(note)
+            count += 1
+    settings.save({"locked_kinds": []})
+    return _to_settings("Removed the lock from %d note%s. They are plain text again." % (count, "" if count == 1 else "s"))
+
+
+@app.route("/note/<note_id>/lock", methods=["POST"])
+def note_lock(note_id):
+    note = _find_note_by_id(note_id)
+    if not note:
+        abort(404)
+    if not vault.is_set_up():
+        return _to_settings("Set up locked notes first: choose a password below.", error=True)
+    if note.unreadable or not vault.is_unlocked():
+        return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
+    if not note.locked:
+        _lock_note(note)
+        db.scrub_index()
+    return redirect(url_for("view", note_id=note_id))
+
+
+@app.route("/note/<note_id>/remove-lock", methods=["POST"])
+def note_remove_lock(note_id):
+    note = _find_note_by_id(note_id)
+    if not note:
+        abort(404)
+    if note.unreadable:
+        if note.damaged:
+            return redirect(url_for("view", note_id=note_id))
+        return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
+    if note.locked:
+        _unlock_note(note)
+        embed.embed_note(note)
+    return redirect(url_for("view", note_id=note_id))
 
 
 def create_app():

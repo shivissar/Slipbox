@@ -15,6 +15,12 @@ sudo apt install pandoc    # Ubuntu/Debian</code></pre>
     <p class="meta">
       Exporting <strong>{{ title }}</strong> — {{ notes_list|length }} note{{ 's' if notes_list|length != 1 else '' }}.
     </p>
+    {%- set n_locked = notes_list|selectattr("locked")|list|length %}
+    {%- if n_locked %}
+    <div class="flash warn">
+      {{ n_locked }} of these notes {{ "is" if n_locked == 1 else "are" }} locked. The exported file is <strong>not</strong> encrypted: anyone who can open it can read {{ "it" if n_locked == 1 else "them" }}.
+    </div>
+    {%- endif %}
 
     {% if error %}
       <div class="flash error">

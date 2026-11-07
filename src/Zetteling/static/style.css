@@ -1022,3 +1022,50 @@ button.danger { color: var(--danger); }
   display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 0; border-radius: 12px;
   background: var(--surface-2); color: var(--ink); box-shadow: 0 2px 0 var(--line); font: inherit; font-weight: 800; cursor: pointer;
 }
+
+/* ------------------------------------------------------------------ *
+ * 5.1 Locked notes
+ * ------------------------------------------------------------------ */
+.chip-lock { background: var(--surface-2); color: var(--ink); gap: 5px; }
+.chip-lock svg { width: 14px; height: 14px; }
+.nc-locked { display: inline-flex; align-items: center; gap: 5px; font-style: italic; }
+.nc-locked svg { width: 13px; height: 13px; }
+.locked-card {
+  margin: 28px 0; padding: 28px; border-radius: 22px; background: var(--surface-2);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+}
+.locked-card h2 { margin: 0; font-size: 1.35em; }
+.locked-card p { margin: 0; color: var(--ink-2); }
+.locked-icon {
+  width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent-text);
+}
+.locked-icon svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.unlock-form { display: flex; gap: 10px; flex-wrap: wrap; width: 100%; max-width: 460px; }
+.unlock-form input[type="password"] { flex: 1 1 220px; }
+.locked-note-msg { padding: 18px; border-radius: 14px; background: var(--surface-2); color: var(--ink-2); }
+.vault-page { justify-content: center; align-items: center; }
+.vault-card { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 14px; padding: 12px 4px 40px; }
+.vault-card-wide { max-width: 640px; }
+.vault-card h1 { margin: 6px 0 0; }
+.vault-card p { margin: 0; }
+.vault-form { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 460px; }
+.vault-form .btn { align-self: flex-start; margin-top: 6px; }
+.vault-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; width: 100%; }
+.vault-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.vault-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.vault-actions a[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.vault-tips { margin: 0; padding-left: 1.2em; color: var(--ink-2); display: grid; gap: 4px; }
+.recovery-key {
+  font-family: var(--font-mono); font-size: 1.15em; font-weight: 600; letter-spacing: 0.04em; line-height: 1.7;
+  padding: 16px 18px; border-radius: 14px; background: var(--surface-2); color: var(--ink);
+  word-break: break-word; user-select: all;
+}
+.kind-checks { display: flex; gap: 8px 18px; flex-wrap: wrap; }
+.check-row { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; }
+.inline-unlock { display: inline-flex; gap: 6px; align-items: center; }
+.inline-unlock input { width: 190px; min-height: 34px; }
+@media print {
+  .sidebar, .listcol, .rail, .pane-bar, .vault-actions, .scene, .settings-nav { display: none !important; }
+  .recovery-key { border: 1px solid #000; background: none; }
+}

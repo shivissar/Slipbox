@@ -105,6 +105,9 @@ def get_conn():
         conn.execute("PRAGMA journal_mode=WAL")
     except sqlite3.OperationalError:
         pass
+    # 5.1: overwrite deleted rows with zeros, so text removed from the
+    # index when a note is locked doesn't linger in free pages.
+    conn.execute("PRAGMA secure_delete=ON")
     try:
         yield conn
         conn.commit()
@@ -151,19 +154,26 @@ def init_db():
             if "duplicate column" not in str(e).lower():
                 raise
         conn.execute("CREATE INDEX IF NOT EXISTS idx_notes_modified ON notes_meta(modified)")
+        # Migration: 5.1 locked notes.
+        try:
+            conn.execute("ALTER TABLE notes_meta ADD COLUMN locked INTEGER DEFAULT 0")
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
 
 
 
 
 def upsert_note(note):
     """Insert or update a note in meta, FTS, links, and thread tables."""
+    locked = bool(getattr(note, "locked", False))
     with get_conn() as conn:
         conn.execute(
             """
             INSERT INTO notes_meta
                 (id, filename, title, created, modified, type, kind,
-                 tags_json, threads_json, refs_json, mtime)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 tags_json, threads_json, refs_json, mtime, locked)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 filename     = excluded.filename,
                 title        = excluded.title,
@@ -174,7 +184,8 @@ def upsert_note(note):
                 tags_json    = excluded.tags_json,
                 threads_json = excluded.threads_json,
                 refs_json    = excluded.refs_json,
-                mtime        = excluded.mtime
+                mtime        = excluded.mtime,
+                locked       = excluded.locked
             """,
             (
                 note.id,
@@ -188,15 +199,17 @@ def upsert_note(note):
                 json.dumps(note.threads),
                 json.dumps(note.refs),
                 note.mtime,
+                1 if locked else 0,
             ),
         )
         conn.execute("DELETE FROM notes_fts WHERE id = ?", (note.id,))
         conn.execute(
             "INSERT INTO notes_fts (id, title, body, tags) VALUES (?, ?, ?, ?)",
-            (note.id, note.title, note.body, " ".join(note.tags)),
+            # A locked note's text never enters the index, even while open.
+            (note.id, note.title, "" if locked else note.body, " ".join(note.tags)),
         )
         conn.execute("DELETE FROM links WHERE src_id = ?", (note.id,))
-        for dst in note.outgoing_links:
+        for dst in (() if locked else note.outgoing_links):
             if dst != note.id:
                 conn.execute(
                     "INSERT OR IGNORE INTO links (src_id, dst_id) VALUES (?, ?)",
@@ -760,7 +773,7 @@ def list_recent_cards(limit=50, kind=None):
     """Like list_recent, plus a short plain-text snippet and the first
     thread name, for the note list column."""
     sql = (
-        "SELECT m.id, m.title, m.modified, m.kind, m.threads_json, "
+        "SELECT m.id, m.title, m.modified, m.kind, m.threads_json, m.locked, "
         "(SELECT substr(f.body, 1, 400) FROM notes_fts f WHERE f.id = m.id LIMIT 1) AS head "
         "FROM notes_meta m "
     )
@@ -781,6 +794,7 @@ def list_recent_cards(limit=50, kind=None):
             "kind": r["kind"] or "research",
             "snippet": _plain_snippet(r["head"], titles=titles),
             "thread": _first_thread(r["threads_json"]),
+            "locked": bool(r["locked"]),
         })
     return out
 
@@ -881,3 +895,45 @@ def sidebar_counts():
     except Exception as e:  # pragma: no cover - defensive
         print(f"[db] sidebar_counts failed: {e}")
     return out
+
+
+# ---------- 5.1 locked notes ---------- #
+
+
+def scrub_index():
+    """After notes are locked: merge the full-text index so deleted text is
+    rewritten out of its segments, and fold the write-ahead log back into
+    the database file. With secure_delete on, freed pages are zeroed."""
+    with get_conn() as conn:
+        try:
+            conn.execute("INSERT INTO notes_fts(notes_fts) VALUES('optimize')")
+        except sqlite3.OperationalError:
+            pass
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.execute("PRAGMA secure_delete=ON")
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.close()
+    except sqlite3.Error:
+        pass
+
+
+def locked_ids(kind=None):
+    sql = "SELECT id FROM notes_meta WHERE locked = 1"
+    params = []
+    if kind:
+        sql += " AND kind = ?"
+        params.append(kind)
+    with get_conn() as conn:
+        return [r["id"] for r in conn.execute(sql, params).fetchall()]
+
+
+def ids_for_kind(kind):
+    with get_conn() as conn:
+        return [r["id"] for r in conn.execute("SELECT id FROM notes_meta WHERE kind = ?", (kind,)).fetchall()]
+
+
+def is_locked(note_id):
+    with get_conn() as conn:
+        r = conn.execute("SELECT locked FROM notes_meta WHERE id = ?", (note_id,)).fetchone()
+    return bool(r and r["locked"])

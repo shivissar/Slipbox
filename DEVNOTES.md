@@ -83,3 +83,33 @@ v5.0.1 autosave (8 Nov 2026)
   stale-request ordering, racing first saves). Not yet checked in
   the Toga WebView: whether pagehide fires on window close or quit. The
   1.5 s debounce limits loss there to the last pause.
+
+v5.1.0 locked notes (8 Nov 2026)
+- vault.py holds all crypto (pyca/cryptography; no primitives of our own).
+  Data key (32 random bytes) wrapped with AES-256-GCM under
+  Argon2id(password) and under HKDF-SHA-256(recovery key); per save a
+  32-byte salt -> HKDF-SHA-256 one-use key -> AES-256-GCM with 12-byte random
+  nonce, AAD "zetteling-locked-v1|<vault_id>|<note_id>". Armoured body:
+  base64 JSON between BEGIN/END lines; the payload carries the vault header.
+- Argon2id: tries RFC 9106 first recommended (2 GiB, t=1, p=4), falls back
+  to second (64 MiB, t=3, p=4) on allocation failure; scrypt only if
+  Argon2id is unavailable. ZETTEL_VAULT_KDF=light forces the second setting
+  (tests only). Measured in the Linux container: 5.1 s for 2 GiB, 0.14 s
+  for 64 MiB; expect faster on Apple silicon. Not yet measured on a Mac.
+- notes.parse_file decrypts when the vault is open; otherwise body "" and
+  unreadable=True. write_note never writes a locked body in plain text: an
+  unreadable note writes its existing ciphertext back (metadata-only), a
+  readable one is re-encrypted, a closed vault raises VaultLocked.
+- db.upsert_note indexes "" and no links for locked notes; embed_note
+  deletes any vector and returns. secure_delete=ON on every connection;
+  scrub_index() runs FTS optimize + wal_checkpoint(TRUNCATE) after locking.
+  Checked: a unique word is gone from zettel.db/-wal/-shm after locking.
+- Idle lock: before_request locks when idle > lock_after_minutes (background
+  paths excluded); the page also runs a timer that flushes the editor,
+  posts /vault/lock and reloads.
+- Tests: tests/test_vault.py (12 unit tests), plus Playwright checks outside
+  the repo (24: set-up, recovery page, lock, palette lock, closed view,
+  wrong password, unlock, autosave encrypted, inline unlock, kind lock, new
+  journal locked, idle lock, export guard).
+- Not checked on macOS: Argon2id 2 GiB timing and memory inside the Toga
+  app; print layout of the recovery key page in WKWebView.

@@ -21,7 +21,7 @@ tested on Apple-silicon Macs (M1 and later).
 
 ### Step 1: Copy it into Applications
 
-1. Double-click the `Zetteling-5.0.1.dmg` file you were given. A window opens.
+1. Double-click the `Zetteling-5.1.0.dmg` file you were given. A window opens.
 2. Drag **Zetteling** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 
@@ -104,6 +104,16 @@ sidebar). You can choose:
 - whether the background illustrations are shown.
 
 Changes apply immediately.
+
+### Lock private notes (optional)
+
+You can encrypt the text of chosen notes, or of every note of a kind (your
+journal, say), so it can't be read outside Zetteling without your password.
+Open **Settings → Locked notes**, choose a password, and **save the recovery
+key** you're shown: if you forget the password, it's the only way back in.
+Then use the padlock button on any note, or tick a kind under *Always lock
+these kinds*. **Help → Locked notes** explains exactly what is and isn't
+encrypted.
 
 ### Connect Zotero (optional)
 

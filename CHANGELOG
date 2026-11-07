@@ -3,6 +3,28 @@
 The full, user-facing history is on the About page inside the app
 (src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
 
+## 5.1.0 (November 2026)
+
+* Locked notes. Per-note lock (padlock button, palette) and per-kind lock
+  (Settings → Locked notes → Always lock these kinds; existing notes of the
+  kind are locked when it's ticked). Body encrypted with AES-256-GCM under a
+  one-use key from HKDF-SHA-256 per save; random 256-bit data key wrapped
+  under Argon2id(password) (RFC 9106 first recommended setting, falling back
+  to the second) and under a 256-bit recovery key. Title, tags, kind,
+  threads and dates stay plain.
+* Open until quit or an idle time (5/15/30/60 min or never); "Lock now";
+  inline unlock in the editor; change password; reset with recovery key;
+  remove one lock or all.
+* Locked text never enters the search index, links table or embeddings and
+  is never sent to AI; index uses SQLite secure_delete and is optimised and
+  checkpointed after locking. Export warns that output is unencrypted.
+* Wrapped keys in .zetteling-vault.json in the notes folder and a copy in
+  every locked note.
+* Pages and API replies are sent with Cache-Control: no-store, so decrypted
+  text isn't kept in the web view's disk cache.
+* POSTs from other websites are refused (Origin/Referer must match), so a
+  page in a browser can't drive the local server, e.g. to remove locks.
+
 ## 5.0.1 (November 2026)
 
 * Autosave: the editor saves 1.5 s after typing stops and once more when it

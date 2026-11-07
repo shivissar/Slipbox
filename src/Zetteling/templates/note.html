@@ -9,8 +9,23 @@
     <div class="pane-bar">
       <button type="button" class="icon-btn only-narrow" data-toggle-list aria-label="Show note list" title="Note list">{{ icon("list") }}</button>
       {{ kind_chip(note.kind) }}
+      {%- if note.locked %}<span class="chip chip-lock" title="The text of this note is encrypted on disk">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
       <span class="grow"></span>
+      {%- if not note.unreadable %}
       <a class="btn" href="{{ url_for('edit', note_id=note.id) }}" title="Edit (⌘E)">{{ icon("edit") }}Edit</a>
+      {%- endif %}
+      {%- if note.locked %}
+      {%- if not note.unreadable %}
+      <form method="post" action="{{ url_for('note_remove_lock', note_id=note.id) }}" class="inline"
+            onsubmit="return confirm('Remove the lock from this note?\n\nIts text will be saved as plain text again, readable in any editor.');">
+        <button type="submit" class="icon-btn" aria-label="Remove lock" title="Remove lock">{{ icon("unlock") }}</button>
+      </form>
+      {%- endif %}
+      {%- else %}
+      <form method="post" action="{{ url_for('note_lock', note_id=note.id) }}" class="inline">
+        <button type="submit" class="icon-btn" aria-label="Lock this note" title="{{ 'Lock this note (encrypt its text)' if vault_state.set_up else 'Lock this note: set up a password first' }}">{{ icon("lock") }}</button>
+      </form>
+      {%- endif %}
       <a class="icon-btn" href="{{ url_for('split_picker', note_id=note.id) }}" aria-label="Open another note beside this one" title="Open another note beside this one">{{ icon("split") }}</a>
       <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export">{{ icon("export") }}</a>
       <form method="post" action="{{ url_for('delete', note_id=note.id) }}" class="inline"
@@ -33,7 +48,27 @@
           {%- for t in note.tags %}<a class="chip tag-chip" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>{% endfor %}
         </p>
         {%- endif %}
+        {%- if note.unreadable %}
+        <div class="locked-card">
+          <div class="locked-icon" aria-hidden="true">{{ icon("lock") }}</div>
+          {%- if note.damaged %}
+          <h2>This locked note can’t be opened</h2>
+          <p>Its encrypted text was changed outside Zetteling or is damaged. If you have a backup of this file from before the damage, restore it.</p>
+          {%- else %}
+          <h2>This note is locked</h2>
+          <p>Enter your password to open locked notes. They stay open until you quit{% if vault_state.idle_seconds %} or leave Zetteling idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.</p>
+          <form method="post" action="{{ url_for('unlock_page') }}" class="unlock-form" data-unlock-form>
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label class="sr-only" for="unlock-pw">Password</label>
+            <input type="password" id="unlock-pw" name="password" autocomplete="current-password" placeholder="Password" required autofocus>
+            <button type="submit" class="btn btn-primary">Unlock</button>
+          </form>
+          <p class="hint">Opening takes a second or two: the password is deliberately slow to check, so it’s slow to guess. <a href="{{ url_for('vault_recover') }}">Forgot it?</a></p>
+          {%- endif %}
+        </div>
+        {%- else %}
         <div class="rendered">{{ rendered|safe }}</div>
+        {%- endif %}
         {%- if refs_resolved %}
         <div class="refs-box">
           <strong>Refs</strong>
@@ -54,6 +89,8 @@
         {%- if chat_available %}
         <a role="tab" aria-selected="{{ 'true' if rail == 'chat' else 'false' }}" href="{{ url_for('note_chat', note_id=note.id) }}"
            class="seg-tab {% if rail == 'chat' %}on{% endif %}" title="Interrogate (⌘I)">Interrogate{% if chat_length %} · {{ chat_length // 2 }}{% endif %}</a>
+        {%- elif note.locked %}
+        <span role="tab" aria-selected="false" aria-disabled="true" class="seg-tab" title="Locked notes are never sent to an AI provider">Interrogate</span>
         {%- else %}
         <a role="tab" aria-selected="false" href="{{ url_for('settings_page') }}#ai" class="seg-tab" title="Choose an AI provider in Settings to interrogate notes">Interrogate</a>
         {%- endif %}
@@ -138,7 +175,11 @@
         {%- for r in similar %}
         <a class="rail-link" href="{{ url_for('view', note_id=r.id) }}">{{ kind_tile(r.kind) }}<span>{{ r.title }}</span></a>
         {%- else %}
+        {%- if note.locked %}
+        <p class="rail-empty">Locked notes are never sent to an AI provider, so they have no related notes.</p>
+        {%- else %}
         <p class="rail-empty">None yet. Related notes appear once an embedding provider is set up and your notes are indexed (<a href="{{ url_for('settings_page') }}#ai">Settings → AI</a>).</p>
+        {%- endif %}
         {%- endfor %}
         {%- if similar %}
         <p class="rail-note">{{ icon("sprout", "i sm") }}<span>Ranked by embedding similarity: a prompt for rediscovery, not a measure of closeness.</span></p>
