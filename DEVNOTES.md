@@ -57,3 +57,12 @@ Testing done for v5.0 (in a Linux container, not on macOS)
   palette search, theme and accent changes, welcome flow exercised.
 - Not tested: the Toga WebView itself, native menu interaction with the
   keyboard shortcuts, and a Briefcase build. Run `briefcase dev` first.
+
+Build fix (8 Nov 2026)
+- First macOS build of v5 failed in the x86_64 half of the universal build:
+  cryptography 49.0.0+ publishes arm64-only macOS wheels, and Briefcase
+  re-installs the arm64-resolved versions for Intel. Pinned
+  "cryptography<49" in the macOS requires (48.0.1 ships a universal2 wheel).
+  Checked with pip download for macosx_11_0_arm64 and macosx_11_0_x86_64:
+  both resolve the same 54 wheels. Alternative if the pin becomes a burden:
+  universal_build = false (Apple Silicon only).
