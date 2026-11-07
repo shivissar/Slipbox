@@ -57,22 +57,76 @@ PROVIDER_LABELS = {
     "openai": "OpenAI-compatible (OpenAI, OpenRouter, Together, Groq, DeepSeek, …)",
     "gemini": "Google Gemini",
     "ollama": "Ollama (local models)",
-    "voyage": "Voyage AI (Anthropic's recommended embeddings partner)",
+    "voyage": "Voyage AI (embeddings only)",
 }
 
+# v5.0: defaults refreshed in November 2026. The Gemini chat default is
+# Google's "latest" alias, which Google moves to each new Flash release
+# with two weeks' notice, so it does not go stale the way a pinned name
+# does. gemini-2.0-flash (shut down 1 June 2026) and text-embedding-004
+# (shut down 14 January 2026) were the previous defaults.
 DEFAULT_MODELS = {
-    "anthropic": "claude-haiku-4-5-20251001",
-    "openai": "gpt-4o-mini",
-    "gemini": "gemini-2.0-flash",
+    "anthropic": "claude-haiku-5-5",
+    "openai": "gpt-5.4-mini",
+    "gemini": "gemini-flash-latest",
     "ollama": "qwen2.5:14b",
 }
 
 DEFAULT_EMBED_MODELS = {
     "openai": "text-embedding-3-small",
-    "gemini": "text-embedding-004",
+    "gemini": "gemini-embedding-2",
     "ollama": "nomic-embed-text",
     "voyage": "voyage-3.5",
 }
+
+# Models their providers have shut down, with the date and a suggested
+# replacement. Settings shows a warning if a saved model is on this list.
+# Source: Google's Gemini API deprecations page, checked November 2026.
+# Add entries here as providers announce shutdowns.
+RETIRED_MODELS = {
+    "gemini": {
+        "text-embedding-004": ("14 January 2026", "gemini-embedding-2"),
+        "embedding-001": ("30 October 2025", "gemini-embedding-2"),
+        "gemini-embedding-exp": ("30 October 2025", "gemini-embedding-2"),
+        "gemini-embedding-exp-03-07": ("30 October 2025", "gemini-embedding-2"),
+        "gemini-2.0-flash": ("1 June 2026", "gemini-flash-latest"),
+        "gemini-2.0-flash-001": ("1 June 2026", "gemini-flash-latest"),
+        "gemini-2.0-flash-lite": ("1 June 2026", "gemini-flash-latest"),
+        "gemini-2.0-flash-lite-001": ("1 June 2026", "gemini-flash-latest"),
+    },
+}
+
+
+def _raise_if_retired(provider, model):
+    """Fail fast, with a useful message, if the model has been shut down."""
+    hit = RETIRED_MODELS.get(provider, {}).get(model)
+    if hit:
+        raise AIError(
+            f"The model '{model}' was shut down by its provider on {hit[0]}. "
+            f"Open Settings → AI and switch to '{hit[1]}'."
+        )
+
+
+def retired_model_warnings():
+    """Return a list of warnings for saved chat or embedding models that
+    their provider has shut down. Each warning is a dict with keys:
+    role ("chat" or "embed"), provider, model, date, replacement."""
+    out = []
+    for role, prefix, defaults in (
+        ("chat", "ai_chat_", DEFAULT_MODELS),
+        ("embed", "ai_embed_", DEFAULT_EMBED_MODELS),
+    ):
+        provider = (settings.get(prefix + "provider", "") or "").strip()
+        if not provider:
+            continue
+        model = (settings.get(prefix + "model", "") or "").strip() or defaults.get(provider, "")
+        hit = RETIRED_MODELS.get(provider, {}).get(model)
+        if hit:
+            out.append({
+                "role": role, "provider": provider, "model": model,
+                "date": hit[0], "replacement": hit[1],
+            })
+    return out
 
 # Anthropic does not offer its own embedding models; they recommend Voyage AI
 # as their partner. Voyage is embeddings-only (no chat), so it's in
@@ -262,6 +316,7 @@ class GeminiProvider(AIProvider):
             raise AIError("google-genai SDK not installed. Run: pip install google-genai")
         if not self.api_key:
             raise AIError("Gemini API key not configured. Set it in /settings.")
+        _raise_if_retired("gemini", self.model)
         client = _genai_sdk.Client(api_key=self.api_key)
         # Map our messages format to Gemini's. For single-turn (test_connection
         # and most note interrogation calls in the current build), pass the
@@ -303,8 +358,8 @@ class GeminiProvider(AIProvider):
                     f"Gemini rejected the model name '{self.model}'. "
                     f"Check Settings → chat provider → Model for "
                     f"whitespace, typos, or an invalid model name. Common "
-                    f"valid names: gemini-2.0-flash, gemini-2.5-flash, "
-                    f"gemini-2.5-pro. (Raw error: {msg[:200]})"
+                    f"valid names: gemini-flash-latest (always the newest "
+                    f"Flash model). (Raw error: {msg[:200]})"
                 )
             raise AIError(f"Gemini call failed: {msg}")
         return getattr(resp, "text", "") or ""
@@ -314,6 +369,7 @@ class GeminiProvider(AIProvider):
             raise AIError("google-genai SDK not installed. Run: pip install google-genai")
         if not self.api_key:
             raise AIError("Gemini API key not configured. Set it in /settings.")
+        _raise_if_retired("gemini", self.model)
         client = _genai_sdk.Client(api_key=self.api_key)
         try:
             resp = client.models.embed_content(model=self.model, contents=text)
@@ -324,7 +380,7 @@ class GeminiProvider(AIProvider):
                     f"Gemini rejected the embed model name '{self.model}'. "
                     f"Check Settings → embed provider → Model for "
                     f"whitespace or typos. Common valid names: "
-                    f"text-embedding-004, gemini-embedding-001. "
+                    f"gemini-embedding-2, gemini-embedding-001. "
                     f"(Raw error: {msg[:200]})"
                 )
             raise AIError(f"Gemini embed failed: {msg}")

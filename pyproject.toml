@@ -2,7 +2,7 @@
 [tool.briefcase]
 project_name = "Zetteling"
 bundle = "com.shivissar"
-version = "4.0.2"
+version = "5.0.0"
 url = "https://shivissar.com/Zetteling"
 license.file = "LICENSE"
 author = "Shiv Issar, Ph.D."
@@ -12,7 +12,10 @@ author_email = "shiv.issar@protonmail.com"
 formal_name = "Zetteling"
 description = "A local-first, plain-text Zettelkasten note-taking app with AI-assisted interrogation, embeddings-based related notes, and bibliography integration."
 icon = "src/zetteling/resources/Zetteling"
-long_description = """More details about the app should go here.
+long_description = """Zetteling keeps each note as a plain Markdown file in a folder you
+choose, and connects notes with links, tags and threads. Optional AI features
+(note interrogation, tag suggestions, related notes) work with Anthropic,
+OpenAI-compatible services, Google Gemini or Ollama on your own Mac.
 """
 sources = [
     "src/Zetteling",

@@ -1,0 +1,39 @@
+{%- from "_ui.html" import icon -%}
+{%- set lk = active_kind if active_kind is defined else "all" -%}
+{%- set current_id = note.id if note is defined and note else None -%}
+<section class="listcol col card" aria-label="Notes">
+  <div class="listcol-head">
+    <div class="listcol-title">
+      <h2>{{ "All notes" if lk == "all" else lk|capitalize }}</h2>
+      <span class="chip chip-accent">{{ nav_counts[lk] if lk in nav_counts else list_cards|length }}</span>
+      <span style="flex: 1"></span>
+      {%- if lk == "journal" %}
+      <a class="btn" href="{{ url_for('journal_new') }}" title="New journal entry, stamped now (⇧⌘N)">{{ icon("plus", "i sm") }}Entry</a>
+      {%- endif %}
+    </div>
+    <label class="sr-only" for="list-search">Search all notes</label>
+    <input id="list-search" class="list-search" type="search" name="q" placeholder="Search all notes"
+           autocomplete="off" value="{{ q if q is defined and q else '' }}"
+           hx-get="{{ url_for('search') }}" hx-trigger="input changed delay:200ms, search"
+           hx-target="#list-results" hx-push-url="false">
+  </div>
+  <div id="list-results" class="search-results">
+    {%- if results is defined and q %}{% include "_search_results.html" %}{% endif -%}
+  </div>
+  <ul class="cards" id="list-cards" {% if results is defined and q %}hidden{% endif %}>
+    {%- for c in list_cards %}
+    <li>
+      <a class="nc {% if c.id == current_id %}active{% endif %}" href="{{ url_for('view', note_id=c.id) }}" {% if c.id == current_id %}aria-current="true"{% endif %}>
+        <span class="nc-title">{% if lk == "all" %}<span class="dot dot-{{ c.kind }}" aria-hidden="true"></span>{% endif %}<span>{{ c.title }}</span></span>
+        {%- if c.snippet %}<span class="nc-snip">{{ c.snippet }}</span>{% endif %}
+        <span class="nc-meta"><span>{{ c.modified[:10] if c.modified else "" }}</span>{% if c.thread %}<span class="chip chip-thread">{{ c.thread }}</span>{% endif %}</span>
+      </a>
+    </li>
+    {%- else %}
+    <li class="empty-list">
+      {%- if lk != "all" %}No {{ lk }} notes yet. <a href="{{ url_for('new', kind=lk) }}">Write the first one</a>.
+      {%- else %}No notes yet. <a href="{{ url_for('new') }}">Write your first one</a>.{% endif %}
+    </li>
+    {%- endfor %}
+  </ul>
+</section>

@@ -35,9 +35,10 @@ from . import embed
 from . import export
 from . import notes
 from . import settings
+from . import themes
 from . import watcher
 
-__version__ = "4.0.2"
+__version__ = "5.0.0"
 
 app = Flask(__name__)
 
@@ -80,12 +81,19 @@ _warn_if_insecure_secret_key()
 
 @app.context_processor
 def inject_globals():
-    """Make version and attribution available in every template."""
+    """Make version, attribution, appearance and sidebar counts available
+    in every template."""
     return {
         "version": __version__,
         "attribution": "Created by Shiv Issar, Ph.D., inspired by Prof. Niklas Luhmann and Prof. Aneesh Aneesh",
         "pandoc_available": export.PANDOC_AVAILABLE,
+        "appearance": themes.current(),
+        "nav_counts": db.sidebar_counts(),
+        "kinds": KINDS,
     }
+
+
+KINDS = ("research", "journal", "teaching", "life")
 
 
 # ---------- Wikilink markdown extension ---------- #
@@ -132,12 +140,39 @@ class CitekeyProcessor(InlineProcessor):
         if entry:
             el.set("class", "citekey")
             tooltip = f"{entry.get('author', '')} ({entry.get('year', '')}) — {entry.get('title', '')}"
-            el.set("title", tooltip.strip(" —"))
+            el.set("title", f"{tooltip.strip(' —')}  ·  @{citekey}")
+            # v5.0: show an author-date label ("Suchman 1987") instead of
+            # the raw key. The note file still holds @citekey, so pandoc
+            # export and citeproc are unaffected.
+            el.text = _cite_label(entry) or f"@{citekey}"
         else:
             el.set("class", "citekey broken")
             el.set("title", f"Unknown citekey: {citekey}")
-        el.text = f"@{citekey}"
+            el.text = f"@{citekey}"
         return el, m.start(0), m.end(0)
+
+
+def _cite_label(entry):
+    """'Suchman 1987', 'Latour and Woolgar 1979' or 'Star et al. 1999'
+    from a bib entry's author and year fields."""
+    authors = [a.strip() for a in (entry.get("author") or "").replace("\n", " ").split(" and ") if a.strip()]
+
+    def surname(a):
+        a = a.strip("{} ")
+        if "," in a:
+            return a.split(",", 1)[0].strip("{} ")
+        return a.split()[-1].strip("{} ") if a.split() else a
+
+    if not authors:
+        return ""
+    if len(authors) == 1:
+        names = surname(authors[0])
+    elif len(authors) == 2:
+        names = f"{surname(authors[0])} and {surname(authors[1])}"
+    else:
+        names = f"{surname(authors[0])} et al."
+    year = (entry.get("year") or "").strip()
+    return f"{names} {year}".strip()
 
 
 class CitekeyExtension(Extension):
@@ -165,68 +200,11 @@ MD = markdown.Markdown(
 )
 
 
-# v3.17: optional HTML sanitization. Defaults OFF so existing users who
-# legitimately use inline HTML in their notes see no change. Turn ON via
-# Settings → sanitize_note_html if you ever import external markdown,
-# sync notes with another person via Syncthing, or expose the app over
-# the network. See the trust model section on the Privacy page.
-_BLEACH_AVAILABLE = None
-_bleach = None
-
-
-def _get_bleach():
-    """Lazy-import bleach so users who don't enable sanitization don't
-    pay the dependency cost. Returns the bleach module or None."""
-    global _BLEACH_AVAILABLE, _bleach
-    if _BLEACH_AVAILABLE is None:
-        try:
-            import bleach as _bl
-            _bleach = _bl
-            _BLEACH_AVAILABLE = True
-        except ImportError:
-            _BLEACH_AVAILABLE = False
-    return _bleach if _BLEACH_AVAILABLE else None
-
-
-# Conservative allowlist. Covers everything Markdown normally generates
-# (headings, lists, code blocks, tables, footnotes, links, emphasis)
-# plus the specific classes Zetteling's wikilink and citekey extensions
-# produce. Does NOT allow <script>, <iframe>, <object>, <embed>, or
-# style/on* attributes.
-_SAFE_TAGS = [
-    "a", "abbr", "b", "blockquote", "br", "code", "em", "h1", "h2", "h3",
-    "h4", "h5", "h6", "hr", "i", "img", "li", "ol", "p", "pre", "span",
-    "strong", "sub", "sup", "table", "tbody", "td", "th", "thead", "tr",
-    "ul", "div", "mark",
-]
-_SAFE_ATTRS = {
-    "a": ["href", "title", "class"],
-    "span": ["class"],
-    "div": ["class"],
-    "img": ["src", "alt", "title"],
-    "code": ["class"],
-    "th": ["align", "scope"],
-    "td": ["align"],
-}
-
-
-def render_markdown(body):
-    """Convert Markdown to HTML, optionally sanitizing if the user has
-    opted in via the sanitize_note_html setting. The MD converter's
-    .reset() is important because the same instance is reused across
-    requests and carries footnote state between calls otherwise."""
-    MD.reset()
-    html = MD.convert(body)
-    if settings.get("sanitize_note_html", False):
-        bleach = _get_bleach()
-        if bleach is not None:
-            html = bleach.clean(
-                html,
-                tags=_SAFE_TAGS,
-                attributes=_SAFE_ATTRS,
-                strip=True,
-            )
-    return html
+# v3.17: optional HTML sanitization, off by default so existing users who
+# legitimately use inline HTML in their notes see no change. Turn it on in
+# Settings → Writing if you ever import external Markdown. v5.0 removed a
+# second, unused copy of this renderer (render_markdown) that had a
+# slightly different allowlist; _render_note_html is the only one.
 
 
 def _render_note_html(body):
@@ -297,32 +275,95 @@ def _find_note_by_id(note_id):
 # ---------- Routes ---------- #
 
 
+def _clean_kind(value, default="research", allow_all=True):
+    value = (value or "").strip().lower()
+    allowed = KINDS + (("all",) if allow_all else ())
+    return value if value in allowed else default
+
+
+def _list_for(kind):
+    """Cards for the note list column."""
+    return db.list_recent_cards(60, kind=None if kind == "all" else kind)
+
+
+def _search_results(q):
+    """Full-text search that never raises on odd input (an unmatched
+    quote, a lone hyphen) — falls back to the forgiving prefix search."""
+    if not q:
+        return []
+    try:
+        return db.search(q)
+    except Exception:
+        return [
+            {"id": r["id"], "title": r["title"], "modified": r["modified"], "snip": r.get("snip", "")}
+            for r in db.quick_search(q, limit=50)
+        ]
+
+
 @app.route("/")
 def index():
-    kind = request.args.get("kind", "research").strip().lower()
-    if kind not in ("research", "journal", "teaching", "life", "all"):
-        kind = "research"
-    filter_kind = None if kind == "all" else kind
+    counts = db.kind_counts()
+    if counts.get("all", 0) == 0 and not settings.get("welcomed", False):
+        return redirect(url_for("welcome"))
+    kind = _clean_kind(request.args.get("kind", "research"))
     return render_template(
         "index.html",
-        recent=db.list_recent(50, kind=filter_kind),
+        list_cards=_list_for(kind),
         active_kind=kind,
-        kind_counts=db.kind_counts(),
+        kind_counts=counts,
     )
+
+
+@app.route("/welcome", methods=["GET", "POST"])
+def welcome():
+    """First-run screen. Shown once, when there are no notes yet."""
+    notes_dir_changed = False
+    if request.method == "POST":
+        updates = {"welcomed": True}
+        new_dir = request.form.get("notes_dir", "").strip()
+        if new_dir and str(Path(new_dir).expanduser()) != str(Path(settings.get_notes_dir()).expanduser()):
+            target = Path(new_dir).expanduser()
+            try:
+                target.mkdir(parents=True, exist_ok=True)
+                updates["notes_dir"] = str(target)
+                notes_dir_changed = True
+            except OSError as e:
+                return render_template("welcome.html", error=f"Could not use that folder: {e}",
+                                       active_notes_dir=settings.get_notes_dir(),
+                                       bib_path=settings.get("bib_path", ""))
+        bib_path = request.form.get("bib_path", "").strip()
+        if bib_path:
+            updates["bib_path"] = bib_path
+        settings.save(updates)
+        if bib_path:
+            bib.restart_bib_watcher()
+        if notes_dir_changed:
+            return render_template("welcome.html", restart_needed=True,
+                                   active_notes_dir=updates["notes_dir"],
+                                   bib_path=settings.get("bib_path", ""))
+        return redirect(url_for("new"))
+    return render_template("welcome.html", active_notes_dir=settings.get_notes_dir(),
+                           bib_path=settings.get("bib_path", ""))
+
+
+@app.route("/welcome/skip", methods=["POST"])
+def welcome_skip():
+    settings.save({"welcomed": True})
+    return redirect(url_for("index"))
 
 
 @app.route("/search")
 def search():
     q = request.args.get("q", "").strip()
-    results = db.search(q) if q else []
+    results = _search_results(q)
     if request.headers.get("HX-Request"):
         return render_template("_search_results.html", results=results, q=q)
     return render_template(
         "index.html",
-        recent=db.list_recent(50, kind="research"),
+        list_cards=_list_for("all"),
         results=results,
         q=q,
-        active_kind="research",
+        active_kind="all",
         kind_counts=db.kind_counts(),
     )
 
@@ -347,19 +388,43 @@ def view(note_id):
                 if t["next_id"] else None
             ),
         })
+    thread_contexts = _thread_positions(note_id, thread_contexts)
     similar = embed.find_related(note_id, k=8) if db.SQLITE_VEC_AVAILABLE else []
-    chat_length = chat.conversation_length(note_id)
-    chat_available = ai.get_provider() is not None
     return render_template(
         "note.html",
-        note=note,
-        rendered=rendered,
+        rail="context",
         backlinks=backlinks,
         thread_contexts=thread_contexts,
         similar=similar,
-        chat_length=chat_length,
-        chat_available=chat_available,
+        **_note_page_context(note, rendered),
     )
+
+
+def _thread_positions(note_id, thread_contexts):
+    """Add 'position' and 'length' to each thread context for the
+    stepping-stones indicator in the side panel."""
+    for tc in thread_contexts:
+        chain = db.thread_chain(tc["name"])
+        ids = [c["id"] for c in chain]
+        tc["length"] = len(ids)
+        tc["position"] = ids.index(note_id) + 1 if note_id in ids else None
+    return thread_contexts
+
+
+def _note_page_context(note, rendered):
+    """Values every note page (reading or interrogating) shares."""
+    kind = note.kind or "research"
+    return {
+        "note": note,
+        "rendered": rendered,
+        "active_kind": kind,
+        "list_cards": _list_for(kind),
+        "chat_length": chat.conversation_length(note.id),
+        "chat_available": ai.get_provider() is not None,
+        "refs_resolved": [
+            {"key": k, "entry": db.get_bib_entry(k)} for k in (note.refs or [])
+        ],
+    }
 
 
 @app.route("/note/<note_id>/edit", methods=["GET", "POST"])
@@ -531,6 +596,35 @@ def api_citekeys():
     return jsonify(db.search_bib(q, limit=15))
 
 
+@app.route("/api/notes/search")
+def api_notes_search():
+    """JSON for the [[ link picker and the command palette."""
+    q = request.args.get("q", "").strip()[:100]
+    exclude = request.args.get("exclude", "").strip() or None
+    limit = min(max(int(request.args.get("limit", 8) or 8), 1), 20)
+    return jsonify(db.quick_search(q, limit=limit, exclude_id=exclude))
+
+
+@app.route("/api/notes/titles")
+def api_notes_titles():
+    """Titles for a comma-separated list of note ids (editor's 'Links in
+    this note' list)."""
+    ids = [i.strip() for i in request.args.get("ids", "").split(",") if i.strip()]
+    return jsonify(db.titles_for(ids))
+
+
+@app.route("/api/appearance", methods=["POST"])
+def api_appearance():
+    """Save appearance choices. Called by Settings → Appearance and by the
+    command palette's theme commands; the page applies changes itself."""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    cleaned = themes.clean(data)
+    if not cleaned:
+        return jsonify({"ok": False, "message": "Nothing to save."}), 400
+    settings.save(cleaned)
+    return jsonify({"ok": True, "saved": cleaned, "appearance": themes.current()})
+
+
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
     saved = False
@@ -540,6 +634,7 @@ def settings_page():
         updates = {
             "bib_path": request.form.get("bib_path", "").strip(),
             "notes_dir": request.form.get("notes_dir", "").strip(),
+            "export_dir": request.form.get("export_dir", "").strip(),
             "ai_chat_provider": request.form.get("ai_chat_provider", "").strip(),
             "ai_chat_model": request.form.get("ai_chat_model", "").strip(),
             "ai_chat_api_key": request.form.get("ai_chat_api_key", "").strip(),
@@ -572,7 +667,6 @@ def settings_page():
         saved=saved,
         notes_dir_changed=notes_dir_changed,
         error=error,
-        bibtexparser_available=bib.BIBTEXPARSER_AVAILABLE,
         ai_status=ai.provider_status(),
         ai_providers=ai.PROVIDERS,
         ai_provider_labels=ai.PROVIDER_LABELS,
@@ -583,6 +677,16 @@ def settings_page():
         sqlite_vec_available=db.SQLITE_VEC_AVAILABLE,
         embedding_count=db.embedding_count() if db.SQLITE_VEC_AVAILABLE else 0,
         total_notes=len(db.all_note_ids()),
+        active_export_dir=settings.get_export_dir(),
+        env_export_override=os.environ.get("ZETTEL_EXPORT_DIR", "").strip(),
+        retired_warnings=ai.retired_model_warnings(),
+        theme_options=themes.THEMES,
+        light_themes=themes.LIGHT_THEMES,
+        dark_themes=themes.DARK_THEMES,
+        theme_modes=themes.MODES,
+        font_options=themes.FONTS,
+        text_sizes=themes.TEXT_SIZES,
+        accent_swatches=themes.ACCENT_SWATCHES,
     )
 
 
@@ -636,11 +740,12 @@ def note_chat(note_id):
     conversation = chat.get_conversation(note_id)
     provider = ai.get_provider()
     return render_template(
-        "chat.html",
-        note=note,
+        "note.html",
+        rail="chat",
         conversation=conversation,
         error=error,
         provider=provider,
+        **_note_page_context(note, _render_note_html(note.body)),
         suggested_prompts=[
             "What does this note assume?",
             "What's the strongest counterargument to this?",

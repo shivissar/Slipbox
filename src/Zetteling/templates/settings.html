@@ -1,514 +1,378 @@
 {% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
 {% block title %}Settings{% endblock %}
-{% block content %}
-  <h1>Settings</h1>
+{% block main %}
+<main class="pane col card">
+  <div class="pane-bar"><h1 style="margin: 0; font-size: 1.5em; font-weight: 900">Settings</h1></div>
+  <div class="pane-body" style="justify-content: flex-start">
+    <div class="settings" style="width: 100%; max-width: 1040px; margin: 0 auto">
+      <nav class="settings-nav" aria-label="Settings sections">
+        <a href="#appearance">Appearance</a>
+        <a href="#general">Folders</a>
+        <a href="#writing">Writing</a>
+        <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
+        <a href="#bibliography">Bibliography</a>
+        <a href="#about">About and legal</a>
+      </nav>
 
-  {% if saved %}
-    <div class="flash success">
-      Settings saved. The bibliography watcher has been restarted with the new path.
-      {% if current.ai_chat_provider %}
-        <br><br>Click <strong>Test connection</strong> below the AI section to verify your provider is reachable.
-      {% endif %}
-      {% if notes_dir_changed %}
-        <br><br><strong>You changed the notes directory.</strong> Quit the app and relaunch it for the new directory to take effect — the running process is still using the old path.
-      {% endif %}
-    </div>
-  {% endif %}
-  {% if error %}
-    <div class="flash error">Error: {{ error }}</div>
-  {% endif %}
-
-  <form method="post">
-    <h2>Notes directory</h2>
-    <p class="meta">
-      Where your <code>.md</code> files are stored. Set this to a folder
-      inside iCloud Drive, Google Drive, Dropbox, or any other synced
-      location to automatically back up your corpus to the cloud.
-      <strong>Changing this requires restarting the app</strong> — the
-      watcher and the index need to re-bind to the new path.
-    </p>
-
-    {% if env_notes_override %}
-      <div class="flash">
-        <strong>Note:</strong> The environment variable
-        <code>ZETTEL_NOTES_DIR</code> is currently set to
-        <code>{{ env_notes_override }}</code>, which overrides anything
-        you set here. Unset the env var if you want to manage this
-        through the UI instead.
-      </div>
-    {% endif %}
-
-    <label>Notes directory
-      <input type="text" name="notes_dir"
-             value="{{ current.notes_dir }}"
-             placeholder="(default: ./notes inside the project folder)">
-    </label>
-
-    <p class="meta" style="font-size: 0.8rem;">
-      <strong>Currently active:</strong> <code>{{ active_notes_dir }}</code>
-    </p>
-
-    <h2>Note rendering</h2>
-    <label style="display: flex; align-items: flex-start; gap: 0.6rem; margin: 0.8rem 0;">
-      <input type="checkbox" name="sanitize_note_html"
-             {% if current.sanitize_note_html %}checked{% endif %}
-             style="margin-top: 0.25rem;">
-      <span>
-        <strong>Sanitize note HTML output</strong>
-        <div class="meta" style="font-size: 0.82rem;">
-          Strip dangerous HTML (scripts, event handlers, iframes) from rendered
-          notes using the <code>bleach</code> library. Keep this OFF if you
-          write all your own notes and legitimately use inline HTML (admonitions,
-          custom classes, embeds). Turn it ON if you import markdown from
-          untrusted sources — a malicious note could otherwise run JavaScript
-          in your browser when viewed and call Zetteling's own API to read or
-          modify other notes. See the trust model section on the
-          <a href="{{ url_for('privacy_page') }}">privacy page</a> for details.
-          Requires <code>bleach</code> to be installed; if missing, Zetteling
-          falls back to unsanitized output and logs a warning.
+      <div class="settings-main">
+        {%- if saved %}
+        <div class="flash success">
+          Settings saved.
+          {%- if current.ai_chat_provider %} Use <strong>Test connection</strong> under AI to check your provider.{% endif %}
+          {%- if notes_dir_changed %}<br><strong>You changed the notes folder.</strong> Quit Zetteling (⌘Q) and open it again to use the new folder.{% endif %}
         </div>
-      </span>
-    </label>
+        {%- endif %}
+        {%- if error %}<div class="flash error">Error: {{ error }}</div>{% endif %}
 
-    <h2>AI provider</h2>
-    <p class="meta">
-      Optional. Configure an AI backend to enable note interrogation,
-      semantic search, and tag suggestions (the AI features land in
-      M4.2–M4.4). All AI calls are explicit — nothing is sent
-      anywhere unless you click a button. See <a href="{{ url_for('privacy_page') }}">privacy</a> for what each provider sends where.
-    </p>
+        {# ---------------- Appearance: applies and saves instantly ---------------- #}
+        <section class="set-section" id="appearance">
+          <h2>Appearance</h2>
+          <p>Make Zetteling look the way you like. Changes apply straight away and are saved for next time.</p>
 
-    <label>Provider
-      <select name="ai_chat_provider" id="ai-provider-select">
-        <option value="" {% if not current.ai_chat_provider %}selected{% endif %}>None — AI features disabled</option>
-        {% for p in ai_providers %}
-          <option value="{{ p }}" {% if current.ai_chat_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
-        {% endfor %}
-      </select>
-    </label>
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Light or dark</strong><span>“Match my Mac” follows macOS, so the app turns dark in the evening if your Mac does.</span></div>
+              <div class="seg" role="group" aria-label="Light or dark">
+                {%- for key, label in theme_modes.items() %}
+                <button type="button" data-ap-key="theme_mode" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if appearance.mode == key else 'false' }}">{{ label }}</button>
+                {%- endfor %}
+              </div>
+            </div>
 
-    {% if current.ai_chat_provider == 'anthropic' and not ai_status.anthropic_sdk %}
-      <div class="flash error">
-        <strong>The <code>anthropic</code> SDK is not installed.</strong> Run:
-        <pre><code>pip install anthropic</code></pre>
+            {%- for group, keys, ap_key, current_key in [("Light theme", light_themes, "theme_light", appearance.light), ("Dark theme", dark_themes, "theme_dark", appearance.dark)] %}
+            <div class="set-row stack">
+              <div class="set-text"><strong>{{ group }}</strong></div>
+              <div class="theme-grid">
+                {%- for key in keys %}{% set t = theme_options[key] %}{% set pv = t.preview %}
+                <button type="button" class="theme-card" data-ap-key="{{ ap_key }}" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if current_key == key else 'false' }}">
+                  <span class="swatch" style="background: {{ pv.sky }}" aria-hidden="true">
+                    <span class="hill" style="background: {{ pv.hill }}"></span>
+                    <span class="card-mini" style="background: {{ pv.surface }}"><i style="background: {{ pv.ink }}; width: 70%"></i><i style="background: {{ pv.ink }}; opacity: 0.35"></i><i style="background: {{ pv.accent }}; width: 45%"></i></span>
+                  </span>
+                  <b>{{ t.label }}</b><small>{{ t.blurb }}</small>
+                </button>
+                {%- endfor %}
+              </div>
+            </div>
+            {%- endfor %}
+
+            <div class="set-row">
+              <div class="set-text"><strong>Accent colour</strong><span>Buttons, links and highlights. “Theme colour” uses each theme’s own.</span></div>
+              <div class="swatches">
+                <button type="button" class="btn" data-accent="" aria-pressed="{{ 'false' if appearance.accent else 'true' }}">Theme colour</button>
+                {%- for sw in accent_swatches %}
+                <button type="button" class="swatch-btn" data-accent="{{ sw }}" style="background: {{ sw }}" aria-label="Accent {{ sw }}" aria-pressed="{{ 'true' if appearance.accent == sw else 'false' }}"></button>
+                {%- endfor %}
+                <label class="sr-only" for="accent-picker">Pick any colour</label>
+                <input type="color" id="accent-picker" value="{{ (appearance.accent or '#34C38F')|lower }}" title="Pick any colour">
+              </div>
+            </div>
+
+            {%- for group, ap_key, current_font, sample in [("Interface font", "ui_font", appearance.ui_font, "Aa Bb Cc"), ("Reading and writing font", "reading_font", appearance.reading_font, "Plans as resources")] %}
+            <div class="set-row stack">
+              <div class="set-text"><strong>{{ group }}</strong>{% if ap_key == "reading_font" %}<span>Used for note text, titles and the editor.</span>{% endif %}</div>
+              <div class="font-grid">
+                {%- for key, f in font_options.items() %}
+                <button type="button" class="font-card" data-ap-key="{{ ap_key }}" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if current_font == key else 'false' }}">
+                  <span class="sample" style="font-family: {% if key == 'nunito' %}'Nunito'{% elif key == 'zen' %}'Zen Maru Gothic'{% elif key == 'atkinson' %}'Atkinson Hyperlegible'{% elif key == 'literata' %}'Literata'{% else %}system-ui{% endif %}, sans-serif">{{ sample }}</span>
+                  <b>{{ f.label }}</b><small>{{ f.blurb }}</small>
+                </button>
+                {%- endfor %}
+              </div>
+            </div>
+            {%- endfor %}
+
+            <div class="set-row">
+              <div class="set-text"><strong>Text size</strong></div>
+              <div class="seg" role="group" aria-label="Text size">
+                {%- for key, label in text_sizes.items() %}
+                <button type="button" data-ap-key="text_size" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if appearance.text_size == key else 'false' }}">{{ label }}</button>
+                {%- endfor %}
+              </div>
+            </div>
+
+            <div class="set-row">
+              <label class="set-text" for="illustrations-toggle"><strong>Illustrations</strong><span>The sky, hills and stars behind the app. Turn off for a calmer screen while you write.</span></label>
+              <input type="checkbox" class="switch" id="illustrations-toggle" {% if appearance.illustrations %}checked{% endif %}>
+            </div>
+          </div>
+        </section>
+
+        <form method="post" class="settings-main" style="gap: 36px" id="settings-form">
+          {# ---------------- Folders ---------------- #}
+          <section class="set-section" id="general">
+            <h2>Folders</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="notes-dir">Notes folder</label>
+                  <span>Each note is a Markdown file with YAML front matter. A folder in iCloud Drive or Dropbox gives you backups. Changing this does <strong>not</strong> move existing notes; copy them across first, then quit and reopen Zetteling.</span>
+                  <span>In use now: <span class="path-pill">{{ active_notes_dir }}</span></span>
+                </div>
+                <div class="set-control"><input type="text" id="notes-dir" name="notes_dir" value="{{ current.notes_dir }}" placeholder="{{ active_notes_dir }}"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="export-dir">Export folder</label>
+                  <span>Where exported files are saved. Each file gets a date and time prefix, so earlier exports are never overwritten.</span>
+                  <span>In use now: <span class="path-pill">{{ active_export_dir }}</span></span>
+                </div>
+                <div class="set-control"><input type="text" id="export-dir" name="export_dir" value="{{ current.export_dir }}" placeholder="~/Downloads/zetteling-exports"></div>
+              </div>
+            </div>
+          </section>
+
+          {# ---------------- Writing ---------------- #}
+          <section class="set-section" id="writing">
+            <h2>Writing</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <label class="set-text" for="sanitize"><strong>Sanitise note HTML</strong>
+                  <span>Strips scripts and other unsafe markup when notes are shown. Leave it off if you write all your own notes and use inline HTML. Turn it on if you import Markdown from sources you don’t control: a malicious note could otherwise run code inside the app. See <a href="{{ url_for('privacy_page') }}">Privacy</a> for the trust model.</span>
+                </label>
+                <input type="checkbox" class="switch" id="sanitize" name="sanitize_note_html" {% if current.sanitize_note_html %}checked{% endif %}>
+              </div>
+            </div>
+          </section>
+
+          {# ---------------- AI ---------------- #}
+          <section class="set-section" id="ai">
+            <h2>AI</h2>
+            <p>Off unless you choose a provider. Nothing is sent anywhere until you ask: Interrogate and tag suggestions send the note you are working on; related notes send each note when it is saved. See <a href="{{ url_for('privacy_page') }}">Privacy</a> for what goes where.</p>
+
+            {%- for w in retired_warnings %}
+            <div class="flash warn" style="display: flex; gap: 12px; align-items: flex-start">
+              {{ icon("warn") }}
+              <span>Your {{ "chat" if w.role == "chat" else "embedding" }} model <strong>{{ w.model }}</strong> was shut down by its provider on {{ w.date }}, so {{ "Interrogate and tag suggestions" if w.role == "chat" else "new and edited notes can’t be embedded" }}. Type <strong>{{ w.replacement }}</strong> in the {{ "chat" if w.role == "chat" else "embedding" }} Model field below{% if w.role == "embed" %}, save, then press <strong>Re-index all notes</strong>{% endif %}.</span>
+            </div>
+            {%- endfor %}
+
+            <h3 style="margin: 6px 0 0">Chat: Interrogate and tag suggestions</h3>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text"><label class="field-label" for="ai-provider-select">Provider</label></div>
+                <div class="set-control">
+                  <select name="ai_chat_provider" id="ai-provider-select">
+                    <option value="" {% if not current.ai_chat_provider %}selected{% endif %}>None (AI features off)</option>
+                    {%- for p in ai_providers %}
+                    <option value="{{ p }}" {% if current.ai_chat_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
+                    {%- endfor %}
+                  </select>
+                </div>
+              </div>
+              {%- for p, sdk in [("anthropic", "anthropic"), ("openai", "openai"), ("gemini", "google-genai")] %}
+              {%- if current.ai_chat_provider == p and not ai_status[p ~ "_sdk"] %}
+              <div class="set-row"><div class="flash error" style="margin: 0; width: 100%">The <code>{{ sdk }}</code> package is not installed in this build. Run <code>pip install {{ sdk }}</code>.</div></div>
+              {%- endif %}
+              {%- endfor %}
+
+              <div id="ai-fields-anthropic" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="a-key">API key</label><span>From <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>.</span></div>
+                  <div class="set-control"><input type="password" id="a-key" name="ai_chat_api_key_anthropic" autocomplete="off" placeholder="sk-ant-…" value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="a-model">Model</label><span>Leave blank for <code>{{ ai_default_models.anthropic }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="a-model" name="ai_chat_model_anthropic" placeholder="{{ ai_default_models.anthropic }}" value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-openai" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-key">API key</label><span>Works with OpenAI and services that copy its API, such as OpenRouter, Together, Groq and DeepSeek.</span></div>
+                  <div class="set-control"><input type="password" id="o-key" name="ai_chat_api_key_openai" autocomplete="off" placeholder="sk-…" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-url">Base URL</label><span>For example <code>https://openrouter.ai/api/v1</code>.</span></div>
+                  <div class="set-control"><input type="text" id="o-url" name="ai_chat_base_url_openai" placeholder="{{ ai_default_base_urls.openai }}" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-model">Model</label><span>Leave blank for <code>{{ ai_default_models.openai }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="o-model" name="ai_chat_model_openai" placeholder="{{ ai_default_models.openai }}" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-gemini" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="g-key">API key</label><span>From <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</span></div>
+                  <div class="set-control"><input type="password" id="g-key" name="ai_chat_api_key_gemini" autocomplete="off" placeholder="AIza…" value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="g-model">Model</label><span>Leave blank for <code>{{ ai_default_models.gemini }}</code>, which Google keeps pointed at its newest Flash model.</span></div>
+                  <div class="set-control"><input type="text" id="g-model" name="ai_chat_model_gemini" placeholder="{{ ai_default_models.gemini }}" value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-ollama" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="l-url">Base URL</label><span>Runs on this Mac; no key needed. Install from <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a>, then run <code>ollama pull {{ ai_default_models.ollama }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="l-url" name="ai_chat_base_url_ollama" placeholder="{{ ai_default_base_urls.ollama }}" value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="l-model">Model</label></div>
+                  <div class="set-control"><input type="text" id="l-model" name="ai_chat_model_ollama" placeholder="{{ ai_default_models.ollama }}" value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <input type="hidden" name="ai_chat_api_key" id="ai-chat-api-key">
+              <input type="hidden" name="ai_chat_model" id="ai-chat-model">
+              <input type="hidden" name="ai_chat_base_url" id="ai-chat-base-url">
+              <div class="set-row">
+                <span class="set-text" id="ai-test-result" role="status"><span>Save first, then test.</span></span>
+                <button type="button" class="btn" id="ai-test-btn">Test connection</button>
+              </div>
+            </div>
+
+            <h3 style="margin: 6px 0 0">Embeddings: related notes</h3>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text"><label class="field-label" for="ai-embed-provider-select">Provider</label><span>Can differ from the chat provider. Anthropic has no embeddings API; Voyage is embeddings-only.</span></div>
+                <div class="set-control">
+                  <select name="ai_embed_provider" id="ai-embed-provider-select">
+                    <option value="" {% if not current.ai_embed_provider %}selected{% endif %}>None (related notes off)</option>
+                    {%- for p in ai_embed_providers %}
+                    <option value="{{ p }}" {% if current.ai_embed_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
+                    {%- endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div id="ai-embed-fields-openai" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-key">API key</label></div>
+                  <div class="set-control"><input type="password" id="eo-key" name="ai_embed_api_key_openai" autocomplete="off" placeholder="sk-…" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-url">Base URL</label></div>
+                  <div class="set-control"><input type="text" id="eo-url" name="ai_embed_base_url_openai" placeholder="https://api.openai.com/v1" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.openai }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="eo-model" name="ai_embed_model_openai" placeholder="{{ ai_default_embed_models.openai }}" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-gemini" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eg-key">API key</label></div>
+                  <div class="set-control"><input type="password" id="eg-key" name="ai_embed_api_key_gemini" autocomplete="off" placeholder="AIza…" value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eg-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.gemini }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="eg-model" name="ai_embed_model_gemini" placeholder="{{ ai_default_embed_models.gemini }}" value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-ollama" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="el-url">Base URL</label><span>Pull a model first, for example <code>ollama pull nomic-embed-text</code>. <code>ollama list</code> shows the exact names you have.</span></div>
+                  <div class="set-control"><input type="text" id="el-url" name="ai_embed_base_url_ollama" placeholder="http://127.0.0.1:11434" value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="el-model">Model</label></div>
+                  <div class="set-control"><input type="text" id="el-model" name="ai_embed_model_ollama" placeholder="{{ ai_default_embed_models.ollama }}" value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-voyage" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="ev-key">API key</label><span>From <code>voyageai.com</code>.</span></div>
+                  <div class="set-control"><input type="password" id="ev-key" name="ai_embed_api_key_voyage" autocomplete="off" placeholder="pa-…" value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="ev-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.voyage }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="ev-model" name="ai_embed_model_voyage" placeholder="{{ ai_default_embed_models.voyage }}" value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <input type="hidden" name="ai_embed_api_key" id="ai-embed-api-key">
+              <input type="hidden" name="ai_embed_model" id="ai-embed-model">
+              <input type="hidden" name="ai_embed_base_url" id="ai-embed-base-url">
+              <div class="set-row">
+                <div class="set-text"><strong>Index</strong><span>{{ embedding_count }} of {{ total_notes }} notes embedded. Re-index after choosing a provider or changing the model; it runs in the background.</span><span id="reindex-result" role="status"></span></div>
+                <button type="button" class="btn" id="reindex-btn">Re-index all notes</button>
+              </div>
+            </div>
+          </section>
+
+          {# ---------------- Bibliography ---------------- #}
+          <section class="set-section" id="bibliography">
+            <h2>Bibliography</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="bib-path">BibTeX file</label>
+                  <span>Export your Zotero library with Better BibTeX and tick <strong>Keep updated</strong>, so new references appear on their own. Leave blank to turn citations off.</span>
+                  {%- if env_override %}<span>An environment variable also sets <code>ZETTEL_BIB_PATH</code>; the path here takes priority when filled in.</span>{% endif %}
+                </div>
+                <div class="set-control"><input type="text" id="bib-path" name="bib_path" value="{{ current.bib_path }}" placeholder="~/Zotero/My Library.bib"></div>
+              </div>
+            </div>
+          </section>
+
+          <div style="position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--surface) 30%); display: flex; gap: 10px; align-items: center">
+            <button type="submit" class="btn btn-primary btn-lg">Save settings</button>
+            <span class="muted small">Appearance saves itself; everything below it saves with this button.</span>
+          </div>
+        </form>
+
+        {# ---------------- About ---------------- #}
+        <section class="set-section" id="about">
+          <h2>About and legal</h2>
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Zetteling {{ version }}</strong><span>{{ attribution }}</span></div>
+              <a class="btn" href="{{ url_for('about_page') }}">What’s new</a>
+            </div>
+            <div class="set-row">
+              <div class="set-control">
+                <a class="chip chip-accent" href="{{ url_for('help_page') }}">Help and shortcuts</a>
+                <a class="chip chip-thread" href="{{ url_for('privacy_page') }}">Privacy</a>
+                <a class="chip chip-teaching" href="{{ url_for('license_page') }}">Licence: PolyForm Noncommercial 1.0.0</a>
+              </div>
+            </div>
+            <div class="set-row"><div class="set-text"><strong>Where settings live</strong><span>One file, <code>settings.json</code>, in the app’s data folder on this Mac. API keys are stored there in plain text, so treat that file like a password.</span></div></div>
+          </div>
+        </section>
       </div>
-    {% endif %}
-    {% if current.ai_chat_provider == 'openai' and not ai_status.openai_sdk %}
-      <div class="flash error">
-        <strong>The <code>openai</code> SDK is not installed.</strong> Run:
-        <pre><code>pip install openai</code></pre>
-      </div>
-    {% endif %}
-    {% if current.ai_chat_provider == 'gemini' and not ai_status.gemini_sdk %}
-      <div class="flash error">
-        <strong>The <code>google-genai</code> SDK is not installed.</strong> Run:
-        <pre><code>pip install google-genai</code></pre>
-      </div>
-    {% endif %}
-
-    <div id="ai-fields-anthropic" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_chat_api_key_anthropic"
-               value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_api_key }}{% endif %}"
-               placeholder="sk-ant-api03-…"
-               autocomplete="off">
-      </label>
-      <label>Model
-        <input type="text" name="ai_chat_model_anthropic"
-               value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_model }}{% endif %}"
-               placeholder="{{ ai_default_models.anthropic }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Get an API key from <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>.
-        Common model strings: <code>claude-haiku-4-5-20251001</code> (cheap),
-        <code>claude-sonnet-4-6</code> (default smart),
-        <code>claude-opus-4-6</code> (most capable).
-      </p>
     </div>
+  </div>
+</main>
 
-    <div id="ai-fields-openai" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_chat_api_key_openai"
-               value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_api_key }}{% endif %}"
-               placeholder="sk-…"
-               autocomplete="off">
-      </label>
-      <label>Base URL
-        <input type="text" name="ai_chat_base_url_openai"
-               value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_base_url }}{% endif %}"
-               placeholder="{{ ai_default_base_urls.openai }}">
-      </label>
-      <label>Model
-        <input type="text" name="ai_chat_model_openai"
-               value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_model }}{% endif %}"
-               placeholder="{{ ai_default_models.openai }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Works with OpenAI itself plus any service implementing the
-        OpenAI Chat Completions API: OpenRouter
-        (<code>https://openrouter.ai/api/v1</code>), Together
-        (<code>https://api.together.xyz/v1</code>), Groq
-        (<code>https://api.groq.com/openai/v1</code>), DeepSeek, etc.
-      </p>
-    </div>
-
-    <div id="ai-fields-gemini" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_chat_api_key_gemini"
-               value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_api_key }}{% endif %}"
-               placeholder="AIza…"
-               autocomplete="off">
-      </label>
-      <label>Model
-        <input type="text" name="ai_chat_model_gemini"
-               value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_model }}{% endif %}"
-               placeholder="{{ ai_default_models.gemini }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Get an API key from <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
-        Common model strings: <code>gemini-2.0-flash</code> (cheap, fast),
-        <code>gemini-2.5-flash</code>, <code>gemini-2.5-pro</code> (most capable).
-      </p>
-    </div>
-
-    <div id="ai-fields-ollama" class="ai-fields" style="display: none;">
-      <label>Base URL
-        <input type="text" name="ai_chat_base_url_ollama"
-               value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_base_url }}{% endif %}"
-               placeholder="{{ ai_default_base_urls.ollama }}">
-      </label>
-      <label>Model
-        <input type="text" name="ai_chat_model_ollama"
-               value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_model }}{% endif %}"
-               placeholder="{{ ai_default_models.ollama }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Install Ollama from <a href="https://ollama.com" target="_blank">ollama.com</a>,
-        then pull a model: <code>ollama pull {{ ai_default_models.ollama }}</code>.
-        No API key needed; everything runs on your machine. The 14B Qwen
-        model fits comfortably in 24GB RAM (Mac Mini M4 or similar).
-      </p>
-    </div>
-
-    <!-- Hidden chat fields populated by JS on submit -->
-    <input type="hidden" name="ai_chat_api_key" id="ai-chat-api-key">
-    <input type="hidden" name="ai_chat_model" id="ai-chat-model">
-    <input type="hidden" name="ai_chat_base_url" id="ai-chat-base-url">
-
-    <p style="margin-top: 1rem;">
-      <button type="button" id="ai-test-btn">Test chat connection</button>
-      <span id="ai-test-result" style="margin-left: 0.8rem; font-size: 0.85rem;"></span>
-    </p>
-
-    <h2>Embedding provider (for semantic find-related-notes)</h2>
-    <p class="meta">
-      Separate from the chat provider because <strong>Anthropic does not
-      provide a native embeddings API</strong>. Pick Ollama (local, free,
-      private) or any OpenAI-compatible service. The chat and embed
-      providers can be different — for example, Claude for chat and
-      Ollama for embeddings is a sensible privacy-conscious combination.
-    </p>
-
-    {% if not sqlite_vec_available %}
-      <div class="flash error">
-        <strong>Semantic search is unavailable in this build.</strong> Semantic search
-        requires it. Run:
-      </div>
-    {% endif %}
-
-    <label>Embedding provider
-      <select name="ai_embed_provider" id="ai-embed-provider-select">
-        <option value="" {% if not current.ai_embed_provider %}selected{% endif %}>None — semantic search disabled</option>
-        {% for p in ai_embed_providers %}
-          <option value="{{ p }}" {% if current.ai_embed_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <div id="ai-embed-fields-openai" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_embed_api_key_openai"
-               value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_api_key }}{% endif %}"
-               placeholder="sk-…"
-               autocomplete="off">
-      </label>
-      <label>Base URL
-        <input type="text" name="ai_embed_base_url_openai"
-               value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_base_url }}{% endif %}"
-               placeholder="https://api.openai.com/v1">
-      </label>
-      <label>Embedding model
-        <input type="text" name="ai_embed_model_openai"
-               value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_model }}{% endif %}"
-               placeholder="{{ ai_default_embed_models.openai }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        OpenAI embedding models: <code>text-embedding-3-small</code>
-        (cheap, 1536 dims), <code>text-embedding-3-large</code>
-        (better, 3072 dims). Voyage and other compatible services
-        also work.
-      </p>
-    </div>
-
-    <div id="ai-embed-fields-gemini" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_embed_api_key_gemini"
-               value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_api_key }}{% endif %}"
-               placeholder="AIza…"
-               autocomplete="off">
-      </label>
-      <label>Embedding model
-        <input type="text" name="ai_embed_model_gemini"
-               value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_model }}{% endif %}"
-               placeholder="{{ ai_default_embed_models.gemini }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Common Gemini embedding models: <code>text-embedding-004</code>
-        (768 dims), <code>gemini-embedding-001</code>.
-      </p>
-    </div>
-
-    <div id="ai-embed-fields-ollama" class="ai-fields" style="display: none;">
-      <label>Base URL
-        <input type="text" name="ai_embed_base_url_ollama"
-               value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_base_url }}{% endif %}"
-               placeholder="http://127.0.0.1:11434">
-      </label>
-      <label>Embedding model
-        <input type="text" name="ai_embed_model_ollama"
-               value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_model }}{% endif %}"
-               placeholder="{{ ai_default_embed_models.ollama }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Common Ollama embedding models: <code>nomic-embed-text</code>
-        (768 dims, fast), <code>mxbai-embed-large</code> (1024 dims,
-        better quality). Pull with <code>ollama pull nomic-embed-text</code>.
-        If you get a "model not found" error here, the model name in
-        this field does not match what you have pulled in Ollama &mdash;
-        run <code>ollama list</code> in a terminal to see exact names.
-      </p>
-    </div>
-
-    <div id="ai-embed-fields-voyage" class="ai-fields" style="display: none;">
-      <label>API key
-        <input type="password" name="ai_embed_api_key_voyage"
-               value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_api_key }}{% endif %}"
-               placeholder="pa-…"
-               autocomplete="off">
-      </label>
-      <label>Embedding model
-        <input type="text" name="ai_embed_model_voyage"
-               value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_model }}{% endif %}"
-               placeholder="{{ ai_default_embed_models.voyage }}">
-      </label>
-      <p class="meta" style="font-size: 0.8rem;">
-        Voyage AI is Anthropic's recommended embeddings partner. Sign
-        up at <code>voyageai.com</code> to get an API key. Current flagship
-        text embedding model is <code>voyage-3.5</code> (1024 dims);
-        <code>voyage-3-large</code> is higher quality but more expensive.
-        Domain-specific models exist for finance, law, code, and
-        multilingual text.
-      </p>
-    </div>
-
-    <!-- Hidden embed fields populated by JS on submit -->
-    <input type="hidden" name="ai_embed_api_key" id="ai-embed-api-key">
-    <input type="hidden" name="ai_embed_model" id="ai-embed-model">
-    <input type="hidden" name="ai_embed_base_url" id="ai-embed-base-url">
-
-    <p style="margin-top: 1rem;">
-      <strong>Embeddings stored:</strong>
-      <code>{{ embedding_count }}</code> / <code>{{ total_notes }}</code> notes
-    </p>
-
-    <p style="margin-top: 1rem;">
-      <button type="button" id="reindex-btn">Reindex all notes</button>
-      <span id="reindex-result" style="margin-left: 0.8rem; font-size: 0.85rem;"></span>
-    </p>
-    <p class="meta" style="font-size: 0.8rem;">
-      Reindex re-embeds every note in your corpus. Use this after first
-      configuring an embed provider, after switching to a different
-      embedding model, or if embeddings get out of sync. Runs in the
-      background; you can keep using the app while it works.
-    </p>
-
-    <h2>Bibliography</h2>
-    <p class="meta">
-      Path to a BibTeX <code>.bib</code> file (typically a Better BibTeX
-      auto-export from Zotero). Leave blank to disable the bibliography
-      feature. The watcher will reload automatically when the file changes.
-    </p>
-
-    {% if not bibtexparser_available %}
-      <div class="flash error">
-        <strong>bibtexparser is not installed.</strong> The bibliography
-        feature won't work until you run:
-        <pre><code>pip install bibtexparser</code></pre>
-      </div>
-    {% endif %}
-
-    {% if env_override %}
-      <div class="flash">
-        <strong>Note:</strong> The environment variable
-        <code>ZETTEL_BIB_PATH</code> is currently set to
-        <code>{{ env_override }}</code>, which overrides anything you
-        set here. Unset the env var if you want to manage this through
-        the UI instead.
-      </div>
-    {% endif %}
-
-    <label>BibTeX file path
-      <input type="text" name="bib_path"
-             value="{{ current.bib_path }}"
-             placeholder="/Users/you/Zotero/library.bib">
-    </label>
-
-    <button type="submit">Save</button>
-  </form>
-
-  <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--rule);">
-
-  <script>
-  (function () {
-    // Chat provider field switcher
-    const chatSelect = document.getElementById('ai-provider-select');
-    const chatPanes = {
-      anthropic: document.getElementById('ai-fields-anthropic'),
-      openai: document.getElementById('ai-fields-openai'),
-      gemini: document.getElementById('ai-fields-gemini'),
-      ollama: document.getElementById('ai-fields-ollama'),
-    };
-    const chatHidden = {
-      api_key: document.getElementById('ai-chat-api-key'),
-      model: document.getElementById('ai-chat-model'),
-      base_url: document.getElementById('ai-chat-base-url'),
-    };
-
-    // Embed provider field switcher
-    const embedSelect = document.getElementById('ai-embed-provider-select');
-    const embedPanes = {
-      openai: document.getElementById('ai-embed-fields-openai'),
-      gemini: document.getElementById('ai-embed-fields-gemini'),
-      ollama: document.getElementById('ai-embed-fields-ollama'),
-      voyage: document.getElementById('ai-embed-fields-voyage'),
-    };
-    const embedHidden = {
-      api_key: document.getElementById('ai-embed-api-key'),
-      model: document.getElementById('ai-embed-model'),
-      base_url: document.getElementById('ai-embed-base-url'),
-    };
-
-    function syncPanes(select, panes) {
-      const v = select.value;
-      for (const [k, pane] of Object.entries(panes)) {
-        if (pane) pane.style.display = (v === k) ? '' : 'none';
-      }
-    }
-
-    function syncHiddenFor(select, hidden, prefix) {
-      const v = select.value;
-      hidden.api_key.value = '';
-      hidden.model.value = '';
-      hidden.base_url.value = '';
-      if (!v) return;
-      const apiKeyField = document.querySelector(`[name="${prefix}_api_key_${v}"]`);
-      const modelField = document.querySelector(`[name="${prefix}_model_${v}"]`);
-      const baseUrlField = document.querySelector(`[name="${prefix}_base_url_${v}"]`);
-      if (apiKeyField) hidden.api_key.value = apiKeyField.value;
-      if (modelField) hidden.model.value = modelField.value;
-      if (baseUrlField) hidden.base_url.value = baseUrlField.value;
-    }
-
-    chatSelect.addEventListener('change', () => syncPanes(chatSelect, chatPanes));
-    embedSelect.addEventListener('change', () => syncPanes(embedSelect, embedPanes));
-    document.querySelector('form').addEventListener('submit', function () {
-      syncHiddenFor(chatSelect, chatHidden, 'ai_chat');
-      syncHiddenFor(embedSelect, embedHidden, 'ai_embed');
+<script>
+(function () {
+  var chatSelect = document.getElementById("ai-provider-select");
+  var embedSelect = document.getElementById("ai-embed-provider-select");
+  var chatPanes = { anthropic: "ai-fields-anthropic", openai: "ai-fields-openai", gemini: "ai-fields-gemini", ollama: "ai-fields-ollama" };
+  var embedPanes = { openai: "ai-embed-fields-openai", gemini: "ai-embed-fields-gemini", ollama: "ai-embed-fields-ollama", voyage: "ai-embed-fields-voyage" };
+  function syncPanes(select, panes) {
+    Object.keys(panes).forEach(function (k) {
+      var el = document.getElementById(panes[k]);
+      if (el) el.style.display = select.value === k ? "" : "none";
     });
-    syncPanes(chatSelect, chatPanes);
-    syncPanes(embedSelect, embedPanes);
-
-    // Test chat connection button
-    const testBtn = document.getElementById('ai-test-btn');
-    const testResult = document.getElementById('ai-test-result');
-    testBtn.addEventListener('click', async function () {
-      testResult.textContent = 'testing…';
-      testResult.style.color = 'var(--muted)';
-      try {
-        const r = await fetch('/api/ai/test', { method: 'POST' });
-        const data = await r.json();
-        testResult.textContent = data.message;
-        testResult.style.color = data.ok ? '#3c8250' : '#a04040';
-      } catch (e) {
-        testResult.textContent = 'request failed: ' + e;
-        testResult.style.color = '#a04040';
-      }
+  }
+  function syncHidden(select, prefix, ids) {
+    var v = select.value;
+    ["api_key", "model", "base_url"].forEach(function (f) { document.getElementById(ids[f]).value = ""; });
+    if (!v) return;
+    ["api_key", "model", "base_url"].forEach(function (f) {
+      var field = document.querySelector('[name="' + prefix + "_" + f + "_" + v + '"]');
+      if (field) document.getElementById(ids[f]).value = field.value;
     });
+  }
+  chatSelect.addEventListener("change", function () { syncPanes(chatSelect, chatPanes); });
+  embedSelect.addEventListener("change", function () { syncPanes(embedSelect, embedPanes); });
+  document.getElementById("settings-form").addEventListener("submit", function () {
+    syncHidden(chatSelect, "ai_chat", { api_key: "ai-chat-api-key", model: "ai-chat-model", base_url: "ai-chat-base-url" });
+    syncHidden(embedSelect, "ai_embed", { api_key: "ai-embed-api-key", model: "ai-embed-model", base_url: "ai-embed-base-url" });
+  });
+  syncPanes(chatSelect, chatPanes);
+  syncPanes(embedSelect, embedPanes);
 
-    // Reindex button + polling
-    const reindexBtn = document.getElementById('reindex-btn');
-    const reindexResult = document.getElementById('reindex-result');
-    let pollInterval = null;
+  var testBtn = document.getElementById("ai-test-btn");
+  var testResult = document.getElementById("ai-test-result");
+  testBtn.addEventListener("click", function () {
+    testResult.innerHTML = "<span>Testing…</span>";
+    fetch("/api/ai/test", { method: "POST" }).then(function (r) { return r.json(); }).then(function (d) {
+      testResult.innerHTML = "";
+      var s = document.createElement("span");
+      s.className = d.ok ? "status-ok" : "status-err";
+      s.textContent = (d.ok ? "Connected. " : "") + d.message;
+      testResult.appendChild(s);
+    }).catch(function (e) { testResult.innerHTML = '<span class="status-err">Request failed</span>'; });
+  });
 
-    async function poll() {
-      try {
-        const r = await fetch('/api/embed/status');
-        const data = await r.json();
-        if (data.running) {
-          reindexResult.textContent = `reindexing… ${data.processed}/${data.total} (${data.errors} errors)`;
-          reindexResult.style.color = 'var(--muted)';
-        } else {
-          if (data.processed > 0 || data.last_error) {
-            const errSuffix = data.errors ? ` (${data.errors} errors; last: ${data.last_error.substring(0, 60)})` : '';
-            reindexResult.textContent = `done: ${data.processed} embedded${errSuffix}`;
-            reindexResult.style.color = data.errors ? '#a04040' : '#3c8250';
-          }
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-          }
+  var reBtn = document.getElementById("reindex-btn");
+  var reResult = document.getElementById("reindex-result");
+  var poll = null;
+  function check() {
+    fetch("/api/embed/status").then(function (r) { return r.json(); }).then(function (d) {
+      if (d.running) {
+        reResult.textContent = "Re-indexing… " + d.processed + " of " + d.total + (d.errors ? " (" + d.errors + " errors)" : "");
+      } else {
+        if (d.processed > 0 || d.last_error) {
+          reResult.textContent = "Done: " + d.processed + " embedded" + (d.errors ? ". " + d.errors + " errors; last: " + d.last_error.substring(0, 80) : ".");
+          reResult.className = d.errors ? "status-err" : "status-ok";
         }
-      } catch (e) {
-        reindexResult.textContent = 'status check failed: ' + e;
-        reindexResult.style.color = '#a04040';
-        if (pollInterval) clearInterval(pollInterval);
+        if (poll) { clearInterval(poll); poll = null; }
       }
-    }
-
-    reindexBtn.addEventListener('click', async function () {
-      reindexResult.textContent = 'starting…';
-      reindexResult.style.color = 'var(--muted)';
-      try {
-        const r = await fetch('/api/embed/reindex', { method: 'POST' });
-        const data = await r.json();
-        if (!data.ok) {
-          reindexResult.textContent = data.message;
-          reindexResult.style.color = '#a04040';
-          return;
-        }
-        // Start polling status every second
-        poll();
-        pollInterval = setInterval(poll, 1000);
-      } catch (e) {
-        reindexResult.textContent = 'request failed: ' + e;
-        reindexResult.style.color = '#a04040';
-      }
-    });
-
-    // If reindex was already running when the page loaded, start polling
-    fetch('/api/embed/status').then(r => r.json()).then(data => {
-      if (data.running) {
-        poll();
-        pollInterval = setInterval(poll, 1000);
-      }
-    });
-  })();
-  </script>
-
-  <h2>Where settings are stored</h2>
-  <p class="meta">
-    All settings are saved to a single JSON file: <code>settings.json</code>
-    in the project directory. Nothing is sent anywhere — see
-    <a href="{{ url_for('privacy_page') }}">privacy</a>.
-  </p>
+    }).catch(function () { if (poll) clearInterval(poll); });
+  }
+  reBtn.addEventListener("click", function () {
+    reResult.textContent = "Starting…";
+    fetch("/api/embed/reindex", { method: "POST" }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { reResult.textContent = d.message; reResult.className = "status-err"; return; }
+      check(); poll = setInterval(check, 1000);
+    }).catch(function () { reResult.textContent = "Request failed"; });
+  });
+  fetch("/api/embed/status").then(function (r) { return r.json(); }).then(function (d) {
+    if (d.running) { check(); poll = setInterval(check, 1000); }
+  });
+})();
+</script>
 {% endblock %}

@@ -2,7 +2,7 @@
 notes.py — The Note model and filesystem operations.
 
 Notes are plain Markdown files with YAML frontmatter, stored in NOTES_DIR.
-Filename convention: YYYYMMDDHHMM-short-slug.md
+Filename convention: YYYYMMDDHHMMSS-short-slug.md (14-digit timestamp)
 The digit prefix is the canonical ID.
 """
 

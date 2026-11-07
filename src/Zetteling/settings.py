@@ -2,10 +2,11 @@
 settings.py — Persistent user settings stored in a JSON file.
 
 The settings file lives next to zettel.db (or wherever ZETTEL_SETTINGS_PATH
-points). Environment variables always take precedence over stored
-settings — this preserves backwards compatibility for anyone whose
-deployment is configured via env vars (e.g. Docker), while letting
-desktop users configure things through the UI without touching files.
+points). For folder and file paths, a value saved through the UI wins;
+environment variables are a fallback (useful for Docker or server
+deployments) and a built-in default comes last. v5.0 made the export
+folder and bibliography path follow the same rule the notes folder
+already followed.
 """
 
 # Copyright (c) 2026 Shiv Issar
@@ -35,6 +36,18 @@ DEFAULTS = {
     # backward compatibility (permissive inline HTML). Set to True when
     # importing notes from an untrusted source. Requires the 'bleach' package.
     "sanitize_note_html": False,
+    # v5.0: appearance. Allowed values live in themes.py.
+    "theme_mode": "auto",
+    "theme_light": "meadow",
+    "theme_dark": "starlit",
+    "accent_color": "",
+    "ui_font": "nunito",
+    "reading_font": "nunito",
+    "text_size": "m",
+    "illustrations": True,
+    # v5.0: set once the first-run welcome screen has been completed or
+    # skipped. Installs that already have notes never see it.
+    "welcomed": False,
 }
 
 
@@ -78,20 +91,23 @@ def get_notes_dir():
 
 
 def get_export_dir():
-    """Resolve the export directory: env var > settings > ~/Downloads/zetteling-exports."""
+    """Resolve the export directory: UI-saved value wins, then env var,
+    then ~/Downloads/zetteling-exports. Before v5.0 the env var won, and
+    the desktop app always sets it, so a folder chosen in the UI was
+    silently ignored."""
+    stored = get("export_dir", "").strip()
+    if stored:
+        return str(Path(stored).expanduser())
     env = os.environ.get("ZETTEL_EXPORT_DIR", "").strip()
     if env:
         return env
-    stored = get("export_dir", "").strip()
-    if stored:
-        return stored
     return str(Path.home() / "Downloads" / "zetteling-exports")
 
 
 def get_bib_path():
-    """Resolve the bib path: env var wins, then settings.json, then None."""
-    env = os.environ.get("ZETTEL_BIB_PATH", "").strip()
-    if env:
-        return env
+    """Resolve the bib path: UI-saved value wins, then env var, then None."""
     stored = get("bib_path", "").strip()
-    return stored or None
+    if stored:
+        return str(Path(stored).expanduser())
+    env = os.environ.get("ZETTEL_BIB_PATH", "").strip()
+    return env or None

@@ -19,6 +19,7 @@ with no native dependencies beyond numpy.
 
 import json
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -721,3 +722,162 @@ def all_note_ids():
     with get_conn() as conn:
         rows = conn.execute("SELECT id FROM notes_meta ORDER BY id").fetchall()
         return [r["id"] for r in rows]
+
+
+# ---------- v5.0 helpers: note list cards, quick search, sidebar counts ---------- #
+
+_LINK_RE = re.compile(r"\[\[(\d{14})(?:\|([^\]]+))?\]\]")
+_MD_NOISE_RE = re.compile(r"[#>*_`~\[\]()!|]+|(?<!\w)-(?!\w)")
+_SPACE_RE = re.compile(r"\s+")
+
+
+def _plain_snippet(body, limit=120, titles=None):
+    """A one-line plain-text preview of a note body for list cards.
+    Wikilinks become the linked note's title (or their alias)."""
+    if not body:
+        return ""
+    titles = titles or {}
+    text = _LINK_RE.sub(lambda m: m.group(2) or titles.get(m.group(1), {}).get("title", ""), body)
+    text = _MD_NOISE_RE.sub(" ", text)
+    text = _SPACE_RE.sub(" ", text).strip()
+    if len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0] + "…"
+    return text
+
+
+def _first_thread(threads_json):
+    try:
+        threads = json.loads(threads_json or "[]")
+    except (ValueError, TypeError):
+        return None
+    for t in threads if isinstance(threads, list) else []:
+        if isinstance(t, dict) and t.get("name"):
+            return t["name"]
+    return None
+
+
+def list_recent_cards(limit=50, kind=None):
+    """Like list_recent, plus a short plain-text snippet and the first
+    thread name, for the note list column."""
+    sql = (
+        "SELECT m.id, m.title, m.modified, m.kind, m.threads_json, "
+        "(SELECT substr(f.body, 1, 400) FROM notes_fts f WHERE f.id = m.id LIMIT 1) AS head "
+        "FROM notes_meta m "
+    )
+    params = []
+    if kind:
+        sql += "WHERE m.kind = ? "
+        params.append(kind)
+    sql += "ORDER BY m.modified DESC LIMIT ?"
+    params.append(limit)
+    with get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    linked = {m.group(1) for r in rows for m in _LINK_RE.finditer(r["head"] or "")}
+    titles = titles_for(list(linked)) if linked else {}
+    out = []
+    for r in rows:
+        out.append({
+            "id": r["id"], "title": r["title"], "modified": r["modified"],
+            "kind": r["kind"] or "research",
+            "snippet": _plain_snippet(r["head"], titles=titles),
+            "thread": _first_thread(r["threads_json"]),
+        })
+    return out
+
+
+def _fts_prefix_query(q):
+    """Turn free text into a safe FTS5 query where every word is a prefix
+    match, e.g. 'waypo miss' -> '"waypo"* "miss"*'. Quotes inside words
+    are dropped so user input can never break the MATCH syntax."""
+    words = [w.replace('"', "") for w in re.findall(r"[\w'-]+", q, flags=re.UNICODE)]
+    # The porter tokenizer stems query terms too, and it turns a final
+    # "y" into "i" ("way" -> "wai"), which then fails to prefix-match
+    # "waypoint". Dropping a trailing y keeps as-you-type search working.
+    words = [w[:-1] if len(w) > 2 and w.lower().endswith("y") else w for w in words if w]
+    return " ".join(f'"{w}"*' for w in words[:8])
+
+
+def quick_search(q, limit=8, exclude_id=None):
+    """Search for the link picker and the command palette. Title matches
+    come first, then full-text prefix matches with a highlighted snippet.
+    An empty query returns the most recently modified notes."""
+    q = (q or "").strip()
+    results, seen = [], set()
+    if exclude_id:
+        seen.add(exclude_id)
+    with get_conn() as conn:
+        if not q:
+            rows = conn.execute(
+                "SELECT id, title, modified, kind FROM notes_meta ORDER BY modified DESC LIMIT ?",
+                (limit + 1,),
+            ).fetchall()
+            for r in rows:
+                if r["id"] in seen:
+                    continue
+                seen.add(r["id"])
+                results.append({**dict(r), "kind": r["kind"] or "research", "match": "recent", "snip": ""})
+            return results[:limit]
+        rows = conn.execute(
+            "SELECT id, title, modified, kind FROM notes_meta "
+            "WHERE LOWER(title) LIKE ? ORDER BY "
+            "CASE WHEN LOWER(title) LIKE ? THEN 0 ELSE 1 END, modified DESC LIMIT ?",
+            (f"%{q.lower()}%", f"{q.lower()}%", limit),
+        ).fetchall()
+        for r in rows:
+            if r["id"] in seen:
+                continue
+            seen.add(r["id"])
+            results.append({**dict(r), "kind": r["kind"] or "research", "match": "title", "snip": ""})
+        fts = _fts_prefix_query(q)
+        if fts and len(results) < limit:
+            try:
+                rows = conn.execute(
+                    """SELECT n.id, n.title, n.modified, n.kind,
+                              snippet(notes_fts, 2, '<mark>', '</mark>', '…', 10) AS snip
+                       FROM notes_fts JOIN notes_meta n ON n.id = notes_fts.id
+                       WHERE notes_fts MATCH ? ORDER BY rank LIMIT ?""",
+                    (fts, limit * 2),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                rows = []
+            for r in rows:
+                if r["id"] in seen:
+                    continue
+                seen.add(r["id"])
+                results.append({**dict(r), "kind": r["kind"] or "research", "match": "body"})
+                if len(results) >= limit:
+                    break
+    return results[:limit]
+
+
+def titles_for(ids):
+    """Map of id -> {title, kind} for the given note ids (unknown ids omitted)."""
+    ids = [i for i in ids if isinstance(i, str) and i.isdigit()][:200]
+    if not ids:
+        return {}
+    marks = ",".join("?" for _ in ids)
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT id, title, kind FROM notes_meta WHERE id IN ({marks})", ids
+        ).fetchall()
+    return {r["id"]: {"title": r["title"], "kind": r["kind"] or "research"} for r in rows}
+
+
+def sidebar_counts():
+    """Counts shown in the sidebar. Never raises: a broken count should
+    not take the whole page down."""
+    out = {"research": 0, "journal": 0, "teaching": 0, "life": 0, "all": 0,
+           "tags": 0, "threads": 0, "citations": 0}
+    try:
+        out.update(kind_counts())
+        out["tags"] = len(all_tags())
+        with get_conn() as conn:
+            out["threads"] = conn.execute(
+                "SELECT COUNT(DISTINCT thread_name) AS n FROM thread_membership"
+            ).fetchone()["n"]
+            out["citations"] = conn.execute(
+                "SELECT COUNT(*) AS n FROM bib_entries"
+            ).fetchone()["n"]
+    except Exception as e:  # pragma: no cover - defensive
+        print(f"[db] sidebar_counts failed: {e}")
+    return out

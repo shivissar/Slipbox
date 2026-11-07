@@ -23,7 +23,29 @@
     <h2>Version history</h2>
 
     <dl class="changelog">
-      <dt>v4.0.2 — current</dt>
+      <dt>v5.0.0 — current</dt>
+      <dd>A new look and a single window. The app is now a workspace:
+        sidebar, note list, the note, and a side panel with its thread,
+        backlinks, related notes and Interrogate. Seven themes (Meadow,
+        Lagoon, Blossom and Paper by day; Starlit, Forest and Midnight by
+        night), your own accent colour, five fonts, four text sizes and an
+        illustrations switch, all in Settings → Appearance; by default the
+        app follows your Mac between light and dark. New: a command
+        palette (<kbd>⌘K</kbd>) and keyboard shortcuts; typing
+        <code>[[</code> in the editor opens a note picker, and <code>@</code>
+        opens the citation picker at the cursor; a list of the notes the
+        current note links to; citations shown as author and year; a
+        first-run welcome screen. Fixes: the export folder chosen in
+        Settings is now actually used (before, the desktop app always
+        overrode it), and the bibliography path follows the same rule;
+        Gemini defaults moved to <code>gemini-flash-latest</code> and
+        <code>gemini-embedding-2</code> because the old defaults were shut
+        down in 2026, and Settings now warns about retired models; live
+        search works offline because HTMX and the fonts are bundled;
+        search no longer fails on punctuation; a duplicate, unused
+        Markdown renderer was removed. Note interrogation moved from its
+        own page into the side panel.</dd>
+      <dt>v4.0.2</dt>
       <dd>Replaced the <code>bibtexparser</code> dependency with an
         in-house minimal parser in <code>bib.py</code>. Background:
         v4.0.1 pinned bibtexparser to <code>&gt;=1.4,&lt;2</code> on

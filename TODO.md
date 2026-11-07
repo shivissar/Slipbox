@@ -59,9 +59,22 @@ Deferred from the doc-writing session but worth doing when `UPGRADING.md`'s veri
 
 ## Address the rename of `BIBTEXPARSER_AVAILABLE`
 
-After the v4.0.2 rewrite, the constant is always `True` and is kept only as a compatibility shim for `flask_app.py` line 575. The name is now misleading — the app no longer uses bibtexparser at all, so "bibtexparser_available" suggests a dependency that isn't there.
+v5.0: the settings page no longer reads this flag and the settings route no
+longer passes it. The constant remains in `bib.py` only; delete it after
+grepping for callers once more.
 
-Two reasonable paths: rename the constant to something honest like `BIB_FEATURE_ENABLED` and update the settings template accordingly, or remove the settings template's dependency on this flag entirely since it's always true. The second option is cleaner. Small refactor, maybe ten minutes. Not urgent.
+## v5.x follow-ups
+
+- **API keys in the macOS Keychain** instead of plain text in settings.json
+  (`keyring` is pure Python; check it installs and works inside a Briefcase
+  build before relying on it).
+- **Model menus filled from each provider's live model list**, so retired
+  models disappear on their own. Until then, keep `ai.RETIRED_MODELS` current.
+- **Native menu items for the keyboard shortcuts** (Toga commands), if any
+  shortcut turns out to be swallowed by the WebView on macOS.
+- **Native folder pickers** for the notes and export folders (Toga dialogs
+  via a small bridge from Flask to the app object).
+- Consider a richer editor (CodeMirror 6, vendored) with inline link pills.
 
 ## Long-term watch items
 

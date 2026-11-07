@@ -1,16 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Split with…{% endblock %}
+{%- from "_ui.html" import kind_tile -%}
+{% block title %}Open beside…{% endblock %}
 {% block content %}
-  <h1>Open alongside <em>{{ note.title }}</em></h1>
-  <p class="meta">Pick a second note to view side-by-side.</p>
+  <h1>Open beside <em>{{ note.title }}</em></h1>
+  <p class="meta">Pick a second note to read side by side. Press <kbd>⌘K</kbd> to search instead.</p>
   <ul class="note-list">
-    {% for n in recent %}
-      {% if n.id != note.id %}
-        <li>
-          <a href="{{ url_for('split_view', id1=note.id, id2=n.id) }}">{{ n.title }}</a>
-          <span class="meta">{{ n.modified[:10] }}</span>
-        </li>
-      {% endif %}
-    {% endfor %}
+    {%- for n in recent %}{% if n.id != note.id %}
+    <li>{{ kind_tile(n.kind) }}<a href="{{ url_for('split_view', id1=note.id, id2=n.id) }}">{{ n.title }}</a><span class="meta">{{ n.modified[:10] }}</span></li>
+    {%- endif %}{% endfor %}
   </ul>
 {% endblock %}

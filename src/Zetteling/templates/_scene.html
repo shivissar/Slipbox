@@ -1,0 +1,62 @@
+{#- The illustrated background. Every colour comes from the active theme's
+    CSS variables, so one drawing serves meadow, lagoon, blossom, starlit
+    and forest. Paper and Midnight hide it (--scene: 0), as does
+    Settings → Appearance → Illustrations off. Decorative only. -#}
+<svg class="scene" viewBox="0 0 1440 1040" preserveAspectRatio="xMinYMax slice" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="zSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: var(--sky-1)"></stop>
+      <stop offset="0.6" style="stop-color: var(--sky-2)"></stop>
+      <stop offset="1" style="stop-color: var(--sky-3)"></stop>
+    </linearGradient>
+    <radialGradient id="zGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" style="stop-color: var(--orb-glow)"></stop>
+      <stop offset="1" style="stop-color: var(--orb-glow); stop-opacity: 0"></stop>
+    </radialGradient>
+    <radialGradient id="zFly" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" style="stop-color: #FFE38A; stop-opacity: 0.7"></stop>
+      <stop offset="1" style="stop-color: #FFE38A; stop-opacity: 0"></stop>
+    </radialGradient>
+  </defs>
+  <rect width="1440" height="1040" fill="url(#zSky)"></rect>
+  <g class="art">
+    <g class="stars" style="fill: #FFFFFF">
+      <circle cx="24" cy="60" r="1.6"></circle><circle cx="70" cy="112" r="1.2"></circle><circle cx="150" cy="48" r="2"></circle>
+      <circle cx="202" cy="132" r="1.3"></circle><circle cx="40" cy="192" r="1.8"></circle><circle cx="120" cy="172" r="1.1"></circle>
+      <circle cx="188" cy="242" r="1.7"></circle><circle cx="60" cy="302" r="1.2"></circle><circle cx="16" cy="362" r="1.9"></circle>
+      <circle cx="142" cy="332" r="1.3"></circle><circle cx="210" cy="402" r="1.6"></circle><circle cx="92" cy="452" r="1.2"></circle>
+      <circle cx="30" cy="522" r="1.7"></circle><circle cx="206" cy="560" r="1.2"></circle><circle cx="64" cy="640" r="1.5"></circle>
+      <circle cx="420" cy="6" r="1.6"></circle><circle cx="760" cy="5" r="1.4"></circle><circle cx="1180" cy="6" r="1.6"></circle>
+      <path d="M100 250 L101.6 255.4 L107 257 L101.6 258.6 L100 264 L98.4 258.6 L93 257 L98.4 255.4 Z" style="fill: #FFE38A"></path>
+      <path d="M176 470 L177.3 474.7 L182 476 L177.3 477.3 L176 482 L174.7 477.3 L170 476 L174.7 474.7 Z" style="fill: #FFE38A"></path>
+    </g>
+    <circle cx="186" cy="826" r="96" fill="url(#zGlow)"></circle>
+    <circle cx="186" cy="826" r="28" style="fill: var(--orb)"></circle>
+    <g class="clouds" style="fill: var(--cloud)">
+      <circle cx="42" cy="762" r="13"></circle><circle cx="64" cy="752" r="20"></circle><circle cx="88" cy="764" r="12"></circle><rect x="28" y="762" width="74" height="14" rx="7"></rect>
+      <circle cx="150" cy="726" r="10"></circle><circle cx="168" cy="718" r="15"></circle><circle cx="186" cy="728" r="9"></circle><rect x="140" y="726" width="56" height="11" rx="5.5"></rect>
+      <circle cx="690" cy="8" r="16"></circle><circle cx="716" cy="0" r="22"></circle><rect x="672" y="4" width="70" height="12" rx="6"></rect>
+    </g>
+    <path d="M0 850 C 150 792, 300 826, 430 846 S 720 796, 920 836 S 1220 786, 1440 826 L 1440 1040 L 0 1040 Z" style="fill: var(--hill-1)"></path>
+    <path d="M0 904 C 120 866, 260 894, 380 916 S 760 876, 1000 906 S 1300 876, 1440 896 V 1040 H 0 Z" style="fill: var(--hill-2)"></path>
+    <rect x="58" y="866" width="36" height="26" rx="3" style="fill: var(--house-wall)"></rect>
+    <path d="M51 869 L 76 847 L 101 869 Z" style="fill: var(--house-roof)"></path>
+    <rect x="86" y="851" width="6" height="11" style="fill: var(--house-roof)"></rect>
+    <rect x="71" y="876" width="10" height="16" rx="5" style="fill: var(--house-door)"></rect>
+    <rect x="62" y="872" width="7" height="7" rx="2" style="fill: var(--house-window)"></rect>
+    <rect x="132" y="866" width="4" height="18" rx="2" style="fill: var(--trunk)"></rect>
+    <circle cx="134" cy="858" r="14" style="fill: var(--tree-1)"></circle>
+    <circle cx="164" cy="876" r="9" style="fill: var(--tree-2)"></circle>
+    <path d="M0 958 C 90 934, 200 948, 300 972 S 620 948, 900 968 S 1250 944, 1440 962 V 1040 H 0 Z" style="fill: var(--hill-3)"></path>
+    <circle cx="28" cy="990" r="3.5" style="fill: var(--flower-1)"></circle><circle cx="52" cy="1004" r="3" style="fill: var(--flower-2)"></circle>
+    <circle cx="96" cy="986" r="3.5" style="fill: var(--flower-3)"></circle><circle cx="140" cy="1000" r="3" style="fill: var(--flower-1)"></circle>
+    <circle cx="184" cy="984" r="3.5" style="fill: var(--flower-2)"></circle>
+    <g class="fireflies">
+      <g class="firefly"><circle cx="40" cy="790" r="11" fill="url(#zFly)"></circle><circle cx="40" cy="790" r="2.4" style="fill: #FFE38A"></circle></g>
+      <g class="firefly"><circle cx="118" cy="760" r="11" fill="url(#zFly)"></circle><circle cx="118" cy="760" r="2.2" style="fill: #FFE38A"></circle></g>
+      <g class="firefly"><circle cx="196" cy="812" r="11" fill="url(#zFly)"></circle><circle cx="196" cy="812" r="2.4" style="fill: #FFE38A"></circle></g>
+      <g class="firefly"><circle cx="84" cy="930" r="11" fill="url(#zFly)"></circle><circle cx="84" cy="930" r="2" style="fill: #FFE38A"></circle></g>
+      <g class="firefly"><circle cx="170" cy="960" r="11" fill="url(#zFly)"></circle><circle cx="170" cy="960" r="2.3" style="fill: #FFE38A"></circle></g>
+    </g>
+  </g>
+</svg>

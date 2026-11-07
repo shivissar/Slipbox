@@ -1,5 +1,25 @@
 # Zetteling Release Notes
 
-## 0.0.1 (11 Apr 2026)
+The full, user-facing history is on the About page inside the app
+(src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
 
-* Initial release
+## 5.0.0 (November 2026)
+
+* One-window workspace: sidebar, note list, note, side panel (thread,
+  backlinks, related notes, Interrogate).
+* Settings → Appearance: seven themes (four light, three dark), follow-the-Mac
+  mode, accent colour, five bundled fonts, four text sizes, illustrations
+  switch. Saved in settings.json.
+* Command palette (⌘K) and keyboard shortcuts.
+* Editor: [[ note picker and @ citation picker at the cursor; "Links in this
+  note" list; unsaved-changes guard.
+* Citations render as author and year (the note file keeps @citekey).
+* First-run welcome screen for new installs.
+* Fixes: export folder and bibliography path chosen in Settings now win over
+  environment variables; Gemini defaults updated (old ones were shut down);
+  retired-model warnings; HTMX and fonts bundled (no CDN, offline search);
+  punctuation-safe search; duplicate renderer removed.
+
+## 4.0.2 (April 2026)
+
+* Replaced bibtexparser with an in-house .bib parser. See the About page.
