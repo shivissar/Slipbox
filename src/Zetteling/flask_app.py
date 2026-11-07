@@ -38,7 +38,7 @@ from . import settings
 from . import themes
 from . import watcher
 
-__version__ = "5.0.0"
+__version__ = "5.0.1"
 
 app = Flask(__name__)
 
@@ -427,24 +427,112 @@ def _note_page_context(note, rendered):
     }
 
 
+# --- Saving and autosave (5.0.1) --------------------------------------
+# The editor saves in three modes, sent as the hidden form field _autosave:
+#   "1"     autosave while typing: write the file and index, no embedding,
+#           no thread changes, JSON reply.
+#   "leave" the editor is closing (sent as a beacon): as "1", plus thread
+#           choice and embedding.
+#   absent  an explicit Save / Cmd-S: as "leave", then redirect.
+# Each editor page sends a random _draft token and an increasing _seq, so a
+# slow, older request can never overwrite newer text, and a new note is
+# created once however many saves race to create it.
+import threading as _threading
+
+_SAVE_LOCK = _threading.Lock()
+_LAST_SEQ = {}   # draft token -> highest _seq written
+_DRAFTS = {}     # draft token -> id of the note it created
+
+
+def _save_mode():
+    v = request.form.get("_autosave", "").strip()
+    if v == "1":
+        return "auto"
+    if v == "leave":
+        return "leave"
+    return "save"
+
+
+def _claim_seq():
+    """True if this request is the newest from its editor page (or carries
+    no token). Call with _SAVE_LOCK held."""
+    token = request.form.get("_draft", "").strip()
+    try:
+        seq = int(request.form.get("_seq", "0") or 0)
+    except ValueError:
+        seq = 0
+    if not token or not seq:
+        return True
+    if seq <= _LAST_SEQ.get(token, 0):
+        return False
+    _LAST_SEQ[token] = seq
+    return True
+
+
+def _apply_edit_form(note, form):
+    note.title = form.get("title", note.title).strip() or note.title
+    note.body = form.get("body", "")
+    tags_raw = form.get("tags", "")
+    note.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    new_kind = form.get("kind", "").strip().lower()
+    if new_kind in KINDS:
+        note.kind = new_kind
+
+
+def _apply_thread_action(note, form):
+    """Put a new note into a thread, as chosen on the new-note form. Sets
+    note.threads (the caller writes the note) and updates the old tail."""
+    thread_action = form.get("thread_action", "").strip()
+    if thread_action == "new":
+        thread_name = form.get("new_thread_name", "").strip()
+        if thread_name:
+            note.threads = [{"name": thread_name, "prev": None, "next": None}]
+    elif thread_action == "existing":
+        thread_name = form.get("existing_thread_name", "").strip()
+        if not thread_name:
+            return
+        tail_id = db.thread_tail(thread_name)
+        if not tail_id or tail_id == note.id:
+            note.threads = [{"name": thread_name, "prev": None, "next": None}]
+            return
+        note.threads = [{"name": thread_name, "prev": tail_id, "next": None}]
+        tail_meta = db.get_note_meta(tail_id)
+        if tail_meta:
+            tail_path = notes.NOTES_DIR / tail_meta["filename"]
+            if tail_path.exists():
+                tail_note = notes.parse_file(tail_path)
+                updated = False
+                for t in tail_note.threads:
+                    if isinstance(t, dict) and t.get("name") == thread_name:
+                        t["next"] = note.id
+                        updated = True
+                        break
+                if updated:
+                    notes.write_note(tail_note)
+                    db.upsert_note(tail_note)
+
+
 @app.route("/note/<note_id>/edit", methods=["GET", "POST"])
 def edit(note_id):
     note = _find_note_by_id(note_id)
     if not note:
         abort(404)
     if request.method == "POST":
-        note.title = request.form.get("title", note.title).strip() or note.title
-        note.body = request.form.get("body", "")
-        tags_raw = request.form.get("tags", "")
-        note.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
-        new_kind = request.form.get("kind", "").strip().lower()
-        if new_kind in ("research", "journal", "teaching", "life"):
-            note.kind = new_kind
-        notes.write_note(note)
-        db.upsert_note(note)
-        embed.embed_note(note)
-        return redirect(url_for("view", note_id=note.id))
-    return render_template("edit.html", note=note)
+        mode = _save_mode()
+        with _SAVE_LOCK:
+            fresh = _claim_seq()
+            if fresh:
+                _apply_edit_form(note, request.form)
+                if mode != "auto" and not note.threads:
+                    _apply_thread_action(note, request.form)
+                notes.write_note(note)
+                db.upsert_note(note)
+        if fresh and mode != "auto":
+            embed.embed_note(note)
+        if mode == "save":
+            return redirect(url_for("view", note_id=note.id))
+        return jsonify({"ok": True, "id": note.id, "modified": note.modified})
+    return render_template("edit.html", note=note, autosave=bool(settings.get("autosave", True)))
 
 
 @app.route("/note/<note_id>/delete", methods=["POST"])
@@ -461,56 +549,48 @@ def delete(note_id):
 @app.route("/new", methods=["GET", "POST"])
 def new():
     if request.method == "POST":
-        title = request.form.get("title", "").strip() or "Untitled"
-        body = request.form.get("body", "")
-        tags_raw = request.form.get("tags", "")
-        tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
-        thread_action = request.form.get("thread_action", "").strip()
-        kind = request.form.get("kind", "research").strip().lower()
-        if kind not in ("research", "journal", "teaching", "life"):
-            kind = "research"
-
-        # Create the note (without thread info initially)
-        note = notes.create_note(title, body=body, tags=tags, kind=kind)
-
-        # Handle thread workflow
-        if thread_action == "new":
-            thread_name = request.form.get("new_thread_name", "").strip()
-            if thread_name:
-                note.threads = [{"name": thread_name, "prev": None, "next": None}]
+        mode = _save_mode()
+        token = request.form.get("_draft", "").strip()
+        title = request.form.get("title", "").strip()
+        if mode != "save" and not title:
+            # Autosave waits for a title, so filenames get a real slug.
+            return jsonify({"ok": False, "message": "Add a title to start saving."}), 400
+        with _SAVE_LOCK:
+            existing_id = _DRAFTS.get(token) if token else None
+            note = _find_note_by_id(existing_id) if existing_id else None
+            fresh = _claim_seq()
+            if note is None:
+                kind = request.form.get("kind", "research").strip().lower()
+                if kind not in KINDS:
+                    kind = "research"
+                tags_raw = request.form.get("tags", "")
+                note = notes.create_note(
+                    title or "Untitled",
+                    body=request.form.get("body", ""),
+                    tags=[t.strip() for t in tags_raw.split(",") if t.strip()],
+                    kind=kind,
+                )
+                if token:
+                    _DRAFTS[token] = note.id
+                fresh = True
+            elif fresh:
+                _apply_edit_form(note, request.form)
+            if fresh:
+                if mode != "auto" and not note.threads:
+                    _apply_thread_action(note, request.form)
                 notes.write_note(note)
-        elif thread_action == "existing":
-            thread_name = request.form.get("existing_thread_name", "").strip()
-            if thread_name:
-                # Find the current tail of this thread
-                tail_id = db.thread_tail(thread_name)
-                if tail_id:
-                    # Set the new note as a continuation
-                    note.threads = [{"name": thread_name, "prev": tail_id, "next": None}]
-                    notes.write_note(note)
-                    # Update the tail note to point at the new note
-                    tail_meta = db.get_note_meta(tail_id)
-                    if tail_meta:
-                        tail_path = notes.NOTES_DIR / tail_meta["filename"]
-                        if tail_path.exists():
-                            tail_note = notes.parse_file(tail_path)
-                            updated = False
-                            for t in tail_note.threads:
-                                if isinstance(t, dict) and t.get("name") == thread_name:
-                                    t["next"] = note.id
-                                    updated = True
-                                    break
-                            if updated:
-                                notes.write_note(tail_note)
-                                db.upsert_note(tail_note)
-                else:
-                    # Thread name was given but no existing notes — start fresh
-                    note.threads = [{"name": thread_name, "prev": None, "next": None}]
-                    notes.write_note(note)
-
-        db.upsert_note(note)
-        embed.embed_note(note)
-        return redirect(url_for("view", note_id=note.id))
+                db.upsert_note(note)
+        if fresh and mode != "auto":
+            embed.embed_note(note)
+        if mode == "save":
+            return redirect(url_for("view", note_id=note.id))
+        return jsonify({
+            "ok": True,
+            "id": note.id,
+            "modified": note.modified,
+            "edit_url": url_for("edit", note_id=note.id),
+            "view_url": url_for("view", note_id=note.id),
+        })
     preselect_kind = request.args.get("kind", "research").strip().lower()
     if preselect_kind not in ("research", "journal", "teaching", "life"):
         preselect_kind = "research"
@@ -519,6 +599,7 @@ def new():
         note=None,
         all_threads=db.all_threads(),
         preselect_kind=preselect_kind,
+        autosave=bool(settings.get("autosave", True)),
     )
 
 
@@ -645,6 +726,7 @@ def settings_page():
             "ai_embed_base_url": request.form.get("ai_embed_base_url", "").strip(),
             # Checkbox: present in form data = True, absent = False
             "sanitize_note_html": request.form.get("sanitize_note_html") == "on",
+            "autosave": request.form.get("autosave") == "on",
         }
         try:
             old_notes = settings.get_notes_dir()

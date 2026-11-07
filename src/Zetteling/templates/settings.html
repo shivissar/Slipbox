@@ -133,6 +133,12 @@
                 </label>
                 <input type="checkbox" class="switch" id="sanitize" name="sanitize_note_html" {% if current.sanitize_note_html %}checked{% endif %}>
               </div>
+              <div class="set-row">
+                <label class="set-text" for="autosave"><strong>Save automatically</strong>
+                  <span>Saves the note you’re editing a moment after you stop typing, and again when you leave it. Related notes update when you leave the note or press ⌘S. Turn this off if you want edits to stay unsaved until you press Save.</span>
+                </label>
+                <input type="checkbox" class="switch" id="autosave" name="autosave" {% if current.autosave is not defined or current.autosave %}checked{% endif %}>
+              </div>
             </div>
           </section>
 

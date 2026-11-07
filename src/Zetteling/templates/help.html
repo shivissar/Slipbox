@@ -20,7 +20,7 @@
     <p><strong>Linking and citing while you write.</strong> In the editor, type <code>[[</code> and a picker appears at the cursor listing matching notes; press <kbd>↵</kbd> to insert the link, or <kbd>⇧↵</kbd> to insert it with the note's title as the link text. Type <code>@</code> at the start of a word to search your bibliography the same way. The <em>Links in this note</em> list in the editor's side panel shows the titles of every note you have linked, so the 14-digit IDs never need reading.</p>
     <dl>
       <dt>Keyboard shortcuts</dt>
-      <dd><kbd>⌘K</kbd> command palette &middot; <kbd>⌘N</kbd> new note &middot; <kbd>⇧⌘N</kbd> new journal entry &middot; <kbd>⌘E</kbd> edit this note &middot; <kbd>⌘I</kbd> interrogate this note &middot; <kbd>⌘S</kbd> save while editing &middot; <kbd>⌘,</kbd> settings &middot; <kbd>⌘↵</kbd> send a message in Interrogate. If a shortcut does nothing on your Mac, a menu item may be using the same keys; the palette always works.</dd>
+      <dd><kbd>⌘K</kbd> command palette &middot; <kbd>⌘N</kbd> new note &middot; <kbd>⇧⌘N</kbd> new journal entry &middot; <kbd>⌘E</kbd> edit this note &middot; <kbd>⌘I</kbd> interrogate this note &middot; <kbd>⌘S</kbd> save and close the editor &middot; <kbd>⌘,</kbd> settings &middot; <kbd>⌘↵</kbd> send a message in Interrogate. If a shortcut does nothing on your Mac, a menu item may be using the same keys; the palette always works.</dd>
     </dl>
 
     <nav class="meta">
@@ -66,9 +66,10 @@
 
     <p>Notes have a 14-digit timestamp ID (like <code>20260407164313</code>) and a slug derived from the title. The ID is forever; the title can change without breaking anything that links to the note.</p>
 
-    <p><strong>To create a note:</strong> click <em>+ new</em> in the top right. Give it a title and a body in Markdown. Save.</p>
-    <p><strong>To edit a note:</strong> open it and click <em>edit</em> at the bottom.</p>
-    <p><strong>To delete a note:</strong> open it and click the red <em>delete</em> button. See <a href="#deleting">Deleting &amp; trash</a> below for what actually happens.</p>
+    <p><strong>To create a note:</strong> click <em>New note</em> at the top of the sidebar, or press <kbd>⌘N</kbd>. Give it a title and a body in Markdown.</p>
+    <p><strong>To edit a note:</strong> open it and click <em>Edit</em> in the bar above it, or press <kbd>⌘E</kbd>.</p>
+    <p id="saving"><strong>Saving.</strong> Zetteling saves the note you're editing a moment after you stop typing, and again when you click <em>Done</em> or go to another page; the label next to <em>Editing</em> shows “Saving…” and “Saved”. A new note is saved for the first time once it has a title and you've moved on from the title field, so its filename uses the whole title. Related notes update when you leave the note or press <kbd>⌘S</kbd>, not while you type, so a cloud AI provider isn't called on every pause. If you'd rather save only when you press <em>Save</em>, turn off <em>Save automatically</em> under <a href="{{ url_for('settings_page') }}#writing">Settings → Writing</a>; the button then reads <em>Cancel</em> and discards your changes.</p>
+    <p><strong>To delete a note:</strong> open it and click the bin icon in the bar above it. See <a href="#deleting">Deleting &amp; trash</a> below for what actually happens.</p>
 
     <h2 id="kinds">Kinds &mdash; four streams for different purposes</h2>
     <p>Zetteling organizes notes along a <em>kind</em> axis with four values: <strong>research</strong>, <strong>journal</strong>, <strong>teaching</strong>, and <strong>life</strong>. Every note belongs to exactly one kind. Research is the default; existing notes created before v3.14 are treated as research automatically.</p>
@@ -214,7 +215,7 @@
 
     <p>Three export sources, accessible from three places:</p>
     <ul>
-      <li>From any note's view page, click <em>export</em> in the action row at the bottom &mdash; exports just that note.</li>
+      <li>From any note, click the export icon in the bar above it &mdash; exports just that note.</li>
       <li>From a thread page (e.g. <code>/thread/dissonance-arc</code>), click <em>export this thread</em> in the header &mdash; exports the full chain in order, with each note as a section of the resulting document.</li>
       <li>From a tag page (e.g. <code>/tag/sts-theory</code>), click <em>export all</em> &mdash; exports every note carrying that tag.</li>
     </ul>

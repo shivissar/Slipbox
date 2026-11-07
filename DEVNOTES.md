@@ -66,3 +66,20 @@ Build fix (8 Nov 2026)
   Checked with pip download for macosx_11_0_arm64 and macosx_11_0_x86_64:
   both resolve the same 54 wheels. Alternative if the pin becomes a burden:
   universal_build = false (Apple Silicon only).
+
+v5.0.1 autosave (8 Nov 2026)
+- Save modes via hidden field _autosave: "1" (write + index, JSON),
+  "leave" (beacon on pagehide: also thread choice + embedding), absent
+  (explicit save: as leave, then redirect). Shared helpers in flask_app.py:
+  _save_mode, _claim_seq, _apply_edit_form, _apply_thread_action.
+- _SAVE_LOCK guards _LAST_SEQ (draft token -> newest seq written) and
+  _DRAFTS (draft token -> note created). The server is threaded, so without
+  these an older in-flight autosave could overwrite newer text, and two
+  racing first saves could create two notes.
+- Thread choice on a new note is applied only on leave/explicit save, so a
+  half-typed thread name is never committed.
+- Tested in headless Chrome (27 Playwright checks, run outside the repo:
+  autosave, leave beacon, new-note creation, thread on save, autosave off,
+  stale-request ordering, racing first saves). Not yet checked in
+  the Toga WebView: whether pagehide fires on window close or quit. The
+  1.5 s debounce limits loss there to the last pause.

@@ -418,18 +418,116 @@
     };
     autosize();
 
+    /* Saving. With autosave on (Settings → Writing), the note is saved
+     * 1.5 s after typing stops and once more when the editor closes; only
+     * that last save (or ⌘S) refreshes related notes. A new note is created
+     * on its first save, which waits for a title and for the cursor to leave
+     * the title field, so its filename gets the whole title. Every request
+     * carries this page's draft token and a rising sequence number; the
+     * server ignores anything older than what it has already written. */
+    var auto = editForm.getAttribute("data-autosave") === "1";
+    var saveUrl = editForm.getAttribute("data-save-url") || editForm.action;
+    var isNew = editForm.getAttribute("data-new") === "1";
+    var noteId = isNew ? "" : (body.getAttribute("data-note-id") || "");
+    var titleInput = $("#title-input");
+    var cancel = $("[data-cancel]");
+    var draft = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    var seq = 0, timer = null, inflight = false, failed = false, needsEmbed = false, submitting = false;
+
+    var hidden = function (name) {
+      var el = editForm.querySelector('input[type="hidden"][name="' + name + '"]');
+      if (!el) { el = document.createElement("input"); el.type = "hidden"; el.name = name; editForm.appendChild(el); }
+      return el;
+    };
+    hidden("_draft").value = draft;
+
+    var STATUS = {
+      dirty: ["Not saved yet", true], saving: ["Saving…", false], saved: ["Saved", false],
+      title: ["Add a title to start saving", true], error: ["Couldn’t save. Retrying…", true]
+    };
+    var setStatus = function (key) {
+      if (!dirtyChip) return;
+      var st = STATUS[key];
+      dirtyChip.textContent = st[0];
+      dirtyChip.classList.toggle("chip-warn", st[1]);
+      dirtyChip.hidden = false;
+    };
+    var hasTitle = function () { return !!(titleInput && titleInput.value.trim()); };
+    var canAutosave = function () { return auto && (!!noteId || hasTitle()); };
+    var payload = function (mode) {
+      var fd = new FormData(editForm);
+      fd.set("_autosave", mode);
+      fd.set("_draft", draft);
+      fd.set("_seq", String(++seq));
+      return fd;
+    };
+
+    var becameNote = function (j) {
+      // First save of a new note: from here on, save to its edit URL.
+      noteId = j.id; isNew = false;
+      saveUrl = j.edit_url; editForm.action = j.edit_url;
+      body.setAttribute("data-note-id", j.id);
+      excludeId = j.id;
+      if (cancel && j.view_url) cancel.href = j.view_url;
+      try { window.history.replaceState(null, "", j.edit_url); } catch (err) { /* ignore */ }
+    };
+
+    var saveNow = function () {
+      timer = null;
+      if (!dirty || submitting) return;
+      if (!canAutosave()) { setStatus(hasTitle() ? "dirty" : "title"); return; }
+      // Don't create a new note mid-title: wait until the cursor moves on.
+      if (!noteId && document.activeElement === titleInput) { setStatus("dirty"); return; }
+      if (inflight) { schedule(); return; }
+      inflight = true; failed = false; dirty = false; setStatus("saving");
+      fetch(saveUrl, { method: "POST", body: payload("1"), headers: { "Accept": "application/json" } })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok && j && j.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error((res.j && res.j.message) || "save failed");
+          needsEmbed = true;
+          if (!noteId && res.j.edit_url) becameNote(res.j);
+          setStatus(dirty ? "saving" : "saved");
+        })
+        .catch(function () { dirty = true; failed = true; setStatus("error"); })
+        .then(function () { inflight = false; if (dirty) schedule(failed ? 3000 : 1500); });
+    };
+    var schedule = function (ms) {
+      if (!auto) return;
+      clearTimeout(timer);
+      timer = setTimeout(saveNow, ms || 1500);
+    };
+
     var markDirty = function () {
-      if (!dirty) { dirty = true; if (dirtyChip) dirtyChip.hidden = false; }
+      dirty = true;
+      if (!auto) { setStatus("dirty"); return; }
+      setStatus(canAutosave() ? "saving" : "title");
+      schedule();
     };
     editForm.addEventListener("input", markDirty);
     editForm.addEventListener("change", markDirty);
-    editForm.addEventListener("submit", function () { allowLeave = true; });
-    window.addEventListener("beforeunload", function (e) {
-      if (dirty && !allowLeave) { e.preventDefault(); e.returnValue = ""; }
+    if (titleInput) titleInput.addEventListener("blur", function () { if (auto && dirty) schedule(200); });
+    editForm.addEventListener("submit", function () {
+      allowLeave = true; submitting = true; clearTimeout(timer);
+      hidden("_seq").value = String(++seq);
     });
-    var cancel = $("[data-cancel]");
+
+    // Closing the editor: one last save that also refreshes related notes.
+    window.addEventListener("pagehide", function () {
+      if (!auto || submitting) return;
+      if (!(dirty || needsEmbed || inflight) || !canAutosave()) return;
+      clearTimeout(timer);
+      var fd = payload("leave");
+      if (!(navigator.sendBeacon && navigator.sendBeacon(saveUrl, fd))) {
+        try { fetch(saveUrl, { method: "POST", body: fd, keepalive: true }); } catch (err) { /* ignore */ }
+      }
+      needsEmbed = false; dirty = false;
+    });
+    var unsafeToLeave = function () { return dirty && !allowLeave && !canAutosave(); };
+    window.addEventListener("beforeunload", function (e) {
+      if (unsafeToLeave()) { e.preventDefault(); e.returnValue = ""; }
+    });
     if (cancel) cancel.addEventListener("click", function (e) {
-      if (dirty && !window.confirm("Leave without saving? Your changes will be lost.")) e.preventDefault();
+      if (unsafeToLeave() && !window.confirm("Leave without saving? Your changes will be lost.")) e.preventDefault();
       else allowLeave = true;
     });
 

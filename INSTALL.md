@@ -21,7 +21,7 @@ tested on Apple-silicon Macs (M1 and later).
 
 ### Step 1: Copy it into Applications
 
-1. Double-click the `Zetteling-5.0.0.dmg` file you were given. A window opens.
+1. Double-click the `Zetteling-5.0.1.dmg` file you were given. A window opens.
 2. Drag **Zetteling** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 
@@ -85,7 +85,9 @@ Press **Start writing** and you are in.
   Teaching, Life), plus Tags, Threads, Citations and Stats.
 - Press **⌘K** at any time to search your notes or run a command.
 - Press **⌘N** for a new note. While writing, type `[[` to link another note
-  and `@` to cite a reference. **⌘S** saves.
+  and `@` to cite a reference. Your note saves itself a moment after you stop
+  typing (once it has a title); **⌘S** saves and closes the editor. You can
+  turn autosave off in **Settings → Writing**.
 - **Help** (the question-mark button at the bottom of the sidebar) explains
   everything else, including all the keyboard shortcuts.
 

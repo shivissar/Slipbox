@@ -3,6 +3,21 @@
 The full, user-facing history is on the About page inside the app
 (src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
 
+## 5.0.1 (November 2026)
+
+* Autosave: the editor saves 1.5 s after typing stops and once more when it
+  closes (pagehide beacon). Embedding runs only on that last save or on ⌘S.
+  New notes are created on their first save, which waits for a title and
+  for focus to leave the title field. Per-page draft token and sequence
+  number: stale requests are ignored, and racing saves create one note.
+  Settings → Writing → Save automatically (default on). "Cancel" reads
+  "Done" when autosave is on.
+* Pandoc's GPL licence and source pointer now ship inside the app; Licence
+  page lists third-party components; THIRD-PARTY-NOTICES.md.
+* macOS requires: cryptography<49 (49+ has no Intel macOS wheels).
+* Help: create/edit/delete and export instructions updated for the v5
+  layout.
+
 ## 5.0.0 (November 2026)
 
 * One-window workspace: sidebar, note list, note, side panel (thread,
@@ -10,9 +25,6 @@ The full, user-facing history is on the About page inside the app
 * Settings → Appearance: seven themes (four light, three dark), follow-the-Mac
   mode, accent colour, five bundled fonts, four text sizes, illustrations
   switch. Saved in settings.json.
-* Pandoc's GPL licence and source pointer now ship inside the app
-  (resources/licenses/pandoc/), listed on the Licence page and in
-  THIRD-PARTY-NOTICES.md.
 * Command palette (⌘K) and keyboard shortcuts.
 * Editor: [[ note picker and @ citation picker at the cursor; "Links in this
   note" list; unsaved-changes guard.

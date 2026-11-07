@@ -4,13 +4,16 @@
 {% block layout %}layout-edit{% endblock %}
 {% block main %}
 {%- set current_kind = note.kind if note else (preselect_kind or 'research') -%}
-<form method="post" id="edit-form" class="edit-form" autocomplete="off">
+<form method="post" id="edit-form" class="edit-form" autocomplete="off"
+      data-autosave="{{ '1' if autosave else '0' }}"
+      data-save-url="{{ url_for('edit', note_id=note.id) if note else url_for('new') }}"
+      data-new="{{ '0' if note else '1' }}">
   <main class="pane col card" aria-label="Editor">
     <div class="pane-bar">
       <strong>{{ "Editing" if note else "New note" }}</strong>
-      <span class="chip chip-warn" id="dirty-chip" hidden>Not saved yet</span>
+      <span class="chip chip-warn" id="dirty-chip" role="status" aria-live="polite" hidden>Not saved yet</span>
       <span class="grow"></span>
-      <a class="btn btn-quiet" href="{{ url_for('view', note_id=note.id) if note else url_for('index') }}" data-cancel>Cancel</a>
+      <a class="btn btn-quiet" href="{{ url_for('view', note_id=note.id) if note else url_for('index') }}" data-cancel>{{ "Done" if autosave else "Cancel" }}</a>
       <button type="submit" class="btn btn-primary" title="Save (⌘S)">Save <span class="kbd-hint">⌘S</span></button>
       <button type="button" class="icon-btn" data-toggle-rail aria-label="Show or hide note details" title="Details">{{ icon("panel") }}</button>
     </div>
