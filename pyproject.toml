@@ -45,6 +45,10 @@ universal_build = true
 requires = [
     "toga-cocoa~=0.5.0",
     "std-nslog~=1.0.3",
+    # cryptography (pulled in by google-auth via google-genai) ships no
+    # Intel macOS wheels from 49.0.0 on, which breaks universal_build.
+    # Revisit if Intel support is dropped or google-auth stops needing it.
+    "cryptography<49",
 ]
 
 [tool.briefcase.app.Zetteling.linux]
