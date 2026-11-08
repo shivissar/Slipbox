@@ -14,6 +14,7 @@
         <a href="#locked">Locked notes</a>
         <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
         <a href="#bibliography">Bibliography</a>
+        <a href="#housekeeping">Trash and history</a>
         <a href="#updates">Updates {% if update_status.notice %}<span class="chip chip-accent">New</span>{% endif %}</a>
         <a href="#about">About and legal</a>
       </nav>
@@ -103,6 +104,15 @@
         </section>
 
         <form method="post" class="settings-main" style="gap: 36px" id="settings-form">
+          {%- if settings_problem %}
+          <div class="flash warn unreadable-list" id="settings-problem">
+            <p><strong>Your settings file couldn’t be read</strong> ({{ settings_problem.error }}).
+            {%- if settings_problem.from_backup %} Zetteling restored your settings from the copy it saved last time, <code>settings.json.bak</code>; check them below, especially folders and AI keys.
+            {%- else %} No backup copy was found, so these are the default settings: set your folders, AI keys and bibliography again.{% endif %}
+            {%- if settings_problem.kept %} The unreadable file was kept as <code>{{ settings_problem.kept }}</code> in <code>{{ settings_problem.folder }}</code>.
+            {%- else %} The unreadable file will be kept beside it, renamed, the next time settings are saved.{% endif %}</p>
+          </div>
+          {%- endif %}
           {# ---------------- Folders ---------------- #}
           <section class="set-section" id="general">
             <h2>Folders</h2>
@@ -124,6 +134,16 @@
                 <div class="set-control"><input type="text" id="export-dir" name="export_dir" value="{{ current.export_dir }}" placeholder="~/Downloads/zetteling-exports"></div>
               </div>
             </div>
+            {%- if unreadable_files %}
+            <div class="flash warn unreadable-list" id="unreadable">
+              <p><strong>{{ unreadable_files|length }} file{{ '' if unreadable_files|length == 1 else 's' }} in your notes folder couldn’t be read</strong>, so {{ 'it isn’t' if unreadable_files|length == 1 else 'they aren’t' }} in your lists or search. Usually the front matter (the lines between <code>---</code> at the top) has a typing error, such as an unclosed bracket or quote. Open the file in a text editor and fix it; Zetteling picks it up as soon as it’s saved. Nothing in the file has been changed.</p>
+              <ul>
+                {%- for name, reason in unreadable_files|dictsort %}
+                <li><code>{{ name }}</code>: {{ reason }}</li>
+                {%- endfor %}
+              </ul>
+            </div>
+            {%- endif %}
           </section>
 
           {# ---------------- Writing ---------------- #}
@@ -398,6 +418,38 @@
           {%- endif %}
         </section>
 
+        {# ---------------- Trash and history (own forms) ---------------- #}
+        <section class="set-section" id="housekeeping">
+          <h2>Trash and history</h2>
+          {%- if hk_msg %}<div class="flash success">{{ hk_msg }}</div>{% endif %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Trash</strong>
+                <span>Deleted notes go to <code>.trash</code> in your notes folder, where you can restore them in Finder. Zetteling never empties it by itself.
+                {%- if housekeeping.trash %} It holds {{ housekeeping.trash }} note{{ '' if housekeeping.trash == 1 else 's' }}{% if housekeeping.trash_versions %} and {{ housekeeping.trash_versions }} earlier version{{ '' if housekeeping.trash_versions == 1 else 's' }}{% endif %} ({{ housekeeping.trash_bytes|filesize }}).{% else %} It’s empty.{% endif %}</span>
+              </div>
+              {%- if housekeeping.trash %}
+              <form method="post" action="{{ url_for('trash_empty') }}" class="inline"
+                    data-confirm="Delete the {{ housekeeping.trash }} note{{ '' if housekeeping.trash == 1 else 's' }} in the trash for good, with {{ 'its' if housekeeping.trash == 1 else 'their' }} history?&#10;&#10;This can’t be undone. Copies in backups (Time Machine, iCloud, Git) are not affected.">
+                <button type="submit" class="btn">{{ icon("trash") }}Empty trash</button>
+              </form>
+              {%- endif %}
+            </div>
+            <div class="set-row">
+              <div class="set-text"><strong>History of deleted notes</strong>
+                <span>Earlier versions are kept in the app-data folder, up to {{ history_max }} per note.
+                {%- if housekeeping.orphans %} {{ housekeeping.orphan_versions }} version{{ '' if housekeeping.orphan_versions == 1 else 's' }} ({{ housekeeping.orphan_bytes|filesize }}) belong to {{ housekeeping.orphans }} note{{ '' if housekeeping.orphans == 1 else 's' }} no longer in your notes folder or the trash.{% else %} None belong to notes you’ve deleted.{% endif %}</span>
+              </div>
+              {%- if housekeeping.orphans %}
+              <form method="post" action="{{ url_for('history_prune') }}" class="inline"
+                    data-confirm="Delete the history of {{ housekeeping.orphans }} deleted note{{ '' if housekeeping.orphans == 1 else 's' }}?&#10;&#10;This can’t be undone.">
+                <button type="submit" class="btn">{{ icon("trash") }}Delete their history</button>
+              </form>
+              {%- endif %}
+            </div>
+          </div>
+        </section>
+
         {# ---------------- Updates (own forms) ---------------- #}
         {%- set upd = update_status %}
         <section class="set-section" id="updates">
@@ -445,7 +497,7 @@
                 <a class="chip chip-teaching" href="{{ url_for('license_page') }}">Licence: PolyForm Noncommercial 1.0.0</a>
               </div>
             </div>
-            <div class="set-row"><div class="set-text"><strong>Where settings live</strong><span>One file, <code>settings.json</code>, in the app’s data folder on this Mac. API keys are stored there in plain text, so treat that file like a password.</span></div></div>
+            <div class="set-row"><div class="set-text"><strong>Where settings live</strong><span><code>settings.json</code>, with a backup copy beside it (<code>settings.json.bak</code>), in the app’s data folder on this Mac. API keys are stored in both in plain text, so treat those files like a password.</span></div></div>
           </div>
         </section>
       </div>

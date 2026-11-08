@@ -44,6 +44,19 @@
   </a>
   {%- endif %}
 
+  {%- if unreadable_files %}
+  {%- set n_bad = unreadable_files|length %}
+  <a class="side-update side-problem" href="{{ url_for('settings_page') }}#unreadable" title="Zetteling couldn’t read {{ n_bad }} file{{ '' if n_bad == 1 else 's' }} in your notes folder, so {{ 'it isn’t' if n_bad == 1 else 'they aren’t' }} in the list.">
+    {{ icon("warn") }}<span class="grow"><strong>{{ n_bad }} note{{ '' if n_bad == 1 else 's' }} can’t be read</strong><small>See which</small></span>
+  </a>
+  {%- endif %}
+
+  {%- if settings_problem %}
+  <a class="side-update side-problem" href="{{ url_for('settings_page') }}#settings-problem">
+    {{ icon("warn") }}<span class="grow"><strong>Settings file couldn’t be read</strong><small>{{ 'Restored from backup' if settings_problem.from_backup else 'Check your settings' }}</small></span>
+  </a>
+  {%- endif %}
+
   {%- if vault_state.open %}
   {#- 5.2: while locked notes are open their text shows in the app; say so,
       and offer to close them, on every page. -#}

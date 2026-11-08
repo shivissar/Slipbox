@@ -111,6 +111,21 @@ The full, user-facing history is on the About page inside the app
 * net.ssl_context(): certifi for Voyage, Ollama over https and the update
   check.
 * tests/browser: the Playwright suites, fixture, run_all.py and README.
+* ⇧⌘N (GET /journal/new) no longer creates a file: it opens a new-note
+  form titled with the date and time, kind journal, body focused; the
+  first save creates the entry. New notes of a locked kind hide tag
+  suggestions, as locked notes do.
+* Note files whose front matter can't be parsed are listed
+  (watcher.PROBLEMS): a sidebar notice and Settings → Folders, with a
+  plain-English reason; Help → Troubleshooting.
+* settings.json: every save also writes settings.json.bak; an unreadable
+  file is read from the backup (else defaults), kept as
+  settings.json.unreadable-<stamp> on the next save, and reported in the
+  sidebar and Settings.
+* Settings → Trash and history: Empty trash (deletes .trash notes and
+  their history unless the ID is back in the folder) and Delete their
+  history (history of notes neither in the folder nor the trash). Nothing
+  is deleted automatically.
 
 ## 5.1.0 (November 2026)
 

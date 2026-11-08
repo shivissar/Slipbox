@@ -95,6 +95,10 @@ def inject_globals():
         "back_link": _back_link() if request.endpoint in _BACK_PAGES else None,
         # 5.2: one-off notices (e.g. notes locked by the sweep)
         "flash_msg": "" if request.headers.get("HX-Request") else _pop_flash(),
+        # 5.2: note files that couldn't be read (they used to vanish silently)
+        "unreadable_files": dict(watcher.PROBLEMS),
+        # 5.2: settings.json couldn't be read (restored from the backup copy)
+        "settings_problem": settings.problem_notice(),
     }
 
 
@@ -996,22 +1000,99 @@ def journal_new():
     mismatch how users actually journal: they think of entries as
     discrete events, not as a single rolling document, and the previous
     behavior made it easy to accidentally clobber an earlier entry by
-    clearing the form and writing fresh content."""
+    clearing the form and writing fresh content.
+
+    5.2: nothing is written until you type. The entry opens as a new note
+    already titled and of kind journal, and its first save creates the file.
+    Before, this GET created the file at once, so every ⇧⌘N left an entry,
+    empty if you changed your mind."""
     from datetime import datetime
     now = datetime.now()
     title = now.strftime("%Y-%m-%d %H:%M")  # e.g. "2026-04-09 14:32"
     if _kind_locked("journal") and not vault.is_unlocked():
         return redirect(url_for("unlock_page", next=url_for("journal_new")))
-    note = notes.create_note(
-        title,
-        body="",
-        tags=[],
-        kind="journal",
-        locked=_kind_locked("journal"),
+    return render_template(
+        "edit.html",
+        note=None,
+        all_threads=db.all_threads(),
+        preselect_kind="journal",
+        prefill={"slug": None, "name": "", "title": title, "body": "", "kind": "journal", "tags": []},
+        note_templates=note_templates.list_templates(),
+        autosave=bool(settings.get("autosave", True)),
+        focus_body=True,
     )
-    db.upsert_note(note)
-    embed.embed_note_async(note)
-    return redirect(url_for("edit", note_id=note.id))
+
+
+# --- 5.2: trash and history housekeeping (Settings → Trash and history) ---
+
+def _live_ids():
+    ids = set(db.all_known_ids())
+    for p in notes.iter_note_files():
+        stem = p.name.split("-", 1)[0]
+        if stem.isdigit():
+            ids.add(stem)
+    return ids
+
+
+def _housekeeping():
+    trashed = notes.trashed()
+    trash_ids = {nid for _, nid in trashed}
+    live = _live_ids()
+    orphans = [i for i in history.ids_with_history() if i not in live and i not in trash_ids]
+    trash_bytes = 0
+    for p, _ in trashed:
+        try:
+            trash_bytes += p.stat().st_size
+        except OSError:
+            pass
+    trash_versions, trash_hist_bytes = history.usage(i for i in trash_ids if i not in live)
+    orphan_versions, orphan_bytes = history.usage(orphans)
+    return {
+        "trash": len(trashed), "trash_bytes": trash_bytes + trash_hist_bytes, "trash_versions": trash_versions,
+        "orphans": len(orphans), "orphan_versions": orphan_versions, "orphan_bytes": orphan_bytes,
+    }
+
+
+def _size(n):
+    return "%d KB" % max(1, round(n / 1024)) if n < 1024 * 1024 else "%.1f MB" % (n / 1024 / 1024)
+
+
+app.jinja_env.filters["filesize"] = _size
+
+
+@app.route("/trash/empty", methods=["POST"])
+def trash_empty():
+    """Delete the notes in .trash for good, with their history (unless a
+    note with the same ID is back in the folder)."""
+    live = _live_ids()
+    gone = failed = 0
+    for path, nid in notes.trashed():
+        try:
+            path.unlink()
+            gone += 1
+        except OSError:
+            failed += 1
+            continue
+        if nid not in live:
+            history.delete_history(nid)
+    msg = "Deleted %s from the trash, with %s history." % (_plural(gone, "note"), "its" if gone == 1 else "their")
+    if failed:
+        msg += " %s couldn’t be deleted; remove %s in Finder." % (_plural(failed, "file"), "it" if failed == 1 else "them")
+    return redirect(url_for("settings_page", hk_msg=msg) + "#housekeeping")
+
+
+@app.route("/history/prune", methods=["POST"])
+def history_prune():
+    """Delete the history of notes that are neither in the folder nor in
+    the trash (deleted in Finder, or the trash emptied by hand)."""
+    live = _live_ids()
+    trash_ids = {nid for _, nid in notes.trashed()}
+    n = 0
+    for nid in history.ids_with_history():
+        if nid not in live and nid not in trash_ids:
+            history.delete_history(nid)
+            n += 1
+    return redirect(url_for("settings_page", hk_msg="Deleted the history of %s." % _plural(n, "deleted note")) + "#housekeeping")
 
 
 @app.route("/journal/today")
@@ -1134,6 +1215,9 @@ def settings_page():
         "settings.html",
         vault_msg=request.args.get("vault_msg", "")[:200],
         tpl_msg=request.args.get("tpl_msg", "")[:200],
+        housekeeping=_housekeeping(),
+        history_max=history.MAX_VERSIONS,
+        hk_msg=request.args.get("hk_msg", "")[:300],
         upd_msg=request.args.get("upd_msg", "")[:200],
         note_templates=note_templates.list_templates(),
         vault_err=request.args.get("vault_err") == "1",

@@ -60,6 +60,14 @@ def full_resync(force=False):
 
 
 def _reason(e):
+    problem = getattr(e, "problem", None)  # a YAML error in the front matter
+    if problem:
+        hint = ""
+        if any(s in problem for s in ("expected ','", "end of stream", "found unexpected end")):
+            hint = " (often a bracket or quotation mark that isn’t closed)"
+        elif "mapping values are not allowed" in problem:
+            hint = " (often a colon in a title that needs quotation marks around it)"
+        return f"the front matter can’t be read: {problem}{hint}"[:240]
     text = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
     return text[:200]
 

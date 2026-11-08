@@ -73,18 +73,70 @@ DEFAULTS = {
 }
 
 
+# 5.2: a settings file that can't be read used to load as defaults, and the
+# next save overwrote it, losing folders and API keys. Now every save also
+# writes settings.json.bak; an unreadable file is read from that copy
+# instead, kept aside on the next save, and reported in the app.
+PROBLEM = {}       # the file on disk can't be read right now
+RECOVERED = {}     # what happened at the last such save, for the notice
+
+
+def problem_notice():
+    """For the app: None, or {"error", "from_backup", "kept"} (kept is the
+    name the unreadable file was given, once a save has set it aside)."""
+    folder = str(SETTINGS_PATH.parent)
+    if PROBLEM:
+        return {"error": PROBLEM["error"], "from_backup": PROBLEM["from_backup"], "kept": "", "folder": folder}
+    return dict(RECOVERED, folder=folder) if RECOVERED else None
+
+
+def _backup_path():
+    return SETTINGS_PATH.with_name(SETTINGS_PATH.name + ".bak")
+
+
+def _read(path):
+    """The stored dict, None if there's no file, or raises ValueError."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            stored = json.load(f)
+    except FileNotFoundError:
+        return None
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as e:
+        raise ValueError(str(e).splitlines()[0] if str(e) else type(e).__name__)
+    if not isinstance(stored, dict):
+        raise ValueError("it doesn’t hold a set of settings")
+    return stored
+
+
 def load():
     """Return the merged settings dict (defaults + on-disk overrides)."""
     out = dict(DEFAULTS)
-    if SETTINGS_PATH.exists():
+    try:
+        stored = _read(SETTINGS_PATH)
+        PROBLEM.clear()
+    except ValueError as e:
+        stored = None
         try:
-            with open(SETTINGS_PATH, encoding="utf-8") as f:
-                stored = json.load(f)
-            if isinstance(stored, dict):
-                out.update({k: stored[k] for k in stored if k in DEFAULTS})
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[settings] could not read {SETTINGS_PATH}: {e}")
+            stored = _read(_backup_path())
+        except ValueError:
+            pass
+        info = {"error": str(e), "from_backup": stored is not None}
+        if PROBLEM.get("error") != info["error"]:
+            print(f"[settings] could not read {SETTINGS_PATH}: {e}"
+                  + ("; using settings.json.bak" if stored is not None else "; using defaults"))
+        PROBLEM.update(info)
+    if stored:
+        out.update({k: stored[k] for k in stored if k in DEFAULTS})
     return out
+
+
+def _write_json(path, data):
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 _SAVE_LOCK = threading.RLock()
@@ -100,12 +152,26 @@ def save(updates):
         current = load()
         current.update({k: v for k, v in updates.items() if k in DEFAULTS})
         SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = SETTINGS_PATH.with_name(SETTINGS_PATH.name + ".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(current, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, SETTINGS_PATH)
+        if PROBLEM:
+            # Keep the unreadable file for the person to look at.
+            from datetime import datetime
+            kept = SETTINGS_PATH.with_name("%s.unreadable-%s" % (
+                SETTINGS_PATH.name, datetime.now().strftime("%Y%m%d-%H%M%S")))
+            try:
+                os.replace(SETTINGS_PATH, kept)
+                print(f"[settings] kept the unreadable file as {kept.name}")
+            except OSError as e:
+                print(f"[settings] couldn't keep the unreadable file: {e}")
+                kept = None
+            RECOVERED.clear()
+            RECOVERED.update(error=PROBLEM["error"], from_backup=PROBLEM["from_backup"],
+                             kept=kept.name if kept else "")
+            PROBLEM.clear()
+        _write_json(SETTINGS_PATH, current)
+        try:
+            _write_json(_backup_path(), current)
+        except OSError as e:
+            print(f"[settings] couldn't write the backup copy: {e}")
         return current
 
 

@@ -223,6 +223,22 @@ def soft_delete(note):
     return dest
 
 
+_TRASHED_RE = re.compile(r"^(\d{14})-.*\.md\.\d{14}\.deleted$")
+
+
+def trashed():
+    """[(path, note_id)] for every note deleted into .trash by Zetteling."""
+    trash = NOTES_DIR / ".trash"
+    if not trash.is_dir():
+        return []
+    out = []
+    for p in sorted(trash.iterdir()):
+        m = _TRASHED_RE.match(p.name)
+        if m and p.is_file():
+            out.append((p, m.group(1)))
+    return out
+
+
 def _unused_id(note_id):
     """Note IDs are 14-digit timestamps. Two notes made in the same second
     used to share one; move to the next free second instead (5.2)."""

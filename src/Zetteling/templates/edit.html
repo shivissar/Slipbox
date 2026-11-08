@@ -30,7 +30,7 @@
         {%- if not note and note_templates %}
         <nav class="template-row" aria-label="Start from a template">
           <span>Start from</span>
-          <a class="chip-link{% if not prefill %} active{% endif %}" href="{{ url_for('new', kind=preselect_kind) }}" data-template-link>Blank</a>
+          <a class="chip-link{% if not prefill or not prefill.slug %} active{% endif %}" href="{{ url_for('new', kind=preselect_kind) }}" data-template-link>Blank</a>
           {%- for t in note_templates %}
           <a class="chip-link{% if prefill and prefill.slug == t.slug %} active{% endif %}" href="{{ url_for('new', template=t.slug) }}" data-template-link title="{{ t.description }}">{{ t.name }}</a>
           {%- endfor %}
@@ -48,7 +48,7 @@
         </div>
         <div class="editor-wrap" id="editor-wrap">
           <label class="sr-only" for="body">Body</label>
-          <textarea name="body" id="body" class="editor-body" spellcheck="true"
+          <textarea name="body" id="body" class="editor-body" spellcheck="true"{% if focus_body %} autofocus{% endif %}
                     placeholder="Start writing. One idea per note works best.">{{ note.body if note else (prefill.body if prefill else '') }}</textarea>
           <div class="picker" id="picker" hidden>
             <div class="picker-head"><span id="picker-title">Link to a note</span><span id="picker-count"></span></div>
@@ -81,7 +81,7 @@
       <div class="rail-section">
         <label class="field-label" for="tags-input">Tags <span class="muted" style="font-weight: 600">(comma-separated)</span></label>
         <input type="text" name="tags" id="tags-input" value="{{ note.tags|join(', ') if note else (prefill.tags|join(', ') if prefill else '') }}" placeholder="e.g. situated-action, autonomy">
-        {%- if note and note.locked %}
+        {%- if (note and note.locked) or (not note and current_kind in vault_state.locked_kinds) %}
         <p class="hint">Tag suggestions are off for locked notes: their text is never sent to an AI provider.</p>
         {%- else %}
         <div class="suggest-row">

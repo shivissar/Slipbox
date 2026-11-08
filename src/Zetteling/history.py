@@ -177,3 +177,36 @@ def plain_versions(note_id):
         except OSError:
             pass
     return n
+
+
+# ---------- Housekeeping (5.2) ---------- #
+# Versions used to accumulate for ever, including for notes long deleted.
+# Nothing is removed automatically: Settings → Trash and history offers to
+# empty the trash (and the history of the notes in it) and to remove the
+# history of notes that are no longer anywhere in the notes folder.
+
+def ids_with_history():
+    d = history_dir()
+    if not d.is_dir():
+        return []
+    return sorted(p.name for p in d.iterdir() if p.is_dir() and re.fullmatch(r"\d{14}", p.name))
+
+
+def usage(note_ids):
+    """(number of versions, bytes) kept for these notes."""
+    count = size = 0
+    for nid in note_ids:
+        for p in _versions(nid):
+            count += 1
+            try:
+                size += p.stat().st_size
+            except OSError:
+                pass
+    return count, size
+
+
+def delete_history(note_id):
+    import shutil
+    d = _note_dir(note_id)
+    if d.is_dir() and re.fullmatch(r"\d{14}", note_id):
+        shutil.rmtree(d, ignore_errors=True)

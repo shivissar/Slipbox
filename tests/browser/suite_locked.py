@@ -105,8 +105,8 @@ with sync_playwright() as p:
     pg.click('#locked form[action="/vault/settings"] button'); pg.wait_for_timeout(700)
     check("kind lock saved", "journal" in settings.get("locked_kinds", []))
     pg.goto(f"{BASE}/journal/new"); pg.wait_for_timeout(500)
-    nid = pg.url.split("/note/")[1].split("/")[0]
     pg.click("#body"); pg.keyboard.type("Dear diary, PRIVATEENTRY."); pg.wait_for_timeout(2300)
+    nid = pg.url.split("/note/")[1].split("/")[0]
     check("new journal entry encrypted", vault.BEGIN in raw(nid) and "PRIVATEENTRY" not in raw(nid))
     check("editor shows Locked chip", pg.locator(".pane-bar .chip-lock").count() == 1)
     check("no tag suggestions on locked note", pg.locator("#suggest-tags-btn").count() == 0)

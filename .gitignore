@@ -79,3 +79,6 @@ logs/
 
 # browser test screenshots
 tests/browser/screenshots/
+
+# settings written when running from source (may hold API keys)
+src/Zetteling/settings.json*
