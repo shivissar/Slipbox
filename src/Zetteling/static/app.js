@@ -1334,4 +1334,14 @@
   document.querySelectorAll("[data-history-back]").forEach(function (b) {
     b.addEventListener("click", function () { window.history.back(); });
   });
+
+  // One-off notices from the server (5.2), shown a little longer than toasts.
+  var flashMsg = body.getAttribute("data-flash");
+  if (flashMsg) {
+    setTimeout(function () {
+      toast(flashMsg);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { var el = $("#toast"); if (el) el.classList.remove("show"); }, 6000);
+    }, 300);
+  }
 })();

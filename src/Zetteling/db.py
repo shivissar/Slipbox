@@ -1069,6 +1069,17 @@ def locked_ids(kind=None):
         return [r["id"] for r in conn.execute(sql, params).fetchall()]
 
 
+def unlocked_ids_of_kinds(kinds):
+    """Notes of these kinds whose text isn't locked (5.2 sweep)."""
+    kinds = [k for k in kinds if k]
+    if not kinds:
+        return []
+    marks = ",".join("?" for _ in kinds)
+    with get_conn() as conn:
+        return [r["id"] for r in conn.execute(
+            f"SELECT id FROM notes_meta WHERE kind IN ({marks}) AND COALESCE(locked, 0) = 0", kinds).fetchall()]
+
+
 def ids_for_kind(kind):
     with get_conn() as conn:
         return [r["id"] for r in conn.execute("SELECT id FROM notes_meta WHERE kind = ?", (kind,)).fetchall()]

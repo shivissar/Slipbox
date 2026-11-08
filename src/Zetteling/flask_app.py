@@ -93,6 +93,8 @@ def inject_globals():
         "update_status": release_check.status(__version__, s),
         # 5.2: Back (and esc) on Help, Export and Open beside
         "back_link": _back_link() if request.endpoint in _BACK_PAGES else None,
+        # 5.2: one-off notices (e.g. notes locked by the sweep)
+        "flash_msg": "" if request.headers.get("HX-Request") else _pop_flash(),
     }
 
 
@@ -191,11 +193,75 @@ def _same_origin_posts():
 @app.before_request
 def _vault_activity():
     """Close locked notes after the chosen idle time, then count this
-    request as activity (unless it's a background request)."""
+    request as activity (unless it's a background request). While they're
+    open, lock any plain-text notes of an always-locked kind (5.2)."""
     vault.autolock_if_idle(_lock_after_minutes())
     path = request.path or ""
     if not path.startswith(_BACKGROUND_PATHS):
         vault.touch()
+        if request.method == "GET" and not path.startswith("/api/"):
+            sweep_locked_kinds()
+
+
+# --- 5.2: kinds that are always locked ---------------------------------
+# Only a note whose kind *changes* to a locked kind used to be locked. A
+# note of that kind arriving in plain text (synced from another Mac, made
+# in another editor, or left by an interrupted bulk lock) stayed readable
+# on disk, silently. While locked notes are open, such notes are now locked,
+# at most once a minute, except ones whose lock was removed on purpose.
+_SWEEP = {"at": -1e9, "msg": ""}
+
+
+def _set_exempt(note_id, exempt):
+    ids = [i for i in (settings.get("lock_exempt", []) or []) if isinstance(i, str)]
+    if exempt and note_id not in ids:
+        ids.append(note_id)
+    elif not exempt and note_id in ids:
+        ids.remove(note_id)
+    else:
+        return
+    settings.save({"lock_exempt": ids})
+
+
+def _pending_kind_locks():
+    kinds = _locked_kinds()
+    if not kinds:
+        return []
+    exempt = set(settings.get("lock_exempt", []) or [])
+    return [i for i in db.unlocked_ids_of_kinds(kinds) if i not in exempt]
+
+
+def sweep_locked_kinds(force=False):
+    """Lock plain-text notes of always-locked kinds. Returns how many."""
+    import time as _time
+    if not vault.is_unlocked() or not _locked_kinds():
+        return 0
+    now = _time.monotonic()
+    if not force and now - _SWEEP["at"] < 60:
+        return 0
+    _SWEEP["at"] = now
+    kinds = _locked_kinds()
+    count = 0
+    for nid in _pending_kind_locks():
+        note = _find_note_by_id(nid)
+        if not note or note.locked or note.unreadable or note.kind not in kinds:
+            continue
+        try:
+            with _SAVE_LOCK:
+                _lock_note(note)
+            count += 1
+        except (OSError, vault.VaultError) as e:
+            print("[vault] couldn't lock %s: %s" % (nid, e))
+    if count:
+        db.scrub_index()
+        _SWEEP["msg"] = "Locked %s of a kind you always lock: %s arrived in plain text." % (
+            _plural(count, "note"), "it" if count == 1 else "they")
+    return count
+
+
+def _pop_flash():
+    msg, _SWEEP["msg"] = _SWEEP["msg"], ""
+    return msg
 
 
 # Side pages that get a Back button (and esc) returning to the note.
@@ -1073,6 +1139,7 @@ def settings_page():
         vault_err=request.args.get("vault_err") == "1",
         vault_kdf=vault.kdf_description() if vault.is_set_up() else "",
         locked_count=len(db.locked_ids()),
+        pending_kind_locks=len(_pending_kind_locks()),
         current=current,
         env_override=env_override,
         env_notes_override=env_notes_override,
@@ -1376,6 +1443,7 @@ def export_view(source_type, source_id):
                 formats=export.SUPPORTED_FORMATS,
                 error=error,
                 export_dir=settings.get_export_dir(),
+                locked_titles=export.locked_included(notes_list),
             )
         ext = export.SUPPORTED_FORMATS[fmt]["ext"]
         # Filename: sanitized title + extension, with timestamp prefix to
@@ -1394,6 +1462,7 @@ def export_view(source_type, source_id):
                 formats=export.SUPPORTED_FORMATS,
                 error=f"Could not create export directory {export_dir}: {e}",
                 export_dir=str(export_dir),
+                locked_titles=export.locked_included(notes_list),
             )
         out_path = export_dir / f"{stamp}-{safe}.{ext}"
         out_path.write_bytes(output)
@@ -1416,6 +1485,7 @@ def export_view(source_type, source_id):
         formats=export.SUPPORTED_FORMATS,
         error=None,
         export_dir=settings.get_export_dir(),
+        locked_titles=export.locked_included(notes_list),
     )
 
 
@@ -1445,6 +1515,7 @@ def unlock_page():
             if _wants_json():
                 return jsonify({"ok": False, "message": error}), 403
         else:
+            sweep_locked_kinds(force=True)
             if _wants_json():
                 return jsonify({"ok": True})
             return redirect(nxt)
@@ -1576,6 +1647,7 @@ def vault_recover():
             except vault.VaultError as e:
                 error = str(e)
             else:
+                sweep_locked_kinds(force=True)
                 return _to_settings("New password set. Your recovery key still works.")
     return render_template("vault_recover.html", error=error)
 
@@ -1593,6 +1665,11 @@ def vault_settings():
     if added and not vault.is_unlocked():
         return _to_settings("Unlock locked notes first, so existing notes of that kind can be locked.", error=True)
     settings.save({"locked_kinds": kinds, "lock_after_minutes": minutes})
+    if added:  # ticking a kind locks all of it, earlier exceptions included
+        newly = set()
+        for k in added:
+            newly.update(db.ids_for_kind(k))
+        settings.save({"lock_exempt": [i for i in (settings.get("lock_exempt", []) or []) if i not in newly]})
     count = 0
     for k in added:
         for nid in db.ids_for_kind(k):
@@ -1618,7 +1695,7 @@ def vault_remove_all():
         if note and note.locked and not note.unreadable:
             _unlock_note(note)
             count += 1
-    settings.save({"locked_kinds": []})
+    settings.save({"locked_kinds": [], "lock_exempt": []})
     return _to_settings("Removed the lock from %d note%s. They are plain text again." % (count, "" if count == 1 else "s"))
 
 
@@ -1634,6 +1711,8 @@ def note_lock(note_id):
     if not note.locked:
         _lock_note(note)
         db.scrub_index()
+        _set_exempt(note_id, False)
+        return redirect(url_for("view", note_id=note_id, locked=1))
     return redirect(url_for("view", note_id=note_id))
 
 
@@ -1648,6 +1727,8 @@ def note_remove_lock(note_id):
         return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
     if note.locked:
         _unlock_note(note)
+        if _kind_locked(note.kind):
+            _set_exempt(note.id, True)  # don't lock it again by itself
         embed.embed_note(note)
     return redirect(url_for("view", note_id=note_id))
 

@@ -91,11 +91,14 @@ v5.1.0 locked notes (8 Nov 2026)
   32-byte salt -> HKDF-SHA-256 one-use key -> AES-256-GCM with 12-byte random
   nonce, AAD "zetteling-locked-v1|<vault_id>|<note_id>". Armoured body:
   base64 JSON between BEGIN/END lines; the payload carries the vault header.
-- Argon2id: tries RFC 9106 first recommended (2 GiB, t=1, p=4), falls back
-  to second (64 MiB, t=3, p=4) on allocation failure; scrypt only if
-  Argon2id is unavailable. ZETTEL_VAULT_KDF=light forces the second setting
-  (tests only). Measured in the Linux container: 5.1 s for 2 GiB, 0.14 s
-  for 64 MiB; expect faster on Apple silicon. Not yet measured on a Mac.
+- Argon2id: since 5.2, RFC 9106 second recommended (64 MiB, t=3, p=4) for
+  every new password (vault.ARGON2_DEFAULT). The first recommended (2 GiB,
+  t=1, p=4) used in 5.1 cost 2 GiB on every unlock and wrong guess, and the
+  MemoryError fallback never fired on macOS (no allocation failure, just
+  swap). A vault with other settings is re-wrapped under the same password
+  on its next successful unlock (_move_to_default_settings), and the header
+  copies in locked notes are refreshed. scrypt (N=2^17, r=8) only if
+  Argon2id is missing. Container timing: 0.14 s for 64 MiB.
 - notes.parse_file decrypts when the vault is open; otherwise body "" and
   unreadable=True. write_note never writes a locked body in plain text: an
   unreadable note writes its existing ciphertext back (metadata-only), a

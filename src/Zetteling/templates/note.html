@@ -9,7 +9,12 @@
     <div class="pane-bar">
       <button type="button" class="icon-btn only-narrow" data-toggle-list aria-label="Show note list" title="Note list">{{ icon("list") }}</button>
       {{ kind_chip(note.kind) }}
-      {%- if note.locked %}<span class="chip chip-lock" title="The text of this note is encrypted on disk">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
+      {%- if note.locked and not note.unreadable %}
+      <form method="post" action="{{ url_for('vault_lock') }}" class="inline">
+        <input type="hidden" name="next" value="{{ url_for('view', note_id=note.id) }}">
+        <button type="submit" class="chip chip-lock chip-lock-open" title="Encrypted on disk. Locked notes are open, so the text shows here until you quit{% if vault_state.idle_seconds %} or leave Zetteling idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}. Click to close them now.">{{ icon("unlock", "i sm") }}Locked · open</button>
+      </form>
+      {%- elif note.locked %}<span class="chip chip-lock" title="Encrypted on disk. Enter your password to read it.">{{ icon("lock", "i sm") }}Locked · closed</span>{% endif %}
       <span class="grow"></span>
       {%- if not note.unreadable %}
       <a class="btn" href="{{ url_for('edit', note_id=note.id) }}" title="Edit (⌘E)" data-tour="edit">{{ icon("edit") }}Edit</a>
@@ -38,6 +43,15 @@
 
     <div class="pane-body">
       <article class="measure">
+        {%- if request.args.get("locked") == "1" and note.locked and not note.unreadable %}
+        <div class="flash success lock-flash" role="status">
+          <span><strong>Locked.</strong> This note’s text is now encrypted on disk. Locked notes stay open, so you can still read it here, until you quit{% if vault_state.idle_seconds %} or leave Zetteling idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.</span>
+          <form method="post" action="{{ url_for('vault_lock') }}" class="inline">
+            <input type="hidden" name="next" value="{{ url_for('view', note_id=note.id) }}">
+            <button type="submit" class="btn">{{ icon("lock") }}Close locked notes now</button>
+          </form>
+        </div>
+        {%- endif %}
         <p class="note-meta">
           <span>Modified {{ note.modified[:16].replace('T', ' ') if note.modified else "" }}</span>
           <span class="chip chip-mono" title="Note ID">{{ note.id }}</span>

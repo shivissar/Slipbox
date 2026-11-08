@@ -144,6 +144,50 @@ def embeds_unreadable(note, depth=0, seen=None):
     return False
 
 
+def text_for_ai(body, depth=0, seen=None):
+    """A note body as an AI provider should see it (5.2): embedded notes
+    written out under their titles, three levels deep, except locked ones,
+    which are never sent; [[links]] as the linked note's title."""
+    seen = set(seen or ())
+
+    def repl(m):
+        nid = m.group(1)
+        if depth >= 3 or nid in seen:
+            return ""
+        n = _load_note(nid)
+        if n is None:
+            return "[A note that no longer exists was embedded here.]\n"
+        if n.locked:
+            return "[A locked note is embedded here. Its text is not shared.]\n"
+        inner = text_for_ai(_strip_frontmatter(n.body), depth + 1, seen | {nid})
+        return f"## {n.title}\n\n{inner}".strip() + "\n"
+    expanded = _EMBED_RE.sub(repl, body or "")
+    return _links_to_text(expanded) if depth == 0 else expanded
+
+
+def locked_included(notes_list):
+    """Locked notes whose text an export of notes_list would contain: the
+    notes themselves and any locked note embedded in them (as far down as
+    _expand_embeds goes). 5.2: the warning used to count only the former."""
+    found, seen = {}, set()
+
+    def visit(note, depth):
+        if note.id in seen:
+            return
+        seen.add(note.id)
+        if note.locked:
+            found[note.id] = note.title
+        if depth >= 3:
+            return
+        for m in _EMBED_RE.finditer(note.body or ""):
+            n = _load_note(m.group(1))
+            if n is not None and not n.unreadable:
+                visit(n, depth + 1)
+    for n in notes_list:
+        visit(n, 0)
+    return list(found.values())
+
+
 def _links_to_text(md):
     """[[id|text]] -> text; [[id]] -> the linked note's title (5.2: these
     used to reach pandoc as raw brackets)."""

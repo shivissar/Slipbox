@@ -42,6 +42,9 @@ DEFAULTS = {
     # v5.1: locked notes. Kinds whose notes are always locked, and minutes
     # of inactivity before locked notes close again (0 = only on quit).
     "locked_kinds": [],
+    # 5.2: notes of an always-locked kind whose lock the person removed on
+    # purpose; the sweep that locks plain-text notes of those kinds skips them.
+    "lock_exempt": [],
     # v5.2: the welcome tour has been shown (it starts by itself once)
     "tour_seen": False,
     # v5.2: daily check for a newer release on GitHub (updates.py). The

@@ -44,6 +44,17 @@
   </a>
   {%- endif %}
 
+  {%- if vault_state.open %}
+  {#- 5.2: while locked notes are open their text shows in the app; say so,
+      and offer to close them, on every page. -#}
+  <form method="post" action="{{ url_for('vault_lock') }}" class="side-vault">
+    <input type="hidden" name="next" value="{{ request.path if request.args.get('locked') else request.full_path.rstrip('?') }}">
+    <button type="submit" title="Locked notes show their text until you quit{% if vault_state.idle_seconds %} or leave Zetteling idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}. Close them now.">
+      {{ icon("unlock") }}<span class="grow"><strong>Locked notes are open</strong><small>Close them now</small></span>
+    </button>
+  </form>
+  {%- endif %}
+
   <div class="side-foot">
     <a class="side-link {% if ep == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}" data-tour="settings">{{ icon("sliders") }}<span class="grow">Settings</span></a>
     <a class="icon-btn" href="{{ url_for('tour') }}" aria-label="Take the tour" title="Take the tour" data-tour="tour" data-start-tour>{{ icon("compass") }}</a>

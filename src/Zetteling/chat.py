@@ -83,7 +83,9 @@ Strict rules:
 def build_note_context_message(note):
     """Construct the user-facing 'system context' that's prepended to the
     first user message, so the AI knows what note is being discussed."""
+    from . import export  # 5.2: embedded notes are written out (never locked ones)
     tags_str = ", ".join(note.tags) if note.tags else "(none)"
+    body = export.text_for_ai(note.body, seen={note.id})
     return f"""I'm thinking about the following note from my Zettelkasten. Please help me interrogate it.
 
 Title: {note.title}
@@ -91,7 +93,7 @@ Tags: {tags_str}
 
 ---
 
-{note.body}
+{body}
 
 ---
 

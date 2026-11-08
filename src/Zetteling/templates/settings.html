@@ -354,7 +354,8 @@
               {%- endif %}
             </div>
             <form method="post" action="{{ url_for('vault_settings') }}" class="set-row stack">
-              <div class="set-text"><strong>Always lock these kinds</strong><span>New notes of a ticked kind are created locked. Ticking a kind also locks the notes of that kind you already have (locked notes need to be open). Unticking leaves existing locked notes as they are.</span></div>
+              <div class="set-text"><strong>Always lock these kinds</strong><span>New notes of a ticked kind are created locked. Ticking a kind also locks the notes of that kind you already have (locked notes need to be open), and any that arrive later in plain text, from another Mac or another app, are locked while locked notes are open. A note whose lock you remove yourself stays unlocked. Unticking leaves existing locked notes as they are.</span>
+                {%- if pending_kind_locks and not vault_state.open %}<span class="flash warn" style="margin-top: 6px">{{ pending_kind_locks }} note{{ '' if pending_kind_locks == 1 else 's' }} of {{ 'this kind' if vault_state.locked_kinds|length == 1 else 'these kinds' }} {{ 'is' if pending_kind_locks == 1 else 'are' }} in plain text. {{ 'It' if pending_kind_locks == 1 else 'They' }}’ll be locked when you unlock.</span>{% endif %}</div>
               <div class="kind-checks">
                 {%- for k in kinds %}
                 <label class="check-row"><input type="checkbox" name="locked_kinds" value="{{ k }}" {% if k in vault_state.locked_kinds %}checked{% endif %}> <span class="dot dot-{{ k }}" aria-hidden="true"></span>{{ k|capitalize }}</label>

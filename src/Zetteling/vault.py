@@ -56,12 +56,17 @@ END = "-----END ZETTELING LOCKED NOTE-----"
 KEYFILE_NAME = ".zetteling-vault.json"
 MIN_PASSWORD = 10
 
-# RFC 9106 section 4: FIRST RECOMMENDED (2 GiB, t=1, p=4) and, where that
-# much memory isn't available, SECOND RECOMMENDED (64 MiB, t=3, p=4).
+# RFC 9106 section 4 recommends two settings. Since 5.2 new passwords use
+# the SECOND RECOMMENDED one (64 MiB, t=3, p=4), which the RFC calls safe for
+# all environments. The FIRST (2 GiB, t=1, p=4) took 2 GiB of memory on every
+# unlock and every wrong guess; vaults made with it are moved to the second
+# the next time they're unlocked. The settings used are stored per vault.
 ARGON2_STRONG = {"name": "argon2id", "memory_kib": 2 ** 21, "iterations": 1, "lanes": 4}
 ARGON2_LIGHT = {"name": "argon2id", "memory_kib": 2 ** 16, "iterations": 3, "lanes": 4}
-# Only if Argon2id is missing from the bundled library (RFC 7914 scrypt).
-SCRYPT_FALLBACK = {"name": "scrypt", "n": 2 ** 20, "r": 8, "p": 1}
+ARGON2_DEFAULT = ARGON2_LIGHT
+# Only if Argon2id is missing from the bundled library: RFC 7914 scrypt at
+# N=2^17, r=8 (128 MiB), OWASP's recommended minimum.
+SCRYPT_FALLBACK = {"name": "scrypt", "n": 2 ** 17, "r": 8, "p": 1}
 
 
 class VaultError(Exception):
@@ -276,14 +281,12 @@ def _check_password(password):
 
 
 def _derive_new(password, kdf=None):
-    """Pick the strongest standard setting this Mac can run and derive the
-    password key with it. Returns (kdf, key)."""
+    """Derive a password key with the standard setting (or `kdf`, in tests).
+    Returns (kdf, key)."""
     if kdf:
         candidates = [kdf]
-    elif os.environ.get("ZETTEL_VAULT_KDF") == "light":  # test suite only
-        candidates = [ARGON2_LIGHT]
     else:
-        candidates = [ARGON2_STRONG, ARGON2_LIGHT] if HAVE_ARGON2 else [SCRYPT_FALLBACK]
+        candidates = [ARGON2_DEFAULT] if HAVE_ARGON2 else [SCRYPT_FALLBACK]
     last = None
     for params in candidates:
         chosen = dict(params, salt=_b64(os.urandom(16)))
@@ -336,17 +339,45 @@ def unlock(password):
     try:
         dek = _unwrap(kek, header["password_wrap"], "password", vault_id)
     except InvalidTag:
-        raise WrongPassword("That password isn't right.")
+        raise WrongPassword("That password isn't right.") from None
     with _lock:
         _dek, _header = dek, header
         touch()
+    if _needs_new_settings(header):
+        _move_to_default_settings(password)
     return True
+
+
+def _needs_new_settings(header):
+    k = header.get("kdf") or {}
+    if not HAVE_ARGON2:
+        return False
+    if k.get("name") != "argon2id":
+        return True
+    return (k.get("memory_kib"), k.get("iterations"), k.get("lanes")) != (
+        ARGON2_DEFAULT["memory_kib"], ARGON2_DEFAULT["iterations"], ARGON2_DEFAULT["lanes"])
+
+
+def _move_to_default_settings(password):
+    """Re-wrap the data key under the same password with the standard
+    setting (5.2: vaults made with the 2 GiB setting). Note bodies don't
+    change; the header copy inside each locked note is updated. A failure
+    leaves the vault as it was."""
+    global _header
+    try:
+        with _lock:
+            new = _rewrap_password(_header, _dek, password)
+            _write_keyfile(new)
+            _header = new
+        refresh_note_headers()
+    except Exception as e:  # never block an unlock on this
+        print("[vault] couldn't move to the standard password setting: %s" % e)
 
 
 def _rewrap_password(header, dek, new_password):
     vault_id = _unb64(header["vault_id"])
-    # Always the strongest setting this Mac can run, never the stored one,
-    # so a tampered key file can't talk a password change into weak settings.
+    # Always the standard setting, never the stored one, so a tampered key
+    # file can't talk a password change into weak settings.
     kdf, kek = _derive_new(new_password)
     new = dict(header)
     new["kdf"] = kdf
