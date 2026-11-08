@@ -885,7 +885,7 @@ def edit(note_id):
             embed.delete_embedding_for_note(note.id)
             db.scrub_index()
         elif fresh and mode != "auto":
-            embed.embed_note(note)
+            embed.embed_note_async(note)
         if mode == "save":
             return redirect(url_for("view", note_id=note.id))
         return jsonify({"ok": True, "id": note.id, "modified": note.modified, "locked": note.locked})
@@ -953,7 +953,7 @@ def new():
         if note.locked:
             embed.delete_embedding_for_note(note.id)
         elif fresh and mode != "auto":
-            embed.embed_note(note)
+            embed.embed_note_async(note)
         if mode == "save":
             return redirect(url_for("view", note_id=note.id))
         return jsonify({
@@ -1010,7 +1010,7 @@ def journal_new():
         locked=_kind_locked("journal"),
     )
     db.upsert_note(note)
-    embed.embed_note(note)
+    embed.embed_note_async(note)
     return redirect(url_for("edit", note_id=note.id))
 
 
@@ -1318,6 +1318,12 @@ def api_exports_reveal():
     target_path = Path(target).expanduser()
     if not target_path.exists():
         return jsonify({"ok": False, "message": f"Path does not exist: {target}"})
+    ok, message = _reveal(target_path)
+    return jsonify({"ok": ok, "message": message})
+
+
+def _reveal(target_path):
+    """Show a file in Finder (selected in its folder). Returns (ok, message)."""
     system = platform.system()
     try:
         if system == "Darwin":
@@ -1330,10 +1336,10 @@ def api_exports_reveal():
             parent = target_path.parent if target_path.is_file() else target_path
             subprocess.run(["xdg-open", str(parent)], check=False)
         else:
-            return jsonify({"ok": False, "message": f"Unsupported platform: {system}"})
+            return False, f"Unsupported platform: {system}"
     except Exception as e:
-        return jsonify({"ok": False, "message": f"Failed to open file manager: {e}"})
-    return jsonify({"ok": True, "message": "Opened in file manager"})
+        return False, f"Failed to open file manager: {e}"
+    return True, "Opened in file manager"
 
 
 @app.route("/privacy")
@@ -1729,7 +1735,7 @@ def note_remove_lock(note_id):
         _unlock_note(note)
         if _kind_locked(note.kind):
             _set_exempt(note.id, True)  # don't lock it again by itself
-        embed.embed_note(note)
+        embed.embed_note_async(note)
     return redirect(url_for("view", note_id=note_id))
 
 
@@ -1880,7 +1886,7 @@ def _passage_rows(occ):
 @app.route("/codes")
 def codebook_page():
     rows, closed = codebook.summary()
-    return render_template("codebook.html", rows=rows, closed=closed, msg=request.args.get("msg", "")[:200])
+    return render_template("codebook.html", rows=rows, closed=closed, msg=request.args.get("msg", "")[:400])
 
 
 @app.route("/codes/<code>")
@@ -1894,7 +1900,7 @@ def code_page(code):
         "code.html", code=code, groups=_passage_rows(occ), n_passages=len(occ),
         definition=defs, together=together[:12], same_notes=same_notes[:12], closed=closed,
         categories=sorted({d.get("category", "") for d in codebook.load_definitions().values() if d.get("category")}),
-        msg=request.args.get("msg", "")[:200],
+        msg=request.args.get("msg", "")[:400],
     )
 
 
@@ -1961,6 +1967,37 @@ def code_remove(code):
     if closed:
         msg += " %s couldn’t be checked because locked notes are closed." % _plural(closed, "locked note")
     return redirect(url_for("codebook_page", msg=msg))
+
+
+@app.route("/codes/export", methods=["POST"])
+def codes_export():
+    """5.2: write the CSV to the export folder and show it in Finder. The
+    app's window can't download files, so the old link did nothing there."""
+    from datetime import datetime
+    code = request.form.get("code") or None
+    code = _code_or_404(code) if code else None
+    back = url_for("code_page", code=code) if code else url_for("codebook_page")
+    data = codebook.to_csv(code)
+    n_locked = codebook.locked_rows(code)
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in (code or "codebook"))[:60]
+    export_dir = Path(settings.get_export_dir()).expanduser()
+    out = export_dir / ("%s-zetteling-%s.csv" % (datetime.now().strftime("%Y%m%d-%H%M%S"), safe))
+    try:
+        export_dir.mkdir(parents=True, exist_ok=True)
+        with open(out, "x", encoding="utf-8", newline="") as f:
+            f.write(data)
+    except OSError as e:
+        return redirect(_with_args(back, msg="Couldn’t save the CSV in %s: %s" % (export_dir, e.strerror or e)))
+    revealed, _ = _reveal(out)
+    msg = "Saved %s in your export folder%s." % (out.name, ", shown in Finder" if revealed else " (%s)" % export_dir)
+    if n_locked:
+        msg += " It includes %s from locked notes; the file is not encrypted." % _plural(n_locked, "passage")
+    return redirect(_with_args(back, msg=msg))
+
+
+def _with_args(url, **args):
+    from urllib.parse import urlencode
+    return url + ("&" if "?" in url else "?") + urlencode(args)
 
 
 @app.route("/codes.csv")
@@ -2087,8 +2124,8 @@ def template_edit(slug=None):
         abort(404)
     if request.method == "POST":
         f = request.form
-        new_slug = note_templates.save(slug, f.get("name"), f.get("description"), f.get("kind"),
-                                       f.get("tags"), f.get("title"), f.get("body"))
+        note_templates.save(slug, f.get("name"), f.get("description"), f.get("kind"),
+                            f.get("tags"), f.get("title"), f.get("body"))
         return redirect(url_for("settings_page", tpl_msg="Template saved.") + "#templates")
     return render_template("template_edit.html", t=t, slug=slug)
 
@@ -2180,7 +2217,7 @@ def note_history_restore(note_id):
             db.upsert_note(note)
     except vault.VaultLocked:
         return redirect(url_for("unlock_page", next=url_for("note_history", note_id=note_id, v=name)))
-    embed.embed_note(note)
+    embed.embed_note_async(note)
     return redirect(url_for("note_history", note_id=note_id, restored=1))
 
 

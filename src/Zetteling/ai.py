@@ -21,9 +21,17 @@ just disables itself with a clear message.
 
 import json
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
+from urllib.request import urlopen as _urlopen
 
 from . import settings
+from .net import ssl_context
+
+
+def urlopen(req, timeout):
+    """urlopen with certifi's certificates (5.2: Voyage, and Ollama over
+    https, failed certificate checks in the packaged app)."""
+    return _urlopen(req, timeout=timeout, context=ssl_context())
 
 try:
     import anthropic as _anthropic_sdk

@@ -11,7 +11,6 @@ bib.py with bibtexparser.
 # Copyright (c) 2026 Shiv Issar
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import os
 import shutil
 import stat
 import re

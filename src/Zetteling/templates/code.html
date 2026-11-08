@@ -7,7 +7,7 @@
     <a class="btn" href="{{ url_for('codebook_page') }}">← Codebook</a>
     <strong>Code</strong>
     <span class="grow"></span>
-    {%- if n_passages %}<a class="btn" href="{{ url_for('codes_csv', code=code) }}">{{ icon("export") }}Export (CSV)</a>{% endif %}
+    {%- if n_passages %}<form method="post" action="{{ url_for('codes_export') }}" class="inline"><input type="hidden" name="code" value="{{ code }}"><button type="submit" class="btn" title="Saved in your export folder">{{ icon("export") }}Export (CSV)</button></form>{% endif %}
   </div>
   <div class="pane-body">
     <div class="measure-wide">

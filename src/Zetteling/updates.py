@@ -14,7 +14,6 @@ that is neither a draft nor a pre-release.
 import json
 import platform
 import re
-import ssl
 import subprocess
 import threading
 import time
@@ -60,13 +59,8 @@ def safe_url(url):
 
 
 def _ssl_context():
-    # Briefcase's Python doesn't always find the macOS root certificates;
-    # certifi (already installed for the AI libraries) always works.
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        return ssl.create_default_context()
+    from .net import ssl_context
+    return ssl_context()
 
 
 def fetch_latest(current_version):

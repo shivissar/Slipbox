@@ -9,8 +9,6 @@ file no longer exists is deleted.
 # Copyright (c) 2026 Shiv Issar
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import threading
-import time
 from pathlib import Path
 
 from watchdog.events import FileSystemEventHandler
@@ -20,19 +18,50 @@ from . import db
 from . import notes
 
 
-def full_resync():
-    """Reconcile filesystem ↔ database. Idempotent."""
+# Bump when upsert_note starts indexing something new, so the next start
+# re-reads every note instead of trusting modification times.
+INDEX_VERSION = "5.2"
+
+# Note files Zetteling couldn't read, by filename -> reason (5.2: these
+# used to vanish from the list with only a console message).
+PROBLEMS = {}
+
+
+def full_resync(force=False):
+    """Reconcile filesystem ↔ database. Idempotent. Files whose modification
+    time matches the index are not re-read (5.2), unless `force` or the
+    index was built by an older version."""
     db.init_db()
+    trusted = not force and db.get_embed_meta("index_version") == INDEX_VERSION
+    known = db.indexed_mtimes() if trusted else {}
     on_disk_ids = set()
+    problems = {}
     for path in notes.iter_note_files():
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        hit = known.get(path.name)
+        if hit and hit[1] == mtime:
+            on_disk_ids.add(hit[0])
+            continue
         try:
             note = notes.parse_file(path)
             db.upsert_note(note)
             on_disk_ids.add(note.id)
         except Exception as e:
             print(f"[watcher] skipped {path.name}: {e}")
+            problems[path.name] = _reason(e)
     for stale_id in db.all_known_ids() - on_disk_ids:
         db.delete_note(stale_id)
+    PROBLEMS.clear()
+    PROBLEMS.update(problems)
+    db.set_embed_meta("index_version", INDEX_VERSION)
+
+
+def _reason(e):
+    text = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+    return text[:200]
 
 
 class NotesHandler(FileSystemEventHandler):
@@ -48,9 +77,15 @@ class NotesHandler(FileSystemEventHandler):
             return
         try:
             if path.exists():
-                note = notes.parse_file(path)
+                try:
+                    note = notes.parse_file(path)
+                except Exception as e:
+                    PROBLEMS[path.name] = _reason(e)
+                    raise
                 db.upsert_note(note)
+                PROBLEMS.pop(path.name, None)
             else:
+                PROBLEMS.pop(path.name, None)
                 # Deleted: try to derive ID from filename
                 stem = path.name.split("-", 1)[0]
                 if stem.isdigit():

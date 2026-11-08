@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from Zetteling import chat, db, embed, export, flask_app, notes, settings, vault  # noqa: E402
 
 app = flask_app.app
+_REAL_EMBED_ASYNC = embed.embed_note_async
 PW = "correct horse battery staple"
 CHEAP = {"name": "argon2id", "memory_kib": 2 ** 13, "iterations": 1, "lanes": 1}
 
@@ -144,3 +145,34 @@ def test_interrogate_writes_out_embeds_but_never_locked_text(client):
     assert "## Drone rules" in msg and "DGCA permits" in msg
     assert "real name" not in msg and "A locked note is embedded here" in msg
     assert "![[" not in msg
+
+
+# 10 ------------------------------------------------------------------------
+
+def test_embedding_runs_in_background_and_never_for_locked(client, monkeypatch):
+    import threading
+    seen, gate = [], threading.Event()
+
+    def slow_embed(note):
+        gate.wait(5)
+        seen.append((note.id, note.body))
+        db.store_embedding(note.id, [0.1, 0.2, 0.3], content_hash="h", provider_model="m")
+        return True
+    monkeypatch.setattr(embed, "embed_note", slow_embed)
+    monkeypatch.setattr(embed, "embed_note_async", _REAL_EMBED_ASYNC)  # the fixture stubs it
+    vault.setup(PW, kdf=vault.ARGON2_LIGHT)
+    n = _note("Queued", body="first")
+    r = client.post(f"/note/{n.id}/edit", data={"title": "Queued", "body": "second", "tags": ""})
+    assert r.status_code == 302                       # returned before embedding
+    assert seen == []
+    gate.set()
+    assert embed.wait_for_background(5)
+    assert seen == [(n.id, "second")]                 # what was saved, read again
+
+    seen.clear(); gate.clear()
+    m = _note("Will be locked", body="text")
+    embed.embed_note_async(m)
+    client.post(f"/note/{m.id}/lock")                 # locked while queued/working
+    gate.set()
+    assert embed.wait_for_background(5)
+    assert db.get_embedding_hash(m.id) is None

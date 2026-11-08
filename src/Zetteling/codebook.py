@@ -191,6 +191,17 @@ def suggestions(q="", limit=12):
     return [{"code": r["code"], "count": r["excerpts"], "description": r["description"]} for r in names[:limit]]
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(value):
+    """Spreadsheet apps run a cell that starts with = + - or @ as a formula
+    (an excerpt quoting "@smith2020" showed #NAME?, and a crafted one could
+    do worse). 5.2: such cells start with an apostrophe, which keeps them text."""
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(_FORMULA_START) else text
+
+
 def to_csv(code=None):
     from . import db
     buf = io.StringIO()
@@ -204,7 +215,14 @@ def to_csv(code=None):
         for c in o["codes"]:
             if code and c != code:
                 continue
-            w.writerow([c, defs.get(c, {}).get("category", ""), meta.get("title", ""), o["note_id"],
-                        meta.get("kind", ""), meta.get("created", ""), "yes" if o["locked"] else "no",
-                        re.sub(r"\s+", " ", o["excerpt"]).strip()])
+            w.writerow([_cell(v) for v in (
+                c, defs.get(c, {}).get("category", ""), meta.get("title", ""), o["note_id"],
+                meta.get("kind", ""), meta.get("created", ""), "yes" if o["locked"] else "no",
+                re.sub(r"\s+", " ", o["excerpt"]).strip())])
     return buf.getvalue()
+
+
+def locked_rows(code=None):
+    """How many passages in to_csv(code) come from locked notes."""
+    return sum(1 for o in occurrences(code) if o["locked"]
+               for c in o["codes"] if not code or c == code)

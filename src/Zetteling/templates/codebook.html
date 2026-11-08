@@ -6,7 +6,7 @@
   <div class="pane-bar">
     <strong>Codebook</strong>
     <span class="grow"></span>
-    {%- if rows %}<a class="btn" href="{{ url_for('codes_csv') }}" title="Every coded passage, one row per code">{{ icon("export") }}Export passages (CSV)</a>{% endif %}
+    {%- if rows %}<form method="post" action="{{ url_for('codes_export') }}" class="inline"><button type="submit" class="btn" title="Every coded passage, one row per code, saved in your export folder">{{ icon("export") }}Export passages (CSV)</button></form>{% endif %}
   </div>
   <div class="pane-body">
     <div class="measure-wide">

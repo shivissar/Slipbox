@@ -76,3 +76,6 @@ logs/
 .backups/
 *.backup
 *.backup-*
+
+# browser test screenshots
+tests/browser/screenshots/

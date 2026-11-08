@@ -544,6 +544,13 @@ def search(query, limit=50):
         return [dict(r) for r in rows]
 
 
+def indexed_mtimes():
+    """{filename: (id, mtime)} for every indexed note (start-up shortcut)."""
+    with get_conn() as conn:
+        rows = conn.execute("SELECT id, filename, mtime FROM notes_meta").fetchall()
+        return {r["filename"]: (r["id"], r["mtime"]) for r in rows}
+
+
 def all_known_ids():
     with get_conn() as conn:
         rows = conn.execute("SELECT id FROM notes_meta").fetchall()

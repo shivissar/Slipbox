@@ -200,6 +200,80 @@ def delete_embedding_for_note(note_id):
     db.delete_embedding(note_id)
 
 
+# ---------- Embedding after a save, off the request thread (5.2) ---------- #
+# A save used to wait for the provider: three tries with back-off, so
+# several seconds offline. Saves now queue the note's id; one worker reads
+# the note again from disk when its turn comes (so it embeds what was last
+# saved, and never a note that has been locked since) and embeds it.
+
+_async_cv = threading.Condition()
+_async_pending = []          # note ids, oldest first, no repeats
+_async_busy = {"thread": None, "working": None}
+
+
+def embed_note_async(note):
+    """Queue a note (or note id) to be embedded in the background."""
+    note_id = getattr(note, "id", note)
+    if not note_id:
+        return
+    with _async_cv:
+        if note_id not in _async_pending:
+            _async_pending.append(note_id)
+        t = _async_busy["thread"]
+        if t is None or not t.is_alive():
+            t = threading.Thread(target=_async_worker, name="zetteling-embed", daemon=True)
+            _async_busy["thread"] = t
+            t.start()
+        _async_cv.notify()
+
+
+def wait_for_background(timeout=10.0):
+    """For tests and quitting: wait until the queue is empty."""
+    deadline = time.monotonic() + timeout
+    with _async_cv:
+        while _async_pending or _async_busy["working"]:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            _async_cv.wait(left)
+    return True
+
+
+def _async_worker():
+    while True:
+        with _async_cv:
+            while not _async_pending:
+                _async_cv.wait()
+            note_id = _async_pending.pop(0)
+            _async_busy["working"] = note_id
+        try:
+            _embed_saved_note(note_id)
+        except Exception:
+            traceback.print_exc()
+        finally:
+            with _async_cv:
+                _async_busy["working"] = None
+                _async_cv.notify_all()
+
+
+def _embed_saved_note(note_id):
+    meta = db.get_note_meta(note_id)
+    if not meta:
+        return
+    path = notes.NOTES_DIR / meta["filename"]
+    if not path.exists():
+        return
+    note = notes.parse_file(path)
+    if getattr(note, "locked", False) or getattr(note, "unreadable", False):
+        db.delete_embedding(note_id)
+        return
+    embed_note(note)
+    # Locked while the provider was answering? Then the vector goes.
+    meta = db.get_note_meta(note_id)
+    if meta and meta["locked"]:
+        db.delete_embedding(note_id)
+
+
 # ---------- Bulk reindex ---------- #
 
 

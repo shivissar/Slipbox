@@ -441,6 +441,11 @@
   var editForm = $("#edit-form");
   var allowLeave = false;
 
+  /* Asked by the Mac app when you quit (5.2). Must answer synchronously:
+   * "clean" (nothing to save), "saved", or why it couldn't save, in which
+   * case the app asks before quitting. The editor replaces this below. */
+  window.__zettelQuit = function () { return "clean"; };
+
   if (ta && editForm) {
     var wrap = $("#editor-wrap");
     var picker = $("#picker"), pList = $("#picker-list"), pTitle = $("#picker-title"), pCount = $("#picker-count"), pFoot = $("#picker-foot");
@@ -601,6 +606,34 @@
       return fetch(saveUrl, { method: "POST", body: payload("leave"), headers: { "Accept": "application/json" } })
         .then(function (r) { dirty = !r.ok; needsEmbed = false; return r.ok; })
         .catch(function () { return false; });
+    };
+    // Quitting the app: the page doesn't get pagehide, so save now, and
+    // wait for the answer (a synchronous request, so the app can await it).
+    window.__zettelQuit = function () {
+      clearTimeout(timer);
+      if (submitting) return "clean";
+      if (!auto) return dirty ? "unsaved" : "clean";
+      if (lockedOut) return dirty ? "locked" : "clean";
+      if (!(dirty || needsEmbed || inflight)) return "clean";
+      if (!canAutosave()) return dirty ? "untitled" : "clean";
+      try {
+        var x = new XMLHttpRequest();
+        x.open("POST", saveUrl, false);
+        x.setRequestHeader("Accept", "application/json");
+        x.send(payload("leave"));
+        if (x.status === 423) { lockedOut = true; dirty = true; showInlineUnlock(); return "locked"; }
+        if (x.status >= 200 && x.status < 300) {
+          var j = null;
+          try { j = JSON.parse(x.responseText); } catch (err) { /* not JSON */ }
+          if (!j || j.ok !== false) {
+            dirty = false; needsEmbed = false; setStatus("saved");
+            if (!noteId && j && j.edit_url) becameNote(j);
+            return "saved";
+          }
+        }
+      } catch (err) { /* fall through */ }
+      dirty = true; setStatus("error");
+      return "failed";
     };
     window.addEventListener("beforeunload", function (e) {
       if (unsafeToLeave()) { e.preventDefault(); e.returnValue = ""; }
