@@ -182,6 +182,44 @@ def status(current_version, s=None):
     }
 
 
+_LINK_SCHEMES = ("http", "https", "mailto")
+
+
+def outside_link(url):
+    """A link that should open outside Zetteling: http(s) with a host, or
+    mailto. Returns the URL, or None for anything else (file:, javascript:,
+    other apps' schemes, control characters, very long strings)."""
+    from urllib.parse import urlsplit
+    if not isinstance(url, str) or not url or len(url) > 4096:
+        return None
+    if any(ord(c) < 32 or c in ' \x7f' for c in url):
+        return None
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    scheme = parts.scheme.lower()
+    if scheme not in _LINK_SCHEMES:
+        return None
+    if scheme in ("http", "https") and not parts.hostname:
+        return None
+    if scheme == "mailto" and not parts.path:
+        return None
+    return url
+
+
+def open_in_browser(url):
+    """Open an outside link in the default browser (or mail app)."""
+    url = outside_link(url)
+    if not url:
+        return False
+    if platform.system() == "Darwin":
+        subprocess.run(["open", url], check=False)
+    else:
+        webbrowser.open(url)
+    return True
+
+
 def open_external(url):
     """Open a GitHub page or download in the user's browser (not in the app
     window). Returns False for anything that isn't this project's GitHub."""

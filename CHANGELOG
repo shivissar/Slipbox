@@ -45,6 +45,14 @@ The full, user-facing history is on the About page inside the app
   version; install steps including xattr). Check now in Settings and the
   palette. Nothing is downloaded or installed by the app. Privacy page,
   Help → Updates and INSTALL.md updated.
+* Outside links open in the browser: a capture-phase click handler sends
+  http(s) and mailto links to other sites (in notes, Privacy, Settings →
+  AI, credits) to POST /open-link, which runs `open` after checking the
+  scheme (updates.outside_link). Before, Toga's WebView loaded them in
+  the app window with no way back. Zetteling's own links are unchanged.
+* Credits: Niklas Luhmann and Aneesh Aneesh link to their Wikipedia
+  pages, and Shiv Issar to www.shivissar.com (Settings → About, About,
+  Help, Licence).
 * settings.save is serialised and writes the file atomically (temp file
   + replace), since the update check saves from a background thread.
 * Help page rewritten: grouped sections, sticky contents sidebar that

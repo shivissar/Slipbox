@@ -1270,4 +1270,34 @@
     var r = document.createRange(); r.selectNodeContents(el);
     var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
   }
+
+  /* Outside links (5.2): a link to another website would otherwise replace
+   * Zetteling in its own window, with no way back. Send it to the browser
+   * (or the mail app) through /open-link instead. */
+  function outsideHref(a) {
+    if (!a || !a.getAttribute("href") || a.hasAttribute("download")) return null;
+    var u;
+    try { u = new URL(a.getAttribute("href"), window.location.href); } catch (err) { return null; }
+    if (u.protocol === "mailto:") return u.href;
+    if ((u.protocol === "http:" || u.protocol === "https:") && u.origin !== window.location.origin) return u.href;
+    return null;
+  }
+  function openOutside(e) {
+    if (e.defaultPrevented || (e.type === "auxclick" && e.button !== 1)) return;
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    var href = outsideHref(a);
+    if (!href) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fetch("/open-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ url: href })
+    }).then(function (r) {
+      if (r.ok) toast("Opened in your browser");
+      else return r.json().then(function (d) { toast(d.error || "That link couldn’t be opened."); });
+    }).catch(function () { toast("That link couldn’t be opened."); });
+  }
+  document.addEventListener("click", openOutside, true);
+  document.addEventListener("auxclick", openOutside, true);
 })();

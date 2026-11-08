@@ -157,3 +157,21 @@ def test_settings_writes_are_whole(tmp_path, monkeypatch):
     s = json.loads((tmp_path / "settings.json").read_text())
     assert s["autosave"] is False and s["update_latest"]["version"] == "5.3.0"
     assert not (tmp_path / "settings.json.tmp").exists()
+
+
+def test_outside_links():
+    ok = ["https://en.wikipedia.org/wiki/A._Aneesh", "http://example.com/a?b=c#d", "mailto:someone@example.com"]
+    for u in ok:
+        assert updates.outside_link(u) == u
+    for u in ["javascript:alert(1)", "file:///etc/passwd", "zotero://select/items/1", "https://", "mailto:",
+              "/note/1", "https://example.com/a b", "https://example.com/\nx", "x" * 5000, None, 3]:
+        assert updates.outside_link(u) is None, u
+
+
+def test_open_in_browser_uses_open_on_mac(monkeypatch):
+    opened = []
+    monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(updates.subprocess, "run", lambda args, check=False: opened.append(args))
+    assert updates.open_in_browser("https://www.shivissar.com")
+    assert not updates.open_in_browser("javascript:alert(1)")
+    assert opened == [["open", "https://www.shivissar.com"]]

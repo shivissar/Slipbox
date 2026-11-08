@@ -93,7 +93,10 @@ def inject_globals():
     s = settings.load()
     return {
         "version": __version__,
-        "attribution": "Created by Shiv Issar, Ph.D., inspired by Prof. Niklas Luhmann and Prof. Aneesh Aneesh",
+        "attribution": Markup(
+            'Created by <a href="https://www.shivissar.com">Shiv Issar, Ph.D.</a>, inspired by '
+            'Prof. <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Niklas Luhmann</a> and '
+            'Prof. <a href="https://en.wikipedia.org/wiki/A._Aneesh">Aneesh Aneesh</a>'),
         "pandoc_available": export.PANDOC_AVAILABLE,
         "appearance": themes.current(),
         "nav_counts": db.sidebar_counts(),
@@ -1836,6 +1839,22 @@ def update_settings():
     msg = ("Zetteling will check for new versions once a day." if on
            else "Update checks are off. Use Check now whenever you like.")
     return redirect(url_for("settings_page", upd_msg=msg) + "#updates")
+
+
+@app.route("/open-link", methods=["POST"])
+def open_link():
+    """5.2: links to other websites (in notes, Privacy, Settings → AI) open
+    in the browser. Without this the app window would load the site, with
+    no way back. The page's click handler posts the link here."""
+    data = request.get_json(silent=True) or {}
+    url = data.get("url") if isinstance(data, dict) else None
+    url = url or request.form.get("url")
+    target = request.host_url.rstrip("/")
+    if isinstance(url, str) and url.startswith(target + "/"):
+        return jsonify({"ok": False, "error": "That link is part of Zetteling."}), 400
+    if not release_check.open_in_browser(url):
+        return jsonify({"ok": False, "error": "Zetteling only opens web and email links."}), 400
+    return jsonify({"ok": True})
 
 
 @app.route("/tour")

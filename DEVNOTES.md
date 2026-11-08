@@ -154,6 +154,10 @@ v5.2.0 research tools (8 Nov 2026)
   .dmg asset; the repo must be public for the unauthenticated request.
   Tests: tests/test_updates.py and update_test.py (outside the repo).
 - External links: Toga's WebView loads every link in the app window unless
-  on_navigation_starting is set, and on macOS a handler that returns True
-  makes Toga load the URL a second time (its cleanup sets widget.url), so
-  that hook is unsuitable as it stands. Not yet handled.
+  on_navigation_starting is set, and on macOS (Toga 0.5.7) a handler that
+  returns True makes Toga load the URL a second time (its cleanup sets
+  widget.url), which would break form posts. So links are handled in the
+  page instead: app.js "Outside links" sends any http(s) link to another
+  origin, and mailto links, to POST /open-link (updates.open_in_browser,
+  which runs `open`). Links typed or pasted elsewhere (no click) and
+  window.open() calls are not covered.
