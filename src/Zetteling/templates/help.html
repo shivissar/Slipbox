@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{%- from "_ui.html" import icon, squiggle -%}
+{%- from "_ui.html" import icon, squiggle, back_button -%}
 {% block title %}Help{% endblock %}
 {% block main %}
 <main class="pane col card" aria-label="Help">
   <div class="pane-bar">
+    {{ back_button(back_link) }}
     <strong>Help</strong>
     <span class="grow"></span>
     <span class="hint">Press <kbd>⌘K</kbd> and type “help” to come back here.</span>
@@ -93,6 +94,7 @@
         <h3 id="getting-around">Getting around</h3>
         <p>Zetteling is one window: the <strong>sidebar</strong> (your four kinds of note, plus tags, threads, citations, manuscripts, the codebook and stats), the <strong>note list</strong>, the <strong>note</strong>, and a <strong>side panel</strong> with the note’s thread, backlinks, mentions, related notes and the Interrogate tab. The panel button at the top right hides or shows the side panel.</p>
         <p>Links to websites, in your notes or elsewhere in the app, open in your web browser; email addresses open in your mail app.</p>
+        <p><strong>Back</strong> at the top of Help, Export and <em>Open beside</em> returns to the note you came from; <kbd>esc</kbd> does the same.</p>
         <p><strong>The tour</strong> shows each part of the window in turn. It opens by itself the first time you use Zetteling; to see it again, click the compass at the bottom of the sidebar or choose <em>Take the tour</em> in the palette. Arrow keys move through it and <kbd>esc</kbd> leaves.</p>
         <p><strong>The command palette</strong> (<kbd>⌘K</kbd>, or Search in the sidebar) finds notes by title and text and runs commands: new note or template, edit, export, lock, go to any page, switch light and dark. Arrows move, <kbd>↵</kbd> opens, <kbd>esc</kbd> closes.</p>
         <table class="spec-table keys">
@@ -262,7 +264,7 @@
         <h3 id="locked-notes">Locked notes</h3>
         <p>A locked note’s text is encrypted on disk: in Finder, other apps, backups or sync services it reads as random characters. Without your password or recovery key, nobody can read it, including you.</p>
         <ul>
-          <li><strong>Set up once</strong> in <a href="{{ url_for('settings_page') }}#locked">Settings → Locked notes</a>: a password of at least 10 characters (four or five unrelated words work well). You then get a <strong>recovery key</strong>, shown once. Print it or keep it in a password manager.</li>
+          <li><strong>Set up once</strong> in <a href="{{ url_for('settings_page') }}#locked">Settings → Locked notes</a>: a password of at least 10 characters (four or five unrelated words work well). You then get a <strong>recovery key</strong>, shown once. Save it as a text file or copy it into a password manager, and keep it away from your notes.</li>
           <li><strong>Lock a note</strong> with the padlock above it, or <kbd>⌘K</kbd> → “Lock this note”. <strong>Lock a kind</strong> (your journal, say) under <em>Always lock these kinds</em>: its notes are locked now, and new ones are created locked.</li>
           <li><strong>Opening:</strong> the first locked note you open asks for the password. They stay open until you quit, or until Zetteling has been idle for the time you choose. If they close while you’re editing, your text is saved first; if it can’t be, the editor asks for the password. <kbd>⌘K</kbd> → “Lock notes now” closes them at once.</li>
           <li><strong>Remove a lock</strong> with the open padlock on a locked note, or <em>Remove all locks</em> in Settings. <strong>Change your password</strong> in Settings (the recovery key keeps working); <strong>forgot it?</strong> Use the recovery key.</li>

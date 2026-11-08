@@ -161,3 +161,12 @@ v5.2.0 research tools (8 Nov 2026)
   origin, and mailto links, to POST /open-link (updates.open_in_browser,
   which runs `open`). Links typed or pasted elsewhere (no click) and
   window.open() calls are not covered.
+- Back/esc (5.2): context processor sets back_link on _BACK_PAGES via
+  _back_link() (the page's own note, else the Referer's /note/<id>, else
+  the Referer path); macro back_button in _ui.html; app.js "Back" block.
+  WKWebView sends Referer on link and script navigations.
+- Recovery key file (5.2): POST /vault/recovery/save takes the key from the
+  page (never stored), checks it with vault.parse_recovery, writes
+  "Zetteling recovery key <date>.txt" to _recovery_save_dir() (Downloads,
+  else home; never inside the notes folder), O_EXCL + 0600, open -R.
+  window.print() does nothing in Toga's WebView, hence no Print button.

@@ -1300,4 +1300,27 @@
   }
   document.addEventListener("click", openOutside, true);
   document.addEventListener("auxclick", openOutside, true);
+
+  /* Back (5.2): on Help, Export and Open beside, esc returns to the note.
+   * Overlays (palette, pickers, tour) handle esc first; in a text field the
+   * first esc just leaves the field. */
+  var backLink = document.querySelector("a[data-back]");
+  if (backLink) {
+    var panelOpenAtEsc = false;
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") panelOpenAtEsc = !!(app && (app.classList.contains("rail-open") || app.classList.contains("list-open")));
+    }, true);
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (panelOpenAtEsc || tourEl) return;
+      var pal = document.getElementById("palette");
+      if (pal && !pal.hidden) return;
+      var a = document.activeElement;
+      if (a && a !== document.body && a.matches && a.matches("input, textarea, select, [contenteditable]")) {
+        a.blur(); e.preventDefault(); return;
+      }
+      e.preventDefault();
+      window.location.href = backLink.getAttribute("href");
+    });
+  }
 })();

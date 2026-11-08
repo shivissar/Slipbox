@@ -50,6 +50,14 @@ The full, user-facing history is on the About page inside the app
   AI, credits) to POST /open-link, which runs `open` after checking the
   scheme (updates.outside_link). Before, Toga's WebView loaded them in
   the app window with no way back. Zetteling's own links are unchanged.
+* Back button on Help, Export (and the exported page) and Open beside
+  (picker and side-by-side view): returns to the note the page is about
+  or the note you came from (else the page you came from); esc does the
+  same, after closing any open palette or picker, and in a form field the
+  first esc only leaves the field. Exports of a thread or tag go back to it.
+* Recovery key: Print (which does nothing in the app window) replaced by
+  Save as text file (Downloads, never the notes folder; mode 600; Finder
+  shows it) and Copy.
 * Credits: Niklas Luhmann and Aneesh Aneesh link to their Wikipedia
   pages, and Shiv Issar to www.shivissar.com (Settings → About, About,
   Help, Licence).

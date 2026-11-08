@@ -83,3 +83,11 @@
 {%- macro short_date(iso) -%}
 {%- if iso -%}{{ iso[:10] }}{%- endif -%}
 {%- endmacro -%}
+
+
+{#- 5.2: Back button on side pages (Help, Export, Open beside); esc does the same. -#}
+{% macro back_button(back, cls="") -%}
+{%- if back -%}
+<a class="btn btn-quiet back-btn {{ cls }}" href="{{ back.href }}" data-back{% if back.title %} title="{{ back.title }}"{% endif %}>{{ icon("back") }}{{ back.label }}<kbd class="back-key" aria-hidden="true">esc</kbd></a>
+{%- endif -%}
+{%- endmacro %}

@@ -108,6 +108,8 @@ def inject_globals():
                            and request.endpoint in ("index", "view", "search")),
         # 5.2: a newer release is out (from the last update check)
         "update_status": release_check.status(__version__, s),
+        # 5.2: Back (and esc) on Help, Export and Open beside
+        "back_link": _back_link() if request.endpoint in _BACK_PAGES else None,
     }
 
 
@@ -187,6 +189,48 @@ def _vault_activity():
     path = request.path or ""
     if not path.startswith(_BACKGROUND_PATHS):
         vault.touch()
+
+
+# Side pages that get a Back button (and esc) returning to the note.
+_BACK_PAGES = {"help_page", "export_view", "split_picker", "split_view"}
+_NOTE_PATH_RE = re.compile(r"^/note/([^/]+)(?:/(?:edit|history|split))?/?$")
+
+
+def _back_link():
+    """Where Back and esc go from a side page: the note the page is about
+    (an export, Open beside), else the note you came from, else the page
+    you came from. None when there's nowhere sensible to go."""
+    from urllib.parse import urlsplit
+    va = request.view_args or {}
+    ep = request.endpoint
+    nid = None
+    if ep == "export_view":
+        if va.get("source_type") == "note":
+            nid = va.get("source_id")
+        elif va.get("source_type") == "thread":
+            return {"href": url_for("thread_view", thread_name=va["source_id"]), "label": "Back to the thread"}
+        elif va.get("source_type") == "tag":
+            return {"href": url_for("tag_view", tag_name=va["source_id"]), "label": "Back to the tag"}
+    elif ep == "split_picker":
+        nid = va.get("note_id")
+    elif ep == "split_view":
+        nid = va.get("id1")
+    if not nid:
+        ref = request.referrer or ""
+        parts = urlsplit(ref)
+        if parts.netloc != request.host or not parts.path or parts.path == request.path:
+            return None
+        m = _NOTE_PATH_RE.match(parts.path)
+        if m:
+            nid = m.group(1)
+        elif not parts.path.startswith(("/api/", "/update/", "/vault/", "/open-link")):
+            return {"href": parts.path + ("?" + parts.query if parts.query else ""), "label": "Back"}
+        else:
+            return None
+    title = db.title_for(nid)
+    if title is None:
+        return None
+    return {"href": url_for("view", note_id=nid), "label": "Back to the note", "title": title}
 
 
 @app.before_request
@@ -1429,6 +1473,61 @@ def vault_setup():
     except vault.VaultError as e:
         return _to_settings(str(e), error=True)
     return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description())
+
+
+def _recovery_save_dir():
+    """Downloads (the app already writes exports there), or the home folder.
+    Never the notes folder: the key must not sit beside the locked notes."""
+    notes_dir = Path(notes.NOTES_DIR).expanduser().resolve()
+    for folder in (Path.home() / "Downloads", Path.home()):
+        try:
+            folder = folder.resolve()
+        except OSError:
+            continue
+        if folder.is_dir() and folder != notes_dir and notes_dir not in folder.parents:
+            return folder
+    return None
+
+
+@app.route("/vault/recovery/save", methods=["POST"])
+def vault_recovery_save():
+    """5.2: save the recovery key shown after set-up as a text file, since
+    the app window can't print. The key comes from the page (Zetteling
+    never stores it) and is checked for the right format first."""
+    from datetime import date
+    try:
+        code = vault.format_recovery(vault.parse_recovery(request.form.get("code", "")))
+    except vault.VaultError as e:
+        return jsonify({"ok": False, "message": str(e)}), 400
+    folder = _recovery_save_dir()
+    if folder is None:
+        return jsonify({"ok": False, "message": "There’s no folder to save it in. Copy the key instead."}), 500
+    today = date.today()
+    stem = f"Zetteling recovery key {today.isoformat()}"
+    path, n = folder / f"{stem}.txt", 2
+    while path.exists():
+        path, n = folder / f"{stem} ({n}).txt", n + 1
+    text = (
+        "Zetteling recovery key\n"
+        "======================\n\n"
+        f"{code}\n\n"
+        f"Created {today.day} {today.strftime('%B %Y')}.\n\n"
+        "This key opens your locked notes if you forget your password.\n"
+        "Zetteling doesn't keep a copy.\n\n"
+        "Keep it somewhere safe and away from your notes: a password manager,\n"
+        "or printed and filed. Don't keep it in your notes folder or in a\n"
+        "note, and delete this file once the key is stored elsewhere.\n\n"
+        "To use it: Zetteling > Settings > Locked notes > Use recovery key.\n"
+    )
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    if platform.system() == "Darwin":
+        subprocess.run(["open", "-R", str(path)], check=False)
+    msg = f"Saved to {folder.name} as “{path.name}”. Move it somewhere safe, then delete it there."
+    if _wants_json():
+        return jsonify({"ok": True, "path": str(path), "message": msg})
+    return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description(), saved_msg=msg)
 
 
 @app.route("/vault/password", methods=["POST"])
