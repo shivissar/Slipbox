@@ -14,6 +14,7 @@ already followed.
 
 import json
 import os
+import threading
 from pathlib import Path
 
 DEFAULT_PATH = Path(__file__).parent / "settings.json"
@@ -43,6 +44,16 @@ DEFAULTS = {
     "locked_kinds": [],
     # v5.2: the welcome tour has been shown (it starts by itself once)
     "tour_seen": False,
+    # v5.2: daily check for a newer release on GitHub (updates.py). The
+    # rest is the remembered answer; update_skip is a version the user
+    # chose to skip.
+    "update_check": True,
+    "update_next_check": 0,
+    "update_checked_at": "",
+    "update_attempt_at": "",
+    "update_latest": {},
+    "update_error": "",
+    "update_skip": "",
     "lock_after_minutes": 15,
     # v5.0: appearance. Allowed values live in themes.py.
     "theme_mode": "auto",
@@ -73,14 +84,26 @@ def load():
     return out
 
 
+_SAVE_LOCK = threading.RLock()
+
+
 def save(updates):
-    """Merge updates into the on-disk settings file. Returns the new dict."""
-    current = load()
-    current.update({k: v for k, v in updates.items() if k in DEFAULTS})
-    SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
-    return current
+    """Merge updates into the on-disk settings file. Returns the new dict.
+
+    5.2: saves are serialised and the file is replaced in one step, so a
+    background save (the update check) can't interleave with one from a
+    page, and a reader never sees a half-written file."""
+    with _SAVE_LOCK:
+        current = load()
+        current.update({k: v for k, v in updates.items() if k in DEFAULTS})
+        SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SETTINGS_PATH.with_name(SETTINGS_PATH.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, SETTINGS_PATH)
+        return current
 
 
 def get(key, default=None):

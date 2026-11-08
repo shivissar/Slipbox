@@ -37,6 +37,9 @@ requires = [
     "bleach>=6.0",
     # 5.1 locked notes (vault.py): AES-GCM, HKDF and Argon2id (44+).
     "cryptography>=44",
+    # 5.2 update check (updates.py): root certificates for HTTPS. Already
+    # installed for the AI libraries; listed so it can't silently go.
+    "certifi>=2024.2.2",
 ]
 test_requires = [
     "pytest",

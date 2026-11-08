@@ -21,7 +21,7 @@ tested on Apple-silicon Macs (M1 and later).
 
 ### Step 1: Copy it into Applications
 
-1. Double-click the `Zetteling-5.1.0.dmg` file you were given. A window opens.
+1. Double-click the `Zetteling-5.2.0.dmg` file you downloaded or were given. A window opens.
 2. Drag **Zetteling** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 
@@ -75,7 +75,14 @@ The first time Zetteling opens with no notes, it shows a short welcome screen:
   different folder, Zetteling asks you to quit (⌘Q) and reopen it once.
 - **Bibliography (optional).** The path to a `.bib` file from Zotero, so you
   can cite with `@` (see below). You can add this later.
-- **AI (optional, off).** Nothing is sent anywhere unless you set this up later.
+- **AI (optional, off).** Your notes are sent nowhere unless you set this up
+  later.
+- **Tell me when a new version is out (on).** Once a day Zetteling asks GitHub
+  whether a newer version has been published, and shows a notice in the
+  sidebar if so. The check sends your IP address and Zetteling's version
+  number, nothing from your notes, and never installs anything by itself.
+  Untick it if you'd rather not; you can change it later in
+  **Settings → Updates**.
 
 Press **Start writing** and you are in.
 
@@ -174,9 +181,31 @@ To back up, back up your notes folder. Everything else can be rebuilt from it.
 
 ### Updating
 
-Install the new version the same way (drag it to Applications and replace the
-old one), then run the Terminal command from Step 3 again. Your notes and
-settings are not touched.
+**Finding out.** If you left *Tell me when a new version is out* on, a notice
+appears at the foot of the sidebar when a new version is published. Click it to
+see what's new. To look yourself, press **Check now** in **Settings → Updates**,
+or choose **Check for updates** in the ⌘K palette. All versions are listed at
+<https://github.com/shivissar/Zetteling/releases>.
+
+**Installing.** Zetteling doesn't install updates by itself, so macOS checks
+each new version just as it did the first one:
+
+1. On the update page, click **Download**. Your browser saves the new `.dmg`,
+   usually in Downloads.
+2. Quit Zetteling (⌘Q). Anything you were typing has already been saved.
+3. Open the `.dmg` and drag **Zetteling** onto **Applications**. Choose
+   **Replace** when asked.
+4. Run the Terminal command from Step 3 again, so exporting keeps working:
+   `xattr -cr /Applications/Zetteling.app`
+5. Open Zetteling. If macOS says it can't check the app, use **Open Anyway** as
+   in Step 2.
+
+Your notes, settings, note history and locked-notes key live outside the app,
+so they are not touched. **Skip this version** on the update page hides the
+notice until a later version comes out. Pre-releases are never offered.
+
+**Turning the check off.** Switch off **Check for new versions** in
+**Settings → Updates**. **Check now** still works whenever you want it.
 
 ### Uninstalling
 

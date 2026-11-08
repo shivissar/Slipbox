@@ -144,3 +144,16 @@ v5.2.0 research tools (8 Nov 2026)
   never calls preventDefault on them, so ⌘Q/⌘W still reach the Mac menu.
   Moving a hook or renaming a stop: update the TOUR array and
   tour_test.py (outside the repo).
+- Update check (updates.py): fetch_latest() → settings.update_latest;
+  status() decides the notice (newer than __version__, not skipped, checks
+  on). Only URLs under https://github.com/shivissar/Zetteling/ are kept
+  from GitHub's answer or opened (safe_url). The app never installs
+  anything: open_external() hands the DMG link to the browser, so the new
+  app arrives quarantined and Gatekeeper checks it. Releases must be
+  published on GitHub (not drafts or pre-releases) with tag vX.Y.Z and a
+  .dmg asset; the repo must be public for the unauthenticated request.
+  Tests: tests/test_updates.py and update_test.py (outside the repo).
+- External links: Toga's WebView loads every link in the app window unless
+  on_navigation_starting is set, and on macOS a handler that returns True
+  makes Toga load the URL a second time (its cleanup sets widget.url), so
+  that hook is unsuitable as it stands. Not yet handled.

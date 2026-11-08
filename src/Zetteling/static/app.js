@@ -235,6 +235,7 @@
     book: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"></path><path d="M5 17a3 3 0 0 1 3-3h11"></path>',
     chart: '<path d="M5 20V11M12 20V4M19 20v-7"></path>',
     sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle>',
+    download: '<path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path>',
     compass: '<circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path>',
     help: '<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5"></path><path d="M12 17.5h.01"></path>',
     sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>',
@@ -303,6 +304,7 @@
     c.push({ group: "Go to", label: "Take the tour", sub: "A one-minute look around the window", icon: "compass", run: function () {
       if (ctx.noteId) { closePalette(); setTimeout(function () { tourStart(1); }, 50); } else window.location.href = "/tour";
     } });
+    c.push({ group: "Go to", label: "Check for updates", sub: "Is there a newer version of Zetteling?", icon: "download", href: "/update" });
     c.push({ group: "Go to", label: "Manuscripts", icon: "list", href: "/manuscripts" });
     c.push({ group: "Go to", label: "Codebook", icon: "list", href: "/codes" });
     c.push({ group: "New from a template", label: "New manuscript", sub: "Gather notes into one draft", icon: "plus", run: function () { postTo("/manuscripts/new"); } });
@@ -1245,5 +1247,27 @@
   var tourParam = /[?&]tour=(\d+)/.exec(window.location.search);
   if (body.getAttribute("data-tour-auto") === "1" || tourParam) {
     setTimeout(function () { tourStart(tourParam ? parseInt(tourParam[1], 10) : 1); }, reduceMotion ? 50 : 450);
+  }
+
+  // Forms marked data-autosubmit save as soon as a switch changes (5.2:
+  // Settings → Updates lives outside the main settings form).
+  document.querySelectorAll("form[data-autosubmit]").forEach(function (f) {
+    f.addEventListener("change", function () { f.submit(); });
+  });
+
+  // Copy buttons: data-copy="#id" copies that element's text (5.2).
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var src = document.querySelector(b.getAttribute("data-copy"));
+      if (!src) return;
+      var text = src.textContent.trim(), done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { selectText(src); });
+      } else selectText(src);
+    });
+  });
+  function selectText(el) {
+    var r = document.createRange(); r.selectNodeContents(el);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
   }
 })();

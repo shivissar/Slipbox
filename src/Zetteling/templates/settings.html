@@ -14,6 +14,7 @@
         <a href="#locked">Locked notes</a>
         <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
         <a href="#bibliography">Bibliography</a>
+        <a href="#updates">Updates {% if update_status.notice %}<span class="chip chip-accent">New</span>{% endif %}</a>
         <a href="#about">About and legal</a>
       </nav>
 
@@ -394,6 +395,38 @@
             </div>
           </div>
           {%- endif %}
+        </section>
+
+        {# ---------------- Updates (own forms) ---------------- #}
+        {%- set upd = update_status %}
+        <section class="set-section" id="updates">
+          <h2>Updates</h2>
+          {%- if upd_msg %}<div class="flash {{ 'error' if upd.error and upd_msg == upd.error else 'success' }}">{{ upd_msg }}</div>{% endif %}
+          <div class="set-group">
+            <form method="post" action="{{ url_for('update_settings') }}" class="set-row" data-autosubmit>
+              <label class="set-text" for="update-check"><strong>Check for new versions</strong>
+                <span>Once a day, Zetteling asks GitHub whether a newer version has been published and, if so, shows a notice at the foot of the sidebar. It never downloads or installs anything by itself. The check sends GitHub your IP address and Zetteling’s version number, and nothing from your notes. See <a href="{{ url_for('privacy_page') }}#updates">Privacy</a>.</span>
+              </label>
+              <input type="checkbox" class="switch" id="update-check" name="update_check" {% if upd.enabled %}checked{% endif %}>
+              <noscript><button type="submit" class="btn">Save</button></noscript>
+            </form>
+            <form method="post" action="{{ url_for('update_check') }}" class="set-row">
+              <input type="hidden" name="next" value="/settings">
+              <div class="set-text">
+                {%- if upd.newer %}
+                <strong>Zetteling {{ upd.latest.version }} is available</strong>
+                <span>You have {{ upd.current }}. <a href="{{ url_for('update_page') }}">See what’s new and how to install it</a>.</span>
+                {%- elif upd.latest %}
+                <strong>You have the latest version ({{ upd.current }})</strong>
+                <span>{% if upd.checked_at %}Checked {{ upd.checked_at[:16]|replace("T", " ") }} UTC.{% endif %}</span>
+                {%- else %}
+                <strong>Zetteling {{ upd.current }}</strong>
+                <span>{% if upd.error %}{{ upd.error }}{% else %}Not checked yet.{% endif %}</span>
+                {%- endif %}
+              </div>
+              <button type="submit" class="btn">Check now</button>
+            </form>
+          </div>
         </section>
 
         {# ---------------- About ---------------- #}

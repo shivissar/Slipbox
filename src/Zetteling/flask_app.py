@@ -40,6 +40,7 @@ from . import vault
 from . import history
 from . import note_templates
 from . import codebook
+from . import updates as release_check
 from . import settings
 from . import themes
 from . import watcher
@@ -89,6 +90,7 @@ _warn_if_insecure_secret_key()
 def inject_globals():
     """Make version, attribution, appearance and sidebar counts available
     in every template."""
+    s = settings.load()
     return {
         "version": __version__,
         "attribution": "Created by Shiv Issar, Ph.D., inspired by Prof. Niklas Luhmann and Prof. Aneesh Aneesh",
@@ -99,8 +101,10 @@ def inject_globals():
         "vault_state": _vault_state(),
         "template_index": _template_index(),
         # 5.2: the welcome tour starts by itself once, on a main page
-        "tour_autostart": (not settings.get("tour_seen", False)
+        "tour_autostart": (not s.get("tour_seen", False)
                            and request.endpoint in ("index", "view", "search")),
+        # 5.2: a newer release is out (from the last update check)
+        "update_status": release_check.status(__version__, s),
     }
 
 
@@ -180,6 +184,14 @@ def _vault_activity():
     path = request.path or ""
     if not path.startswith(_BACKGROUND_PATHS):
         vault.touch()
+
+
+@app.before_request
+def _update_check_kickoff():
+    """5.2: when a main page is opened, start the daily update check in the
+    background if it's due. The answer shows on the next page."""
+    if request.method == "GET" and request.endpoint in ("index", "view", "search"):
+        release_check.check_in_background(__version__)
 
 
 @app.after_request
@@ -525,7 +537,8 @@ def welcome():
     """First-run screen. Shown once, when there are no notes yet."""
     notes_dir_changed = False
     if request.method == "POST":
-        updates = {"welcomed": True}
+        updates = {"welcomed": True,
+                   "update_check": request.form.get("update_check") == "on"}
         new_dir = request.form.get("notes_dir", "").strip()
         if new_dir and str(Path(new_dir).expanduser()) != str(Path(settings.get_notes_dir()).expanduser()):
             target = Path(new_dir).expanduser()
@@ -1005,6 +1018,7 @@ def settings_page():
         "settings.html",
         vault_msg=request.args.get("vault_msg", "")[:200],
         tpl_msg=request.args.get("tpl_msg", "")[:200],
+        upd_msg=request.args.get("upd_msg", "")[:200],
         note_templates=note_templates.list_templates(),
         vault_err=request.args.get("vault_err") == "1",
         vault_kdf=vault.kdf_description() if vault.is_set_up() else "",
@@ -1761,6 +1775,67 @@ def api_codes():
 
 
 # ---------- 5.2 welcome tour ---------- #
+
+
+# --- Updates (5.2): a daily check for a newer release on GitHub --------
+# Nothing is downloaded or installed here: the page links to the release
+# in the browser and the person installs the DMG as usual.
+
+@app.route("/update")
+def update_page():
+    msg = request.args.get("msg", "")[:200]
+    return render_template("update.html", upd=release_check.status(__version__),
+                           opened=request.args.get("opened", ""), msg=msg,
+                           checked=request.args.get("checked") == "1")
+
+
+@app.route("/update/check", methods=["POST"])
+def update_check():
+    st = release_check.check(__version__, force=True)
+    if st["error"]:
+        msg = st["error"]
+    elif st["newer"]:
+        msg = f"Zetteling {st['latest']['version']} is available."
+    else:
+        msg = f"You have the latest version ({__version__})."
+    nxt = _safe_next(request.form.get("next"), "/update")
+    if nxt.startswith("/settings"):
+        return redirect(url_for("settings_page", upd_msg=msg) + "#updates")
+    return redirect(url_for("update_page", msg=msg, checked=1))
+
+
+@app.route("/update/open", methods=["POST"])
+def update_open():
+    st = release_check.status(__version__)
+    latest = st["latest"] or {}
+    target = request.form.get("target", "page")
+    if target == "download" and latest.get("dmg_url"):
+        url = latest["dmg_url"]
+    else:
+        target = "page"
+        url = latest.get("url") or release_check.RELEASES_PAGE
+    ok = release_check.open_external(url)
+    return redirect(url_for("update_page", opened=target if ok else "no"))
+
+
+@app.route("/update/skip", methods=["POST"])
+def update_skip():
+    st = release_check.status(__version__)
+    if st["latest"] and st["newer"]:
+        settings.save({"update_skip": st["latest"]["version"]})
+    return redirect(_safe_next(request.form.get("next"), url_for("update_page")))
+
+
+@app.route("/update/settings", methods=["POST"])
+def update_settings():
+    on = request.form.get("update_check") == "on"
+    changes = {"update_check": on}
+    if on:
+        changes["update_next_check"] = 0  # check on the next main page
+    settings.save(changes)
+    msg = ("Zetteling will check for new versions once a day." if on
+           else "Update checks are off. Use Check now whenever you like.")
+    return redirect(url_for("settings_page", upd_msg=msg) + "#updates")
 
 
 @app.route("/tour")

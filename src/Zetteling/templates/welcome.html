@@ -51,12 +51,19 @@
               <span>Later, in Settings → AI, you can add a provider to interrogate notes, suggest tags and find related notes.</span>
             </div>
           </li>
+          <li class="step">
+            <span class="num soft" aria-hidden="true">4</span>
+            <div class="set-text">
+              <label class="field-label check-label" for="w-updates"><input type="checkbox" id="w-updates" name="update_check" checked> Tell me when a new version is out</label>
+              <span>Once a day Zetteling asks GitHub whether there’s a newer version, sending only your IP address and the version number. It never installs anything by itself. You can change this in Settings → Updates.</span>
+            </div>
+          </li>
         </ol>
         <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px">
           <button type="submit" class="btn btn-primary btn-lg">Start writing {{ icon("arrow") }}</button>
           <a href="{{ url_for('help_page') }}">Read the guide</a>
           <span style="flex: 1"></span>
-          <span class="muted small" style="display: inline-flex; align-items: center; gap: 6px">{{ icon("lock", "i sm") }}With AI off, nothing leaves this Mac.</span>
+          <span class="muted small" style="display: inline-flex; align-items: center; gap: 6px">{{ icon("lock", "i sm") }}Your notes never leave this Mac unless you turn on AI.</span>
         </div>
       </form>
       <form method="post" action="{{ url_for('welcome_skip') }}">

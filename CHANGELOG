@@ -35,6 +35,18 @@ The full, user-facing history is on the About page inside the app
   (settings.tour_seen, saved when it opens), again from the compass button
   in the sidebar, /tour or the palette. Skips parts not on the page;
   arrow keys, Esc, focus kept in the card; respects reduced motion.
+* Update check (updates.py): once a day, if on (settings.update_check,
+  default on; a tickbox on the welcome screen; Settings → Updates), an
+  unauthenticated GET to api.github.com/repos/shivissar/Zetteling/releases/
+  latest on a background thread started by the first main page. Remembers
+  the answer in settings; retries after 3 h on failure. Sidebar notice and
+  /update page (notes as escaped text, Download / release page opened in
+  the browser with `open`, only for this repo's GitHub URLs; Skip this
+  version; install steps including xattr). Check now in Settings and the
+  palette. Nothing is downloaded or installed by the app. Privacy page,
+  Help → Updates and INSTALL.md updated.
+* settings.save is serialised and writes the file atomically (temp file
+  + replace), since the update check saves from a background thread.
 * Help page rewritten: grouped sections, sticky contents sidebar that
   follows your place, shorter text, new features documented.
 * Fixes: exports no longer pass [[id]] links to pandoc as raw brackets;

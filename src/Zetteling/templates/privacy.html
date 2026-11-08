@@ -4,7 +4,7 @@
   <article class="help">
     <h1>Privacy</h1>
 
-    <p>Zetteling collects <strong>no data about you</strong>. There is no telemetry, no analytics, no crash reporting, no update check, no "phone home." The Flask server binds to <code>127.0.0.1</code> and only accepts connections from your own machine.</p>
+    <p>Zetteling collects <strong>no data about you</strong>. There is no telemetry, no analytics and no crash reporting. The one thing Zetteling does over the network on its own is an optional daily <a href="#updates">update check</a>, which tells GitHub your IP address and the app’s version number and nothing else. The Flask server binds to <code>127.0.0.1</code> and only accepts connections from your own machine.</p>
 
     <p>However, Zetteling can optionally send <strong>your note content</strong> to AI services that <strong>you</strong> explicitly configure. This page is a complete account of what gets sent where, under which circumstances, and how to turn it off.</p>
 
@@ -14,6 +14,16 @@
     <h2>What gets sent over the network from the page itself</h2>
     <p>Nothing. Since v5.0 every script, stylesheet and font the app uses ships inside it: HTMX (<code>static/vendor/htmx-1.9.12.min.js</code>) and the fonts (<code>static/fonts/</code>, each under the SIL Open Font Licence) load from your own disk. Earlier versions fetched HTMX from <code>unpkg.com</code> on uncached page views; that request no longer exists, and live search now works offline.</p>
     <p>One exception applies only if you run Zetteling on a server rather than as the desktop app: if you deploy it behind Caddy with HTTPS, certificate provisioning involves Let's Encrypt's ACME servers. That is a Caddy operation, not a Zetteling one, and happens only on first start and at renewals.</p>
+
+    <h2 id="updates">The update check</h2>
+    <p>Since 5.2, Zetteling asks GitHub once a day whether a newer version has been published. It is on unless you untick it on the first-run screen or turn it off in <a href="{{ url_for('settings_page') }}#updates">Settings → Updates</a>; with it off, Zetteling asks only when you press <em>Check now</em>.</p>
+    <ul>
+      <li><strong>Where it goes:</strong> one HTTPS request to <code>api.github.com</code>, for the latest release of <code>shivissar/Zetteling</code>, without any GitHub account or key.</li>
+      <li><strong>What it carries:</strong> your IP address (every internet request does) and a header saying <code>Zetteling/{{ version }}</code>. No notes, titles, settings, file names or identifiers.</li>
+      <li><strong>What comes back:</strong> the newest release’s version number, date, notes and download link. Zetteling stores these in <code>settings.json</code> and shows a notice if the version is newer than yours.</li>
+      <li><strong>What it never does:</strong> download or install anything. Download and release-page buttons open in your browser, and you install the new version yourself, so macOS checks it as it did the first time.</li>
+    </ul>
+    <p>GitHub’s handling of those requests is covered by the GitHub General Privacy Statement.</p>
 
     <h2>What Zetteling stores in your browser</h2>
     <p>One small disclosure for completeness: hiding the side panel writes a single key (<code>zettel-rail-hidden</code>, value <code>"1"</code> or absent) to the page's <code>localStorage</code>, so the panel stays hidden next time. That is the entire client-side storage footprint — no cookies, no session storage, no IndexedDB, no fingerprinting. Your theme, fonts and other appearance choices are not stored in the browser; since v5.0 they are saved in <code>settings.json</code> with your other settings, on your own disk.</p>
@@ -66,7 +76,7 @@
     <p>Earlier versions of your notes are kept on your Mac in the app-data folder (<code>history/</code>), never sent anywhere. Versions of locked notes are encrypted like the notes themselves. Templates (<code>.templates/</code>) and code definitions (<code>.zetteling-codebook.json</code>) are files in your notes folder. Coded passages from locked notes are read only while locked notes are open and are never written to the search index.</p>
 
     <h2>The privacy policy in one sentence</h2>
-    <p>Nothing leaves your machine unless you configured an AI provider and either clicked an AI button or saved a note with semantic-search embedding enabled; everything else is entirely local, forever, and without exception.</p>
+    <p>Your notes leave your machine only if you configured an AI provider and either clicked an AI button or saved a note with semantic-search embedding enabled; apart from that and the optional daily update check, which carries nothing from your notes, everything is local.</p>
 
     <h2 id="trust-model">Trust model and when it breaks</h2>
 

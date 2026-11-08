@@ -21,6 +21,7 @@
                 <li><a href="#getting-around">Getting around</a></li>
                 <li><a href="#basics">Creating and saving notes</a></li>
                 <li><a href="#where-notes-live">Where your notes live</a></li>
+                <li><a href="#updates">Updates</a></li>
               </ol></li>
             <li><a href="#writing">Writing notes</a>
               <ol class="toc-sub">
@@ -118,6 +119,19 @@
 
         <h3 id="where-notes-live">Where your notes live</h3>
         <p>In the folder shown under <em>Folders</em> in <a href="{{ url_for('settings_page') }}#general">Settings</a>, labelled <em>In use now</em>. You choose it on first launch; to move it later, see <a href="#sync-and-backup">Sync and backup</a>. Settings, the search index and <a href="#history">note history</a> live separately, in <code>~/Library/Application Support/com.shivissar.zetteling/</code>.</p>
+
+        <h3 id="updates">Updates</h3>
+        <p>Once a day Zetteling asks GitHub whether a newer version has been published. When there is one, a notice appears at the foot of the sidebar; click it for what’s new and a <em>Download</em> button. You can also look at any time: <em>Check now</em> in <a href="{{ url_for('settings_page') }}#updates">Settings → Updates</a>, or <em>Check for updates</em> in the palette.</p>
+        <p>Zetteling never downloads or installs anything by itself. To update:</p>
+        <ol>
+          <li>Click <em>Download</em> on the update page. Your browser saves the new <code>.dmg</code>, usually in Downloads.</li>
+          <li>Quit Zetteling (<kbd>⌘Q</kbd>). What you were typing is already saved.</li>
+          <li>Open the <code>.dmg</code> and drag <strong>Zetteling</strong> onto <strong>Applications</strong>; choose <strong>Replace</strong>.</li>
+          <li>In Terminal, run <code>xattr -cr /Applications/Zetteling.app</code> again, so that exporting keeps working.</li>
+          <li>Open Zetteling. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>, as on the first install.</li>
+        </ol>
+        <p>Your notes, settings, history and locked-notes key live outside the app, so they are untouched. <em>Skip this version</em> on the update page hides the notice until a later version appears. Pre-releases are never offered.</p>
+        <p class="hint">The check sends GitHub your IP address and Zetteling’s version number, nothing from your notes (<a href="{{ url_for('privacy_page') }}#updates">Privacy</a>). Turn it off under <em>Check for new versions</em> in Settings → Updates; <em>Check now</em> still works.</p>
 
         <!-- ============================================================ -->
         <h2 id="writing">Writing notes</h2>
@@ -242,6 +256,7 @@
 
         <!-- ============================================================ -->
         <h2 id="privacy-security">Privacy and security</h2>
+        <p>Your notes stay on your Mac unless you turn on an AI provider. Apart from AI, the only request Zetteling makes on its own is the daily <a href="#updates">update check</a>, which carries nothing from your notes. The full account is on the <a href="{{ url_for('privacy_page') }}">Privacy</a> page.</p>
 
         <h3 id="locked-notes">Locked notes</h3>
         <p>A locked note’s text is encrypted on disk: in Finder, other apps, backups or sync services it reads as random characters. Without your password or recovery key, nobody can read it, including you.</p>

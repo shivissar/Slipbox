@@ -38,6 +38,12 @@
 
   <div class="side-spacer"></div>
 
+  {%- if update_status and update_status.notice %}
+  <a class="side-update {% if ep == 'update_page' %}active{% endif %}" href="{{ url_for('update_page') }}">
+    {{ icon("sprout") }}<span class="grow"><strong>Zetteling {{ update_status.latest.version }}</strong> is ready<small>See what’s new</small></span>
+  </a>
+  {%- endif %}
+
   <div class="side-foot">
     <a class="side-link {% if ep == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}" data-tour="settings">{{ icon("sliders") }}<span class="grow">Settings</span></a>
     <a class="icon-btn" href="{{ url_for('tour') }}" aria-label="Take the tour" title="Take the tour" data-tour="tour" data-start-tour>{{ icon("compass") }}</a>
