@@ -15,6 +15,7 @@ import json
 import re
 import os
 import secrets
+import threading
 import xml.etree.ElementTree as etree
 
 import markdown
@@ -485,25 +486,39 @@ class CodedSpanExtension(Extension):
         )
 
 
-MD = markdown.Markdown(
-    extensions=[
-        "fenced_code",
-        "tables",
-        "footnotes",
-        "codehilite",
-        WikilinkExtension(),
-        CitekeyExtension(),
-        CodedSpanExtension(),
-    ],
-    extension_configs={
-        "codehilite": {
-            "css_class": "codehilite",
-            "guess_lang": False,
+# 5.2: one Markdown converter per thread. A single shared one could mix
+# two notes' footnotes (and other per-document state) when two pages were
+# rendered at once on the server's request threads.
+_MD_LOCAL = threading.local()
+
+
+def _new_markdown():
+    return markdown.Markdown(
+        extensions=[
+            "fenced_code",
+            "tables",
+            "footnotes",
+            "codehilite",
+            WikilinkExtension(),
+            CitekeyExtension(),
+            CodedSpanExtension(),
+        ],
+        extension_configs={
+            "codehilite": {
+                "css_class": "codehilite",
+                "guess_lang": False,
+            },
+            # align="…" survives sanitising; style="…" wouldn't
+            "tables": {"use_align_attribute": True},
         },
-        # align="…" survives sanitising; style="…" wouldn't
-        "tables": {"use_align_attribute": True},
-    },
-)
+    )
+
+
+def _md():
+    md = getattr(_MD_LOCAL, "md", None)
+    if md is None:
+        md = _MD_LOCAL.md = _new_markdown()
+    return md
 
 
 # Note HTML is sanitised before display (5.2: on by default; Settings →
@@ -591,8 +606,9 @@ def _embed_html(note_id, depth, seen):
 def _render_markdown_html(body):
     """Convert a note body to HTML, sanitised unless the person has turned
     that off in Settings → Writing."""
-    MD.reset()
-    raw = MD.convert(body)
+    md = _md()
+    md.reset()
+    raw = md.convert(body)
     if not settings.get("sanitize_note_html", True):
         return raw
     return _sanitise(raw)
@@ -892,11 +908,13 @@ def edit(note_id):
             embed.embed_note_async(note)
         if mode == "save":
             return redirect(url_for("view", note_id=note.id))
-        return jsonify({"ok": True, "id": note.id, "modified": note.modified, "locked": note.locked})
+        return jsonify({"ok": True, "id": note.id, "modified": note.modified, "locked": note.locked,
+                        "outside_version_kept": bool(getattr(note, "kept_outside_version", False))})
     if note.unreadable:
         if note.damaged:
             return redirect(url_for("view", note_id=note.id))
         return redirect(url_for("unlock_page", next=url_for("edit", note_id=note.id)))
+    notes.remember(note)
     return render_template("edit.html", note=note, autosave=bool(settings.get("autosave", True)))
 
 
@@ -1476,9 +1494,7 @@ def split_view(id1, id2):
     right = _find_note_by_id(id2)
     if not left or not right:
         abort(404)
-    MD.reset()
     left_html = _locked_placeholder(left) if left.unreadable else _render_note_html(left.body)
-    MD.reset()
     right_html = _locked_placeholder(right) if right.unreadable else _render_note_html(right.body)
     return render_template(
         "split.html",
@@ -2208,21 +2224,35 @@ def template_edit(slug=None):
         abort(404)
     if request.method == "POST":
         f = request.form
-        note_templates.save(slug, f.get("name"), f.get("description"), f.get("kind"),
-                            f.get("tags"), f.get("title"), f.get("body"))
+        try:
+            note_templates.save(slug, f.get("name"), f.get("description"), f.get("kind"),
+                                f.get("tags"), f.get("title"), f.get("body"))
+        except OSError as e:
+            return redirect(url_for("settings_page", tpl_msg=_templates_unwritable(e)) + "#templates")
         return redirect(url_for("settings_page", tpl_msg="Template saved.") + "#templates")
     return render_template("template_edit.html", t=t, slug=slug)
 
 
 @app.route("/templates/<slug>/delete", methods=["POST"])
 def template_delete(slug):
-    note_templates.delete(slug)
+    try:
+        note_templates.delete(slug)
+    except OSError as e:
+        return redirect(url_for("settings_page", tpl_msg=_templates_unwritable(e)) + "#templates")
     return redirect(url_for("settings_page", tpl_msg="Template deleted.") + "#templates")
+
+
+def _templates_unwritable(e):
+    return ("Couldn’t change the templates: Zetteling can’t write to the .templates folder in your notes "
+            "folder (%s). Check the folder’s permissions in Finder." % (e.strerror or e))
 
 
 @app.route("/templates/restore", methods=["POST"])
 def templates_restore():
-    n = note_templates.restore_defaults()
+    try:
+        n = note_templates.restore_defaults()
+    except OSError as e:
+        return redirect(url_for("settings_page", tpl_msg=_templates_unwritable(e)) + "#templates")
     msg = "Restored %d built-in template%s." % (n, "" if n == 1 else "s") if n else "All built-in templates are already there."
     return redirect(url_for("settings_page", tpl_msg=msg) + "#templates")
 
@@ -2272,7 +2302,6 @@ def note_history(note_id):
         return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
     preview = diff = None
     if version is not None and not version.unreadable:
-        MD.reset()
         preview = _render_note_html(version.body)
         diff = history.diff_lines(version.body, note.body)
     return render_template(

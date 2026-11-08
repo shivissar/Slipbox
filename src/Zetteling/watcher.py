@@ -50,7 +50,7 @@ def full_resync(force=False):
             db.upsert_note(note)
             on_disk_ids.add(note.id)
         except Exception as e:
-            print(f"[watcher] skipped {path.name}: {e}")
+            print(f"[watcher] skipped {notes.log_name(path)}: {type(e).__name__}")
             problems[path.name] = _reason(e)
     for stale_id in db.all_known_ids() - on_disk_ids:
         db.delete_note(stale_id)
@@ -99,7 +99,7 @@ class NotesHandler(FileSystemEventHandler):
                 if stem.isdigit():
                     db.delete_note(stem)
         except Exception as e:
-            print(f"[watcher] error on {path.name}: {e}")
+            print(f"[watcher] error on {notes.log_name(path)}: {type(e).__name__}")
 
     def on_created(self, event):
         if not event.is_directory:

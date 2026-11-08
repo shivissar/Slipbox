@@ -15,3 +15,4 @@ PROBE = Path(__file__).with_name("app_shell_probe.py")
 def test_shell(mode):
     r = subprocess.run([sys.executable, str(PROBE), mode], capture_output=True, text=True, timeout=120)
     assert r.returncode == 0 and f"OK {mode}" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
+    assert '"GET /' not in r.stdout + r.stderr   # no request log (it named searches and notes)

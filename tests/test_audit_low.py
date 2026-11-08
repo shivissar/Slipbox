@@ -126,3 +126,83 @@ def test_empty_trash_and_prune_history(client):
     assert keep.path.exists()
     html = client.get("/settings#housekeeping").get_data(as_text=True)
     assert "It’s empty." in html
+
+
+# 21 ------------------------------------------------------------------------
+
+def test_each_thread_renders_with_its_own_converter(client):
+    import threading
+    bodies = [f"Note {i} says something[^a].\n\n[^a]: Footnote of note {i}." for i in range(8)]
+    out, errors = {}, []
+
+    def render(i):
+        try:
+            for _ in range(20):
+                html = str(flask_app._render_markdown_html(bodies[i]))
+                assert f"Footnote of note {i}" in html
+                assert not any(f"Footnote of note {j}" in html for j in range(8) if j != i)
+            out[i] = html
+        except Exception as e:  # pragma: no cover - reported below
+            errors.append(e)
+    threads = [threading.Thread(target=render, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors and len(out) == 8
+    assert flask_app._md() is flask_app._md()
+
+
+# 23 ------------------------------------------------------------------------
+
+def test_outside_edit_kept_in_history_before_in_app_save(client):
+    n = notes.create_note("Fieldnote", body="first")
+    db.upsert_note(n)
+    history.snapshot(n.path, force=True)                       # a recent version exists
+    client.get(f"/note/{n.id}/edit")                           # editor opens it
+    text = n.path.read_text().replace("first", "EDITED IN OBSIDIAN")
+    n.path.write_text(text)
+    os.utime(n.path, (n.path.stat().st_atime, n.path.stat().st_mtime + 2))
+    r = client.post(f"/note/{n.id}/edit", data={"title": "Fieldnote", "body": "from the app",
+                                                "_autosave": "1", "_draft": "d", "_seq": "1"})
+    assert r.get_json()["outside_version_kept"] is True
+    versions = history.list_versions(n.id)
+    kept = [v for v in versions if v["name"].endswith("-external.md")]
+    assert len(kept) == 1 and kept[0]["reason"] == "Before an outside change"
+    kept = kept[0]
+    assert "EDITED IN OBSIDIAN" in history.read_version(n.id, kept["name"]).body
+    r = client.post(f"/note/{n.id}/edit", data={"title": "Fieldnote", "body": "again",
+                                                "_autosave": "1", "_draft": "d", "_seq": "2"})
+    assert r.get_json()["outside_version_kept"] is False          # nothing outside this time
+
+
+# 26 ------------------------------------------------------------------------
+
+def test_templates_work_in_a_read_only_notes_folder(client, monkeypatch):
+    from Zetteling import note_templates
+    real_mkdir = Path.mkdir
+
+    def refuse(self, *a, **k):
+        if self.name == ".templates":
+            raise PermissionError(13, "Permission denied")
+        return real_mkdir(self, *a, **k)
+    monkeypatch.setattr(Path, "mkdir", refuse)
+    assert not (notes.NOTES_DIR / ".templates").exists()
+    assert {t["slug"] for t in note_templates.list_templates()} >= {"interview-memo", "fieldnote"}
+    assert client.get("/new").status_code == 200
+    assert client.get("/new?template=fieldnote").status_code == 200
+    assert client.get("/settings").status_code == 200
+    r = client.post("/templates/new", data={"name": "Mine", "kind": "research", "body": "x"})
+    assert r.status_code == 302 and "Couldn" in r.headers["Location"]
+    assert client.post("/templates/restore").status_code == 302
+
+
+# 27 ------------------------------------------------------------------------
+
+def test_logs_name_notes_by_id_only(client, capsys):
+    bad = notes.NOTES_DIR / "20260101000000-my-secret-informant.md"
+    bad.write_text("---\ntitle: [oops\n---\nx\n")
+    watcher.full_resync()
+    out = capsys.readouterr().out
+    assert "note 20260101000000" in out and "informant" not in out
+    assert notes.log_name("notes/whatever.md") == "a note file"

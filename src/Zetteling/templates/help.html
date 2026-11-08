@@ -133,6 +133,7 @@
           <li>In Terminal, run <code>xattr -cr /Applications/Zetteling.app</code> again, so that exporting keeps working.</li>
           <li>Open Zetteling. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>, as on the first install.</li>
         </ol>
+        <p>After an update, macOS may ask again whether Zetteling can use your Documents, Desktop or iCloud Drive folders: this version isn’t signed with an Apple Developer ID, so macOS treats each new version as a new app. Click <strong>Allow</strong>.</p>
         <p>Your notes, settings, history and locked-notes key live outside the app, so they are untouched. <em>Skip this version</em> on the update page hides the notice until a later version appears. Pre-releases are never offered.</p>
         <p class="hint">The check sends GitHub your IP address and Zetteling’s version number, nothing from your notes (<a href="{{ url_for('privacy_page') }}#updates">Privacy</a>). Turn it off under <em>Check for new versions</em> in Settings → Updates; <em>Check now</em> still works.</p>
 
@@ -311,6 +312,7 @@
 
         <h3 id="sync-and-backup">Sync and backup</h3>
         <p>Your notes are plain files, so any backup works: Time Machine, iCloud Drive, Dropbox, Git, <code>rsync</code>. Back up the whole notes folder, hidden files included (templates, the codebook and the locked-notes key file live there).</p>
+        <p id="icloud"><strong>iCloud Drive:</strong> with <em>Optimise Mac Storage</em> on, macOS removes older files from your Mac when space runs low and keeps them only in iCloud. Zetteling can’t show a note that isn’t on the Mac, or has to wait while it downloads. On macOS 15 (Sequoia) or later, Control-click the notes folder in Finder and choose <strong>Keep Downloaded</strong>. On macOS 14 (Sonoma), turn off Optimise Mac Storage (System Settings → your name → iCloud). On earlier versions macOS can remove files whatever that setting says, so a notes folder outside iCloud Drive, backed up with Time Machine, is safer.</p>
         <p><strong>Moving the notes folder:</strong> Zetteling doesn’t move notes for you.</p>
         <ol>
           <li>Quit Zetteling.</li>
@@ -347,6 +349,9 @@
 
           <dt>Search misses words that are in my notes</dt>
           <dd>The index may be out of step. Quit, delete <code>zettel.db</code> from the app-data folder, and relaunch: it rebuilds from your notes. This is always safe. (Locked notes’ text is never searchable.)</dd>
+
+          <dt>Notes go missing from the lists now and then (notes folder in iCloud Drive)</dt>
+          <dd>macOS has probably removed them from your Mac to save space. See <a href="#icloud">iCloud Drive</a> under Sync and backup.</dd>
 
           <dt>A note is missing from the lists</dt>
           <dd>If the sidebar says a note can’t be read, its front matter (the lines between <code>---</code> at the top of the file) has an error, usually an unclosed bracket or quotation mark, or a colon in the title without quotation marks around it. <a href="{{ url_for('settings_page') }}#unreadable">Settings → Folders</a> lists the files and the problem. Fix it in a text editor and the note comes back as soon as you save. Otherwise, check the file is directly in the notes folder, not a subfolder.</dd>

@@ -508,7 +508,7 @@ def refresh_note_headers():
             tmp.write_text(new_text, encoding="utf-8")
             os.replace(tmp, path)
         except (OSError, ValueError, VaultError) as e:
-            print("[vault] couldn't update header in %s: %s" % (path.name, e))
+            print("[vault] couldn't update the header in %s: %s" % (path.name.split("-", 1)[0], type(e).__name__))
 
 
 def library_versions():

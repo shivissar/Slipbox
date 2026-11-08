@@ -126,6 +126,24 @@ The full, user-facing history is on the About page inside the app
   their history unless the ID is back in the folder) and Delete their
   history (history of notes neither in the folder nor the trash). Nothing
   is deleted automatically.
+* One Markdown converter per request thread (footnotes and other
+  per-document state could mix between two pages rendered at once).
+* A note changed outside Zetteling since the editor opened it (or since
+  Zetteling last wrote it) is kept in its history, reason "external",
+  before an in-app save overwrites it, whatever the 10-minute spacing;
+  the editor says so.
+* Templates: a notes folder where .templates can't be created no longer
+  breaks pages; the built-in templates are used, and saving, deleting or
+  restoring templates reports the problem.
+* Logs: no request log in the Mac app (it recorded search words and note
+  IDs in the system log); console messages name notes by ID, never by
+  filename, and search errors don't quote the search.
+* Help and INSTALL: macOS asks again for folder access after each update
+  of an ad-hoc-signed build; iCloud Drive's Optimise Mac Storage (Keep
+  Downloaded on macOS 15+). pyproject icon path uses the package's case.
+* Licence page: the plain-English summary now matches PolyForm
+  Noncommercial's permitted purposes (personal use without anticipated
+  commercial application; non-commercial organisations).
 
 ## 5.1.0 (November 2026)
 

@@ -31,13 +31,30 @@ def templates_dir():
 
 
 def ensure_defaults():
-    """Create the templates folder with the built-ins the first time."""
+    """Create the templates folder with the built-ins the first time.
+    Returns False if it can't be created (5.2: a read-only notes folder
+    used to make every page that lists templates fail)."""
     d = templates_dir()
-    if d.exists():
-        return
-    d.mkdir(parents=True, exist_ok=True)
-    for src in sorted(DEFAULTS_DIR.glob("*.md")):
-        shutil.copyfile(src, d / src.name)
+    if d.is_dir():
+        return True
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        for src in sorted(DEFAULTS_DIR.glob("*.md")):
+            shutil.copyfile(src, d / src.name)
+        return True
+    except OSError as e:
+        print("[templates] couldn't create the templates folder (%s); using the built-in ones" % e.strerror)
+        return d.is_dir()
+
+
+def _source_dir():
+    """Where templates are read from: the notes folder's .templates, or the
+    built-ins inside the app when that folder can't be made."""
+    return templates_dir() if ensure_defaults() else DEFAULTS_DIR
+
+
+def writable():
+    return ensure_defaults()
 
 
 def restore_defaults():
@@ -82,9 +99,8 @@ def _load(path):
 
 
 def list_templates():
-    ensure_defaults()
     out = []
-    for p in sorted(templates_dir().glob("*.md")):
+    for p in sorted(_source_dir().glob("*.md")):
         try:
             out.append(_load(p))
         except Exception as e:  # a hand-edited file with broken frontmatter
@@ -93,9 +109,10 @@ def list_templates():
 
 
 def get(slug):
-    ensure_defaults()
-    p = _path(slug)
-    if not p or not p.exists():
+    if not _SLUG_RE.match(slug or ""):
+        return None
+    p = _source_dir() / f"{slug}.md"
+    if not p.exists():
         return None
     try:
         return _load(p)

@@ -141,6 +141,40 @@ def parse_file(path):
     )
 
 
+# 5.2: each note's modification time as Zetteling last wrote it, or as it
+# was when the editor opened it. If the file has changed since (another app,
+# a sync from another Mac), the next save keeps that outside version in the
+# note's history first, whatever the 10-minute spacing of versions says;
+# before, it could be overwritten without a copy.
+_KNOWN_MTIME = {}
+
+
+def log_name(path):
+    """How a note file is named in console messages (5.2): its 14-digit ID,
+    never the filename, which contains the title. In the Mac app these
+    messages go to the system log, readable in Console.app."""
+    stem = Path(path).name.split("-", 1)[0]
+    return "note " + stem if stem.isdigit() and len(stem) == 14 else "a note file"
+
+
+def remember(note):
+    """Record the file's state when the editor opens it."""
+    try:
+        _KNOWN_MTIME[note.id] = note.path.stat().st_mtime
+    except OSError:
+        pass
+
+
+def changed_outside(note):
+    known = _KNOWN_MTIME.get(note.id)
+    if known is None:
+        return False
+    try:
+        return note.path.stat().st_mtime != known
+    except OSError:
+        return False
+
+
 def write_note(note):
     """Serialize a Note back to disk with updated frontmatter.
 
@@ -176,13 +210,18 @@ def write_note(note):
         refs=note.refs,
         **meta,
     )
+    note.kept_outside_version = False
     try:  # 5.2: keep the previous version (at most every 10 minutes)
         from . import history
-        history.snapshot(note.path)
+        if changed_outside(note):
+            note.kept_outside_version = history.snapshot(note.path, "external", force=True) is not None
+        else:
+            history.snapshot(note.path)
     except Exception as e:  # history must never block a save
         print("[history] snapshot failed: %s" % e)
     _write_atomically(note.path, frontmatter.dumps(post))
     note.mtime = note.path.stat().st_mtime
+    _KNOWN_MTIME[note.id] = note.mtime
 
 
 def _write_atomically(path, text):

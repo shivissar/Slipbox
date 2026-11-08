@@ -531,6 +531,9 @@
           needsEmbed = true;
           if (!noteId && res.j.edit_url) becameNote(res.j);
           setStatus(dirty ? "saving" : "saved");
+          if (res.j.outside_version_kept) {
+            toast("This note had been changed in another app. That version is kept in its history.");
+          }
         })
         .catch(function () { dirty = true; failed = true; setStatus("error"); })
         .then(function () { inflight = false; if (dirty && !lockedOut) schedule(failed ? 3000 : 1500); });

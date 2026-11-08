@@ -1271,7 +1271,7 @@ def filtered_search(q, limit=50):
                        " ORDER BY m.modified DESC LIMIT ?")
                 rows = conn.execute(sql, params + [limit]).fetchall()
         except sqlite3.OperationalError as e:
-            print("[db] filtered_search failed: %s" % e)
+            print("[db] filtered_search failed (%s)" % type(e).__name__)  # the message can quote the search
             return []
     return [{**dict(r), "kind": r["kind"] or "research"} for r in rows]
 

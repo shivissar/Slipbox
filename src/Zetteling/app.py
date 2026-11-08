@@ -95,7 +95,14 @@ class Zetteling(toga.App):
         port, show the app, then serve. Runs off the main thread so the
         window stays responsive."""
         try:
+            import logging
+
             from werkzeug.serving import make_server
+
+            # 5.2: no request log. Each line held the address asked for,
+            # including search words and note IDs, and the Mac app sends
+            # console output to the system log.
+            logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
             from . import flask_app as flask_module
 

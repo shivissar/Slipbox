@@ -11,7 +11,7 @@ author_email = "shiv.issar@protonmail.com"
 [tool.briefcase.app.Zetteling]
 formal_name = "Zetteling"
 description = "A local-first, plain-text Zettelkasten note-taking app with AI-assisted interrogation, embeddings-based related notes, and bibliography integration."
-icon = "src/zetteling/resources/Zetteling"
+icon = "src/Zetteling/resources/Zetteling"
 long_description = """Zetteling keeps each note as a plain Markdown file in a folder you
 choose, and connects notes with links, tags and threads. Optional AI features
 (note interrogation, tag suggestions, related notes) work with Anthropic,

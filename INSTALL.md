@@ -73,6 +73,12 @@ The first time Zetteling opens with no notes, it shows a short welcome screen:
   keep the folder it suggests, or type the path of another one. A folder inside
   iCloud Drive or Dropbox gives you automatic backups. If you choose a
   different folder, Zetteling asks you to quit (⌘Q) and reopen it once.
+  *iCloud Drive:* with **Optimise Mac Storage** on, macOS removes older files
+  from your Mac when space runs low, and Zetteling can't show a note that isn't
+  there. On macOS 15 (Sequoia) or later, Control-click the notes folder in
+  Finder and choose **Keep Downloaded**; on macOS 14 (Sonoma), turn off
+  Optimise Mac Storage (System Settings → your name → iCloud). On earlier
+  versions, keep the notes folder outside iCloud Drive.
 - **Bibliography (optional).** The path to a `.bib` file from Zotero, so you
   can cite with `@` (see below). You can add this later.
 - **AI (optional, off).** Your notes are sent nowhere unless you set this up
@@ -201,7 +207,10 @@ each new version just as it did the first one:
    in Step 2.
 
 Your notes, settings, note history and locked-notes key live outside the app,
-so they are not touched. **Skip this version** on the update page hides the
+so they are not touched. macOS may ask again whether Zetteling can use your
+Documents, Desktop or iCloud Drive folders: this version isn't signed with an
+Apple Developer ID, so macOS treats each new version as a new app. Click
+**Allow**. **Skip this version** on the update page hides the
 notice until a later version comes out. Pre-releases are never offered.
 
 **Turning the check off.** Switch off **Check for new versions** in
