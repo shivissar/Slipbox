@@ -9,10 +9,10 @@ services, Google Gemini, or Ollama running on your own Mac.
 
 * **Install and set up:** see ``INSTALL.md``.
 * **What changed:** see ``CHANGELOG`` and the About page inside the app.
-* **Licence:** PolyForm Noncommercial 1.0.0 (see ``LICENSE``). Bundled fonts
-  are under the SIL Open Font Licence (``src/Zetteling/static/fonts/*/OFL.txt``);
-  HTMX is under the Zero-Clause BSD licence
-  (``src/Zetteling/static/vendor/HTMX-LICENSE.txt``).
+* **Licence:** PolyForm Noncommercial 1.0.0 (see ``LICENSE``). The app also
+  ships other people's software and fonts under their own licences, among
+  them pandoc (GPL-2.0-or-later), certifi (MPL-2.0) and numpy's bundled
+  libquadmath (LGPL-2.1-or-later); see ``THIRD-PARTY-NOTICES.md``.
 
 Built with `Briefcase <https://briefcase.readthedocs.io/>`_ and
 `Toga <https://toga.readthedocs.io/>`_ from the BeeWare project.

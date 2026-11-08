@@ -61,7 +61,7 @@
     <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/">
     polyformproject.org/licenses/noncommercial/1.0.0</a>.</p>
 
-    <h2>Third-party components</h2>
+    <h2 id="third-party">Third-party components</h2>
 
     <p>The app also ships software and fonts written by others. Each keeps
     its own licence; the PolyForm licence above does not apply to them.</p>
@@ -76,8 +76,25 @@
       <li><strong>HTMX 1.9.12</strong>, under the Zero-Clause BSD licence.</li>
       <li><strong>Nunito, Zen Maru Gothic, Atkinson Hyperlegible and
         Literata</strong> fonts, under the SIL Open Font License 1.1.</li>
-      <li><strong>Python and its libraries</strong> (Flask, Toga and
-        others), each under its own permissive licence.</li>
+      <li><strong>Python 3.13</strong> (Python Software Foundation licence) and
+        about fifty Python packages, among them Flask, Toga, Markdown, bleach
+        and the AI providers’ libraries. Most are under permissive licences
+        (MIT, BSD or Apache 2.0). Three need a word more:
+        <ul>
+          <li><strong>certifi</strong> (the certificates used for secure
+            connections) is under the Mozilla Public License 2.0. It ships
+            unmodified, as source code.</li>
+          <li><strong>numpy</strong> (used to find related notes) is under a BSD
+            licence and bundles OpenBLAS and LAPACK (BSD), the GCC runtime
+            library (GPL 3 with the GCC Runtime Library Exception) and
+            libquadmath (GNU Lesser General Public License 2.1 or later; source at
+            <a href="https://gcc.gnu.org/git/?p=gcc.git;a=tree;f=libquadmath">gcc.gnu.org</a>).</li>
+          <li><strong>cryptography</strong> (used for locked notes) is under the
+            Apache 2.0 or BSD licence and includes OpenSSL (Apache 2.0).</li>
+        </ul>
+        Each package’s licence text is inside the app with the package. The
+        full list, with versions, is in <code>THIRD-PARTY-NOTICES.md</code>
+        in the source code on GitHub.</li>
     </ul>
 
     <h2>Full license text</h2>
