@@ -2,6 +2,24 @@
 
 v4.0.0: migrated from Flask+pywebview to BeeWare/Toga. Detailed changelog not reconstructed; the prior project's DEVNOTES.md was not carried over during the port, and three rounds of conversation_search across the prior chats returned no retrievable evidence of the migration discussions. See git log for the actual diff.
 
+## 5.2 audit (8 November 2026)
+
+- Quit: Toga 0.5 lets App.on_exit be async and wraps an override with
+  simple_handler; closing the main window and ⌘Q both go through
+  request_exit. WKWebView's evaluateJavaScript doesn't resolve promises, so
+  window.__zettelQuit saves with a synchronous XHR and returns a string.
+  The Flask thread answers it while the main thread awaits.
+- Start-up: flask_app is imported off the main thread (it resyncs at
+  import). make_server(host, 0) binds before serve_forever, so the URL is
+  set only once the port is listening; no polling.
+- watcher.full_resync trusts mtimes only when embed_meta.index_version
+  matches INDEX_VERSION. Bump it when upsert_note indexes something new.
+- embed.embed_note_async: one daemon worker, de-duplicated queue, re-reads
+  the note; after the provider answers it re-checks notes_meta.locked.
+  embed.wait_for_background() is for tests.
+- Templates must not use inline event handlers (CSP); a unit test checks.
+- Browser suites: tests/browser (not collected by pytest).
+
 ## v5.0.0 (November 2026): front-end rebuild
 
 Scope: the Flask/Toga/Briefcase architecture is unchanged. app.py (the Toga

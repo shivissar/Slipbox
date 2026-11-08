@@ -192,7 +192,7 @@ each new version just as it did the first one:
 
 1. On the update page, click **Download**. Your browser saves the new `.dmg`,
    usually in Downloads.
-2. Quit Zetteling (⌘Q). Anything you were typing has already been saved.
+2. Quit Zetteling (⌘Q). It saves what you were typing first.
 3. Open the `.dmg` and drag **Zetteling** onto **Applications**. Choose
    **Replace** when asked.
 4. Run the Terminal command from Step 3 again, so exporting keeps working:

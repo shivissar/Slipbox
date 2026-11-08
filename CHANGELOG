@@ -69,6 +69,49 @@ The full, user-facing history is on the About page inside the app
   single-note exports no longer repeat the title; notes created in the same
   second get distinct IDs.
 
+### Audit fixes (8 November)
+
+* Search results escape note text, keeping only the <mark> highlights
+  (a note's HTML used to run from the search page).
+* Note HTML is sanitised by default with nh3 (ammonia), replacing bleach;
+  footnotes, table alignment, coded passages and wikilinks survive. Turned
+  on once for existing installs (settings.html_safety_applied).
+* Content-Security-Policy with a per-request nonce on every page; inline
+  event handlers moved to app.js (data-confirm, data-history-back);
+  X-Content-Type-Options: nosniff.
+* TRUSTED_HOSTS = 127.0.0.1, localhost (ZETTEL_TRUSTED_HOSTS to change);
+  ProxyFix only with ZETTEL_BEHIND_PROXY=1; random SECRET_KEY.
+* Notes are written atomically (temp file, fsync, replace; permissions
+  kept).
+* Recovery-key file: falls back from Downloads to the home folder and
+  reports a failure instead of a server error.
+* Locked notes: the chip reads "Locked · open" (a button that closes them)
+  or "Locked · closed"; a sidebar button while open; a notice after
+  locking. Plain-text notes of always-locked kinds are locked while the
+  vault is open (on unlock, then at most once a minute on page loads),
+  except ones whose lock was removed on purpose (settings.lock_exempt).
+* Argon2id: RFC 9106's second recommended setting (64 MiB, t=3, p=4) for
+  new vaults; vaults made with the 2 GiB setting are re-wrapped on the next
+  unlock, and the header copy in each locked note is refreshed.
+* Export warning counts locked notes embedded in exported ones.
+* Interrogate writes out embedded notes (three levels) and turns links
+  into titles; embedded locked notes are replaced by a placeholder.
+* Quitting: App.on_exit asks the page (window.__zettelQuit, a synchronous
+  save) and shows a dialog if anything couldn't be saved.
+* Start-up: the window opens at once with a loading page; the Flask app is
+  imported and served from a background thread on a port bound by
+  make_server; an error page replaces the 10 s timeout crash. The start-up
+  resync skips files whose mtime matches the index (index_version guards
+  upgrades).
+* Embedding after a save runs on one background worker that re-reads the
+  note and drops the vector if it was locked meanwhile.
+* Codebook CSV: POST /codes/export writes to the export folder and reveals
+  it (the window can't download); cells starting with = + - @ get a
+  leading apostrophe.
+* net.ssl_context(): certifi for Voyage, Ollama over https and the update
+  check.
+* tests/browser: the Playwright suites, fixture, run_all.py and README.
+
 ## 5.1.0 (November 2026)
 
 * Locked notes. Per-note lock (padlock button, palette) and per-kind lock

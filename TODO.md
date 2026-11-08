@@ -65,9 +65,6 @@ grepping for callers once more.
 
 ## v5.x follow-ups
 
-- **API keys in the macOS Keychain** instead of plain text in settings.json
-  (`keyring` is pure Python; check it installs and works inside a Briefcase
-  build before relying on it).
 - **Model menus filled from each provider's live model list**, so retired
   models disappear on their own. Until then, keep `ai.RETIRED_MODELS` current.
 - **Native menu items for the keyboard shortcuts** (Toga commands), if any

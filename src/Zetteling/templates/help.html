@@ -115,7 +115,7 @@
         <ul>
           <li><strong>Create:</strong> <em>New note</em> at the top of the sidebar, or <kbd>⌘N</kbd>. Start blank or from a <a href="#templates">template</a>.</li>
           <li><strong>Edit:</strong> <em>Edit</em> above the note, or <kbd>⌘E</kbd>. Kind, tags and thread are in the <em>Details</em> panel on the right.</li>
-          <li id="saving"><strong>Saving happens by itself:</strong> a moment after you stop typing, and again when you click <em>Done</em> or leave the note. The label beside <em>Editing</em> shows “Saving…” and “Saved”. A new note is first saved once it has a title and you’ve moved on from the title field, so its filename uses the whole title. Prefer to save only when you press <em>Save</em>? Turn off <em>Save automatically</em> in <a href="{{ url_for('settings_page') }}#writing">Settings → Writing</a>.</li>
+          <li id="saving"><strong>Saving happens by itself:</strong> a moment after you stop typing, again when you click <em>Done</em> or leave the note, and when you quit. The label beside <em>Editing</em> shows “Saving…” and “Saved”. A new note is first saved once it has a title and you’ve moved on from the title field, so its filename uses the whole title. Prefer to save only when you press <em>Save</em>? Turn off <em>Save automatically</em> in <a href="{{ url_for('settings_page') }}#writing">Settings → Writing</a>. If you quit with something that can’t be saved (a new note without a title, changes with autosave off, or a save that failed), Zetteling asks before it closes.</li>
           <li><strong>Delete:</strong> the bin icon above the note. See <a href="#deleting">Deleting and the trash</a>.</li>
         </ul>
         <p>Every note is one Markdown file named with a 14-digit ID (like <code>20260407164313</code>) and the title. The ID never changes, so titles can change without breaking links.</p>
@@ -128,7 +128,7 @@
         <p>Zetteling never downloads or installs anything by itself. To update:</p>
         <ol>
           <li>Click <em>Download</em> on the update page. Your browser saves the new <code>.dmg</code>, usually in Downloads.</li>
-          <li>Quit Zetteling (<kbd>⌘Q</kbd>). What you were typing is already saved.</li>
+          <li>Quit Zetteling (<kbd>⌘Q</kbd>). It saves what you were typing first.</li>
           <li>Open the <code>.dmg</code> and drag <strong>Zetteling</strong> onto <strong>Applications</strong>; choose <strong>Replace</strong>.</li>
           <li>In Terminal, run <code>xattr -cr /Applications/Zetteling.app</code> again, so that exporting keeps working.</li>
           <li>Open Zetteling. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>, as on the first install.</li>
@@ -218,7 +218,7 @@
           <li>write a <strong>definition</strong> (what counts, what doesn’t) and a <strong>category</strong>;</li>
           <li><strong>rename</strong> a code, or <strong>merge</strong> it by giving an existing code’s name: every note is updated, with a version of each saved first;</li>
           <li><strong>remove</strong> a code everywhere, keeping the passages’ text;</li>
-          <li><strong>export</strong> its passages, or every code’s, as a CSV for a spreadsheet or analysis software.</li>
+          <li><strong>export</strong> its passages, or every code’s, as a CSV for a spreadsheet or analysis software. The file is saved in your export folder and shown in Finder. A cell that would start with <code>=</code>, <code>+</code>, <code>-</code> or <code>@</code> (an excerpt quoting <code>@smith2020</code>, say) begins with an apostrophe, so spreadsheets read it as text rather than a formula. Passages from locked notes are included while they’re open, unencrypted, and the page says how many.</li>
         </ul>
         <p>Codes can contain letters, numbers and hyphens (spaces become hyphens). Definitions are kept in <code>.zetteling-codebook.json</code> in your notes folder. <strong>Locked notes:</strong> their coded passages appear in the Codebook only while locked notes are open, read on the spot and never stored in the index; the <code>code:</code> search filter doesn’t see them.</p>
 
@@ -232,7 +232,7 @@
 
         <h3 id="exporting">Exporting</h3>
         <p>Export a note (the export icon above it), a thread (<em>export this thread</em> on its page) or a tag (<em>export all</em>) to Word, LaTeX, HTML, EPUB, ODT, plain text or Markdown. Pandoc is built in. With <em>Process citations</em> ticked, <code>@citekeys</code> become formatted citations and a reference list from your Zotero file. Links between notes become plain text (their titles, or the link’s own words); embedded notes are included in full.</p>
-        <p>For PDF, export to Word or HTML and print to PDF; direct PDF needs a separate LaTeX installation. Files go to the export folder set in Settings. Exports of locked notes are not encrypted, and the export page says so.</p>
+        <p>For PDF, export to Word or HTML and print to PDF; direct PDF needs a separate LaTeX installation. Files go to the export folder set in Settings. Exports of locked notes are not encrypted, and the export page says so, naming them, including locked notes embedded in the ones you export.</p>
 
         <h3 id="stats">Writing stats</h3>
         <p>Totals, words per note, a 30-day sparkline, when in the day you write, your most-linked notes and top tags. Observation only: no streaks or targets.</p>
@@ -246,10 +246,10 @@
         <p>Two common mistakes: a chat model in the embeddings slot (or the reverse) fails quietly on every save; and Ollama models must be downloaded first with <code>ollama pull &lt;name&gt;</code>.</p>
 
         <h3 id="related">Related notes</h3>
-        <p>With an embeddings provider, the side panel lists the notes most similar to the one you’re reading. It is the only AI feature that runs by itself: each note is sent for embedding when you leave the editor or press <kbd>⌘S</kbd>, not while you type. Read the list as prompts for rediscovery, not a measure of closeness: quality depends on the model, the surprising results are usually the useful ones, and cosine similarity over learned embeddings is less principled than it looks (Steck, Ekanadham and Kallus 2024, “Is Cosine-Similarity of Embeddings Really About Similarity?”, <em>Companion Proceedings of the ACM Web Conference 2024</em>, doi:10.1145/3589335.3651526). After switching models, use <em>Reindex all notes</em> in Settings.</p>
+        <p>With an embeddings provider, the side panel lists the notes most similar to the one you’re reading. It is the only AI feature that runs by itself: each note is sent for embedding when you leave the editor or press <kbd>⌘S</kbd>, not while you type. This happens in the background, so saving never waits for the provider. Read the list as prompts for rediscovery, not a measure of closeness: quality depends on the model, the surprising results are usually the useful ones, and cosine similarity over learned embeddings is less principled than it looks (Steck, Ekanadham and Kallus 2024, “Is Cosine-Similarity of Embeddings Really About Similarity?”, <em>Companion Proceedings of the ACM Web Conference 2024</em>, doi:10.1145/3589335.3651526). After switching models, use <em>Reindex all notes</em> in Settings.</p>
 
         <h3 id="interrogate">Interrogate</h3>
-        <p>The <em>Interrogate</em> tab (<kbd>⌘I</kbd>) is a conversation about one note: each message sends the note and the conversation so far. Use it for questions that make you think (“what does this assume?”, “what would refute it?”), and put anything worth keeping into a note in your own words. Conversations are held in memory only and disappear when you quit. For sensitive material, use Ollama, which never leaves your Mac.</p>
+        <p>The <em>Interrogate</em> tab (<kbd>⌘I</kbd>) is a conversation about one note: each message sends the note and the conversation so far. Notes it <a href="#embedding">embeds</a> are written out in full, so a manuscript is read as a whole, except locked ones, which are never sent; links become the linked notes’ titles. Use it for questions that make you think (“what does this assume?”, “what would refute it?”), and put anything worth keeping into a note in your own words. Conversations are held in memory only and disappear when you quit. For sensitive material, use Ollama, which never leaves your Mac.</p>
 
         <h3 id="tag-suggestions">Tag suggestions</h3>
         <p><em>Suggest tags</em> in the editor sends the title, the first 4,000 characters and your existing tag list, and keeps only suggestions that are already among your tags, so your vocabulary stays consistent. It runs only when you click it.</p>
@@ -265,8 +265,9 @@
         <p>A locked note’s text is encrypted on disk: in Finder, other apps, backups or sync services it reads as random characters. Without your password or recovery key, nobody can read it, including you.</p>
         <ul>
           <li><strong>Set up once</strong> in <a href="{{ url_for('settings_page') }}#locked">Settings → Locked notes</a>: a password of at least 10 characters (four or five unrelated words work well). You then get a <strong>recovery key</strong>, shown once. Save it as a text file or copy it into a password manager, and keep it away from your notes.</li>
-          <li><strong>Lock a note</strong> with the padlock above it, or <kbd>⌘K</kbd> → “Lock this note”. <strong>Lock a kind</strong> (your journal, say) under <em>Always lock these kinds</em>: its notes are locked now, and new ones are created locked.</li>
-          <li><strong>Opening:</strong> the first locked note you open asks for the password. They stay open until you quit, or until Zetteling has been idle for the time you choose. If they close while you’re editing, your text is saved first; if it can’t be, the editor asks for the password. <kbd>⌘K</kbd> → “Lock notes now” closes them at once.</li>
+          <li><strong>Lock a note</strong> with the padlock above it, or <kbd>⌘K</kbd> → “Lock this note”. <strong>Lock a kind</strong> (your journal, say) under <em>Always lock these kinds</em>: its notes are locked now, and new ones are created locked. A note of that kind that turns up unlocked (synced from another Mac, written in another app, restored from a backup) is locked the next time locked notes are open, and Zetteling tells you. A note whose lock you removed yourself is left alone.</li>
+          <li><strong>Opening:</strong> the first locked note you open asks for the password. They stay open until you quit, or until Zetteling has been idle for the time you choose. If they close while you’re editing, your text is saved first; if it can’t be, the editor asks for the password.</li>
+          <li><strong>Open or closed:</strong> locking a note encrypts it on disk at once, but while locked notes are open you can still read it in Zetteling. The label above a locked note says which: <em>Locked · open</em> (click it to close them all) or <em>Locked · closed</em>. While they’re open, the sidebar also shows <em>Locked notes are open</em>; click it, or <kbd>⌘K</kbd> → “Lock notes now”, to close them at once.</li>
           <li><strong>Remove a lock</strong> with the open padlock on a locked note, or <em>Remove all locks</em> in Settings. <strong>Change your password</strong> in Settings (the recovery key keeps working); <strong>forgot it?</strong> Use the recovery key.</li>
         </ul>
         <p><strong>What stays readable:</strong> the title, tags, kind, threads, dates, ID and filename (which includes the title), so lists and threads keep working. The size of the encrypted block hints at the note’s length.</p>
@@ -297,7 +298,7 @@
         <p><strong>Limits:</strong> standard parts combined in a standard way, but not independently audited. If your work needs certified encryption (some ethics protocols and data-protection rules do), check with your institution, and consider an encrypted disk image or FileVault as well.</p>
 
         <h3 id="trust-model">Trust model</h3>
-        <p>Zetteling assumes you wrote every note. That holds for a single person on their own Mac, and keeps things simple. It stops holding when notes come from elsewhere: imported Markdown, a folder shared with a collaborator. An untrusted note could contain HTML or script that runs when viewed. If that’s your situation, turn on <em>Sanitise note HTML</em> in Settings → Writing, which strips scripts and other dangerous HTML while keeping Markdown formatting. Other cases (exposing Zetteling on a network, exporting untrusted notes through pandoc, sending them to Interrogate) are covered on the <a href="{{ url_for('privacy_page') }}">Privacy page</a>.</p>
+        <p>Notes don’t always come from you: imported Markdown, a folder shared with a collaborator, a file from the web. Such a note could contain HTML or script meant to run when it’s shown. Since 5.2, <em>Sanitise note HTML</em> (Settings → Writing) is on by default: scripts, event handlers and other active HTML are removed when a note is shown, while Markdown formatting, images, tables, footnotes and coded passages keep working. The app’s pages also refuse to run any script that isn’t Zetteling’s own, and Zetteling refuses changes requested by other web pages or addressed to it under another name. Turn sanitising off only if you rely on raw HTML in notes you wrote yourself. What these don’t cover (exporting untrusted notes through pandoc, sending them to Interrogate, running Zetteling on a server) is on the <a href="{{ url_for('privacy_page') }}#trust-model">Privacy page</a>.</p>
 
         <!-- ============================================================ -->
         <h2 id="your-files">Your files</h2>

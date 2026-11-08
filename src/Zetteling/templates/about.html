@@ -40,7 +40,14 @@
         daily <strong>update check</strong> that tells you when a new version
         is out; you still install it yourself. Exports now turn links
         into plain text, and two notes made in the same second no longer
-        share an ID.</dd>
+        share an ID. Safer and sturdier: note HTML is sanitised by default
+        and pages run only Zetteling’s own scripts; notes are written
+        atomically; quitting saves what you were typing; the window opens
+        at once on a large library; saving never waits for an embeddings
+        provider; a locked note shows whether locked notes are open, and
+        notes of an always-locked kind that arrive unlocked are locked;
+        unlocking uses Argon2id at 64 MiB, so it is quicker and lighter on
+        memory; the codebook’s CSV export works in the app.</dd>
       <dt>v5.1.0</dt>
       <dd>Locked notes. Lock any note, or every note of a kind, and its text
         is encrypted on disk with AES-256-GCM: unreadable in Finder, other
