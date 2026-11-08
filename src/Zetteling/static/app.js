@@ -1323,4 +1323,15 @@
       window.location.href = backLink.getAttribute("href");
     });
   }
+
+  /* Confirmations (5.2): forms marked data-confirm ask first. These used to
+   * be inline onsubmit handlers, which the content-security policy blocks. */
+  document.addEventListener("submit", function (e) {
+    var f = e.target;
+    var msg = f && f.getAttribute && f.getAttribute("data-confirm");
+    if (msg && !window.confirm(msg)) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  document.querySelectorAll("[data-history-back]").forEach(function (b) {
+    b.addEventListener("click", function () { window.history.back(); });
+  });
 })();

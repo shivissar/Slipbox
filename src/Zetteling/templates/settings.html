@@ -132,7 +132,7 @@
             <div class="set-group">
               <div class="set-row">
                 <label class="set-text" for="sanitize"><strong>Sanitise note HTML</strong>
-                  <span>Strips scripts and other unsafe markup when notes are shown. Leave it off if you write all your own notes and use inline HTML. Turn it on if you import Markdown from sources you don’t control: a malicious note could otherwise run code inside the app. See <a href="{{ url_for('privacy_page') }}">Privacy</a> for the trust model.</span>
+                  <span>Removes scripts, event handlers and other unsafe markup when notes are shown, keeping ordinary formatting, images, tables and links. Leave it on: a note pasted or synced from elsewhere could otherwise run code inside Zetteling. Turn it off only if every note is your own and you rely on inline HTML it removes. See <a href="{{ url_for('privacy_page') }}">Privacy</a>.</span>
                 </label>
                 <input type="checkbox" class="switch" id="sanitize" name="sanitize_note_html" {% if current.sanitize_note_html %}checked{% endif %}>
               </div>
@@ -308,7 +308,7 @@
               <div class="vault-inline">
                 <a class="btn" href="{{ url_for('new', template=t.slug) }}">Use</a>
                 <a class="btn" href="{{ url_for('template_edit', slug=t.slug) }}">Edit</a>
-                <form method="post" action="{{ url_for('template_delete', slug=t.slug) }}" class="inline" onsubmit="return confirm('Delete the “{{ t.name }}” template? Notes made from it are not affected.');">
+                <form method="post" action="{{ url_for('template_delete', slug=t.slug) }}" class="inline" data-confirm="Delete the “{{ t.name }}” template? Notes made from it are not affected.">
                   <button type="submit" class="icon-btn" aria-label="Delete {{ t.name }}" title="Delete">{{ icon("trash") }}</button>
                 </form>
               </div>
@@ -385,7 +385,7 @@
             </div>
             {%- if vault_state.open and locked_count %}
             <form method="post" action="{{ url_for('vault_remove_all') }}" class="set-row"
-                  onsubmit="return confirm('Remove the lock from all {{ locked_count }} locked notes?\n\nTheir text will be saved as plain text again, readable in any app.');">
+                  data-confirm="Remove the lock from all {{ locked_count }} locked notes?&#10;&#10;Their text will be saved as plain text again, readable in any app.">
               <div class="set-text"><strong>Remove all locks</strong><span>Turns every locked note back into plain text and unticks the kinds above.</span></div>
               <button type="submit" class="btn btn-danger">Remove all locks</button>
             </form>
@@ -452,7 +452,7 @@
   </div>
 </main>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   var chatSelect = document.getElementById("ai-provider-select");
   var embedSelect = document.getElementById("ai-embed-provider-select");

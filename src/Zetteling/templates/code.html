@@ -60,7 +60,7 @@
           <div class="set-text"><strong>Rename or merge</strong><span>Type an existing code’s name to merge this one into it. Every note is changed, and a version of each is saved first.</span></div>
           <div class="vault-inline"><input type="text" name="new_name" required placeholder="New name" aria-label="New name"><button type="submit" class="btn">Rename</button></div>
         </form>
-        <form method="post" action="{{ url_for('code_remove', code=code) }}" class="set-row" onsubmit="return confirm('Remove the code “{{ code }}” from every passage?\n\nThe text stays; only the code goes. A version of each note is saved first.');">
+        <form method="post" action="{{ url_for('code_remove', code=code) }}" class="set-row" data-confirm="Remove the code “{{ code }}” from every passage?&#10;&#10;The text stays; only the code goes. A version of each note is saved first.">
           <div class="set-text"><strong>Remove this code everywhere</strong><span>Keeps the passages’ text and any other codes.</span></div>
           <button type="submit" class="btn btn-danger">Remove code</button>
         </form>

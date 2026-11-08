@@ -14,17 +14,15 @@ get mangled by an upstream sanitizer in our toolchain.
 import json
 import re
 import os
+import secrets
 import xml.etree.ElementTree as etree
 
 import markdown
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, g, jsonify, redirect, render_template, request, url_for
 from markdown.extensions import Extension
 from markdown.inlinepatterns import InlineProcessor
-from werkzeug.middleware.proxy_fix import ProxyFix
 
-from flask import send_file
-from markupsafe import Markup
-import io
+from markupsafe import Markup, escape
 import platform
 import subprocess
 from pathlib import Path
@@ -49,41 +47,25 @@ __version__ = "5.2.0"
 
 app = Flask(__name__)
 
-# Trust X-Forwarded-* from a reverse proxy (Caddy). Without this, url_for
-# generates http:// URLs even when the user came in over https.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-app.config["SECRET_KEY"] = os.environ.get("ZETTEL_SECRET_KEY", "dev-only-change-me")
+# 5.2: the desktop app talks to its own window only, so it no longer trusts
+# X-Forwarded-* headers (they could rewrite the Host a request claims) and
+# answers only requests addressed to 127.0.0.1 / localhost. A web page that
+# points its own domain name at this Mac ("DNS rebinding") is refused.
+# Running behind a reverse proxy on a server: set ZETTEL_BEHIND_PROXY=1 and
+# ZETTEL_TRUSTED_HOSTS (comma-separated names).
+if os.environ.get("ZETTEL_BEHIND_PROXY") == "1":  # pragma: no cover - server deployments
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+_trusted = [h.strip() for h in os.environ.get("ZETTEL_TRUSTED_HOSTS", "").split(",") if h.strip()]
+app.config["TRUSTED_HOSTS"] = _trusted or ["127.0.0.1", "localhost"]
+# No sessions or signed cookies are used; a per-process random key keeps it
+# that way safely if one is ever added.
+app.config["SECRET_KEY"] = os.environ.get("ZETTEL_SECRET_KEY") or secrets.token_hex(32)
 
 # v3.17: cap request body size. 10MB is generous for a single Markdown
 # note but small enough to prevent a pathological POST from filling disk
 # or RAM. Flask aborts with a 413 Request Entity Too Large if exceeded.
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
-
-
-def _warn_if_insecure_secret_key():
-    """Log a loud warning at startup if SECRET_KEY is still the default
-    AND the app is bound to anything other than loopback. For local
-    single-user use the default is fine because Zetteling does not use
-    sessions for anything privileged. For remote deployment it is a
-    real concern and the operator should set ZETTEL_SECRET_KEY in the
-    environment."""
-    if app.config["SECRET_KEY"] != "dev-only-change-me":
-        return
-    host = os.environ.get("ZETTEL_HOST", "127.0.0.1").strip()
-    if host in ("127.0.0.1", "localhost", "::1", ""):
-        return
-    print(
-        "\n" + "=" * 70 + "\n"
-        "  WARNING: ZETTEL_SECRET_KEY is not set.\n"
-        f"  The app is bound to {host}, which is not loopback.\n"
-        "  Set ZETTEL_SECRET_KEY to a strong random string (for example\n"
-        "  the output of: python -c 'import secrets; print(secrets.token_hex(32))')\n"
-        "  before exposing this install to any untrusted network.\n"
-        + "=" * 70 + "\n"
-    )
-
-
-_warn_if_insecure_secret_key()
 
 
 @app.context_processor
@@ -92,6 +74,7 @@ def inject_globals():
     in every template."""
     s = settings.load()
     return {
+        "csp_nonce": _csp_nonce(),
         "version": __version__,
         "attribution": Markup(
             'Created by <a href="https://www.shivissar.com">Shiv Issar, Ph.D.</a>, inspired by '
@@ -114,6 +97,30 @@ def inject_globals():
 
 
 KINDS = ("research", "journal", "teaching", "life")
+
+
+@app.template_filter("marks")
+def _marks_only(text):
+    """Search snippets come from note text with <mark> around the match.
+    Escape everything, then let only those <mark> tags back in (5.2: the
+    snippet used to be shown as raw HTML, so markup in a note ran)."""
+    out = str(escape(text or ""))
+    return Markup(out.replace("&lt;mark&gt;", "<mark>").replace("&lt;/mark&gt;", "</mark>"))
+
+
+def _csp_nonce():
+    nonce = getattr(g, "csp_nonce", None)
+    if nonce is None:
+        nonce = g.csp_nonce = secrets.token_urlsafe(16)
+    return nonce
+
+
+# 5.2: pages may only run the app's own scripts (and inline ones carrying
+# this request's nonce). Even if a note's HTML got past sanitising, it
+# couldn't run, and javascript: links do nothing.
+_CSP = ("default-src 'self'; script-src 'self' 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https: http:; font-src 'self' data:; connect-src 'self'; "
+        "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 
 
 # ---------- 5.1 locked notes: state, idle lock, helpers ---------- #
@@ -247,6 +254,9 @@ def _no_store(response):
     out of the web view's on-disk cache. Static files still cache."""
     if not (request.path or "").startswith("/static/"):
         response.headers["Cache-Control"] = "no-store"
+    if response.mimetype == "text/html":
+        response.headers["Content-Security-Policy"] = _CSP.format(nonce=_csp_nonce())
+        response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
 
@@ -420,15 +430,53 @@ MD = markdown.Markdown(
             "css_class": "codehilite",
             "guess_lang": False,
         },
+        # align="…" survives sanitising; style="…" wouldn't
+        "tables": {"use_align_attribute": True},
     },
 )
 
 
-# v3.17: optional HTML sanitization, off by default so existing users who
-# legitimately use inline HTML in their notes see no change. Turn it on in
-# Settings → Writing if you ever import external Markdown. v5.0 removed a
-# second, unused copy of this renderer (render_markdown) that had a
-# slightly different allowlist; _render_note_html is the only one.
+# Note HTML is sanitised before display (5.2: on by default; Settings →
+# Writing can turn it off). nh3 (Rust's ammonia) replaces bleach, which is
+# deprecated. Scripts, event handlers, styles, forms and javascript: links go;
+# Markdown's own output (headings, lists, tables, footnotes, code, images,
+# links) and Zetteling's links, citations and coded passages stay.
+_SAFE_TAGS = {
+    "p", "br", "hr", "pre", "code", "blockquote", "kbd", "samp", "var",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "strong", "em", "b", "i", "u", "s", "del", "ins", "mark", "sub", "sup", "small",
+    "abbr", "cite", "q", "dfn", "time",
+    "ul", "ol", "li", "dl", "dt", "dd",
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
+    "a", "img", "figure", "figcaption", "details", "summary",
+    "div", "span",
+}
+_SAFE_ATTRS = {
+    "a": {"href", "title", "class"},
+    "img": {"src", "alt", "title", "width", "height"},
+    "code": {"class"}, "pre": {"class"}, "span": {"class"}, "div": {"class"},
+    "th": {"align", "colspan", "rowspan"}, "td": {"align", "colspan", "rowspan"},
+    "ol": {"start"}, "abbr": {"title"}, "time": {"datetime"},
+    "sup": {"id"}, "li": {"id"},  # footnotes
+}
+_FOOTNOTE_ID_RE = re.compile(r"^fn(?:ref)?:[\w-]+$")
+
+
+def _keep_attr(tag, attr, value):
+    # ids are kept only for Markdown footnotes, so a note can't take over
+    # an id the app itself uses.
+    if attr == "id" and not _FOOTNOTE_ID_RE.match(value or ""):
+        return None
+    return value
+
+
+def _sanitise(html):
+    try:
+        import nh3
+    except ImportError:  # pragma: no cover - nh3 ships with the app
+        return str(escape(html))
+    return nh3.clean(html, tags=_SAFE_TAGS, attributes=_SAFE_ATTRS, attribute_filter=_keep_attr,
+                     url_schemes={"http", "https", "mailto"})
 
 
 EMBED_LINE_RE = re.compile(r"^[ \t]*!\[\[(\d{14})(?:\|([^\]\n]*))?\]\][ \t]*$", re.M)
@@ -471,58 +519,13 @@ def _embed_html(note_id, depth, seen):
 
 
 def _render_markdown_html(body):
-    """Convert a note body to HTML and optionally sanitize. Sanitization
-    is gated on the `sanitize_note_html` setting (default False) which
-    users enable when they import external markdown from an untrusted
-    source. When enabled, the output is passed through bleach.clean()
-    with a conservative allowlist that keeps markdown's visual features
-    but strips scripts, event handlers, and other XSS vectors.
-
-    If sanitization is on but bleach isn't installed, falls back to
-    unsanitized rendering with a one-time console warning so the user
-    knows to install it."""
+    """Convert a note body to HTML, sanitised unless the person has turned
+    that off in Settings → Writing."""
     MD.reset()
     raw = MD.convert(body)
-    if not settings.get("sanitize_note_html", False):
+    if not settings.get("sanitize_note_html", True):
         return raw
-    try:
-        import bleach
-    except ImportError:
-        if not getattr(_render_markdown_html, "_warned", False):
-            print(
-                "[app] sanitize_note_html is enabled but the 'bleach' package "
-                "is not installed. Falling back to unsanitized output. "
-                "Install it with: .venv/bin/pip install bleach"
-            )
-            _render_markdown_html._warned = True
-        return raw
-    allowed_tags = [
-        "p", "br", "hr", "pre", "code", "blockquote",
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "strong", "em", "b", "i", "u", "s", "del", "mark", "sub", "sup",
-        "ul", "ol", "li",
-        "table", "thead", "tbody", "tr", "th", "td",
-        "a", "img",
-        "div", "span",
-        "dl", "dt", "dd",
-    ]
-    allowed_attrs = {
-        "a": ["href", "title", "class"],
-        "img": ["src", "alt", "title"],
-        "code": ["class"],
-        "pre": ["class"],
-        "span": ["class"],
-        "div": ["class"],
-        "th": ["align"],
-        "td": ["align"],
-    }
-    return bleach.clean(
-        raw,
-        tags=allowed_tags,
-        attributes=allowed_attrs,
-        protocols=["http", "https", "mailto"],
-        strip=True,
-    )
+    return _sanitise(raw)
 
 
 def _find_note_by_id(note_id):
@@ -1475,18 +1478,31 @@ def vault_setup():
     return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description())
 
 
-def _recovery_save_dir():
-    """Downloads (the app already writes exports there), or the home folder.
-    Never the notes folder: the key must not sit beside the locked notes."""
+def _recovery_save_dirs():
+    """Where the recovery key may be saved, in order: Downloads, then the
+    home folder. Never inside the notes folder: the key mustn't sit beside
+    the locked notes."""
     notes_dir = Path(notes.NOTES_DIR).expanduser().resolve()
-    for folder in (Path.home() / "Downloads", Path.home()):
+    out = []
+    for folder, label in ((Path.home() / "Downloads", "your Downloads folder"), (Path.home(), "your home folder")):
         try:
             folder = folder.resolve()
         except OSError:
             continue
         if folder.is_dir() and folder != notes_dir and notes_dir not in folder.parents:
-            return folder
-    return None
+            out.append((folder, label))
+    return out
+
+
+def _write_recovery_file(folder, text, today):
+    stem = f"Zetteling recovery key {today.isoformat()}"
+    path, n = folder / f"{stem}.txt", 2
+    while path.exists():
+        path, n = folder / f"{stem} ({n}).txt", n + 1
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    return path
 
 
 @app.route("/vault/recovery/save", methods=["POST"])
@@ -1499,14 +1515,7 @@ def vault_recovery_save():
         code = vault.format_recovery(vault.parse_recovery(request.form.get("code", "")))
     except vault.VaultError as e:
         return jsonify({"ok": False, "message": str(e)}), 400
-    folder = _recovery_save_dir()
-    if folder is None:
-        return jsonify({"ok": False, "message": "There’s no folder to save it in. Copy the key instead."}), 500
     today = date.today()
-    stem = f"Zetteling recovery key {today.isoformat()}"
-    path, n = folder / f"{stem}.txt", 2
-    while path.exists():
-        path, n = folder / f"{stem} ({n}).txt", n + 1
     text = (
         "Zetteling recovery key\n"
         "======================\n\n"
@@ -1519,12 +1528,24 @@ def vault_recovery_save():
         "note, and delete this file once the key is stored elsewhere.\n\n"
         "To use it: Zetteling > Settings > Locked notes > Use recovery key.\n"
     )
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(text)
+    path = label = None
+    errors = []
+    for folder, where in _recovery_save_dirs():
+        try:
+            path, label = _write_recovery_file(folder, text, today), where
+            break
+        except OSError as e:  # macOS may refuse a folder (Privacy & Security)
+            errors.append(e)
+    if path is None:
+        msg = ("Zetteling couldn’t save a file (macOS refused access%s). Use Copy instead, "
+               "or allow access in System Settings → Privacy & Security → Files and Folders."
+               % (": " + errors[0].strerror if errors and errors[0].strerror else ""))
+        if _wants_json():
+            return jsonify({"ok": False, "message": msg}), 200
+        return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description(), save_error=msg)
     if platform.system() == "Darwin":
         subprocess.run(["open", "-R", str(path)], check=False)
-    msg = f"Saved to {folder.name} as “{path.name}”. Move it somewhere safe, then delete it there."
+    msg = f"Saved to {label} as “{path.name}”. Move it somewhere safe, then delete it there."
     if _wants_json():
         return jsonify({"ok": True, "path": str(path), "message": msg})
     return render_template("vault_recovery.html", code=code, kdf=vault.kdf_description(), saved_msg=msg)
@@ -2082,7 +2103,18 @@ def note_history_restore(note_id):
     return redirect(url_for("note_history", note_id=note_id, restored=1))
 
 
+def _apply_once_settings():
+    """One-time changes for installs upgrading to 5.2."""
+    s = settings.load()
+    if not s.get("html_safety_applied"):
+        # Before 5.2 sanitising was off by default and every save wrote
+        # "false", so a deliberate choice can't be told apart from the old
+        # default. Turn it on once; Settings → Writing can turn it off.
+        settings.save({"sanitize_note_html": True, "html_safety_applied": True})
+
+
 def create_app():
+    _apply_once_settings()
     db.init_db()
     watcher.start_watcher()
     bib.start_bib_watcher()

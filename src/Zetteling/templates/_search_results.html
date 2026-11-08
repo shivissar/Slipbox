@@ -6,7 +6,7 @@
   <li>
     <a class="nc" href="{{ url_for('view', note_id=r.id) }}">
       <span class="nc-title">{{ r.title }}</span>
-      {%- if r.snip %}<span class="nc-snip">{{ r.snip|safe }}</span>{% endif %}
+      {%- if r.snip %}<span class="nc-snip">{{ r.snip|marks }}</span>{% endif %}
       <span class="nc-meta">{{ r.modified[:10] if r.modified else "" }}</span>
     </a>
   </li>

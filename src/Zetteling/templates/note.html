@@ -17,7 +17,7 @@
       {%- if note.locked %}
       {%- if not note.unreadable %}
       <form method="post" action="{{ url_for('note_remove_lock', note_id=note.id) }}" class="inline"
-            onsubmit="return confirm('Remove the lock from this note?\n\nIts text will be saved as plain text again, readable in any editor.');">
+            data-confirm="Remove the lock from this note?&#10;&#10;Its text will be saved as plain text again, readable in any editor.">
         <button type="submit" class="icon-btn" aria-label="Remove lock" title="Remove lock">{{ icon("unlock") }}</button>
       </form>
       {%- endif %}
@@ -30,7 +30,7 @@
       <a class="icon-btn" href="{{ url_for('note_history', note_id=note.id) }}" data-tour="history" aria-label="History" title="History: earlier versions of this note">{{ icon("history") }}</a>
       <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export" data-tour="export">{{ icon("export") }}</a>
       <form method="post" action="{{ url_for('delete', note_id=note.id) }}" class="inline"
-            onsubmit="return confirm('Move this note to the trash?\n\nIt goes to the .trash folder inside your notes folder, so you can get it back from Finder.');">
+            data-confirm="Move this note to the trash?&#10;&#10;It goes to the .trash folder inside your notes folder, so you can get it back from Finder.">
         <button type="submit" class="icon-btn" aria-label="Move to trash" title="Move to trash">{{ icon("trash") }}</button>
       </form>
       <button type="button" class="icon-btn" data-toggle-rail aria-label="Show or hide the side panel" title="Side panel">{{ icon("panel") }}</button>

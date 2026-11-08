@@ -11,7 +11,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Zetteling{% endblock %}</title>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     /* Runs before first paint: in "Match my Mac" mode, swap to the dark
        theme when macOS is in dark mode, and follow later changes. */
     (function () {

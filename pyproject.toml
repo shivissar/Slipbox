@@ -25,7 +25,8 @@ test_sources = [
 ]
 
 requires = [
-    "flask>=3.0",
+    # 3.1+: TRUSTED_HOSTS (5.2 refuses requests not addressed to this Mac)
+    "flask>=3.1",
     "python-frontmatter>=1.1",
     "markdown>=3.5",
     "watchdog>=4.0",
@@ -34,7 +35,8 @@ requires = [
     "openai>=1.50",
     "numpy>=1.26",
     "google-genai>=1.0",
-    "bleach>=6.0",
+    # 5.2: HTML sanitising (replaces bleach, which is deprecated)
+    "nh3>=0.2.17",
     # 5.1 locked notes (vault.py): AES-GCM, HKDF and Argon2id (44+).
     "cryptography>=44",
     # 5.2 update check (updates.py): root certificates for HTTPS. Already

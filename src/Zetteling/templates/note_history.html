@@ -37,7 +37,7 @@
             <span class="hint">{{ version.body|wordcount }} words{% if version.tags %} · {{ version.tags|join(', ') }}{% endif %}</span>
           </div>
           <form method="post" action="{{ url_for('note_history_restore', note_id=note.id) }}"
-                onsubmit="return confirm('Restore this version?\n\nThe note’s title, tags, kind and text go back to how they were. The current version is saved first, so you can undo this.');">
+                data-confirm="Restore this version?&#10;&#10;The note’s title, tags, kind and text go back to how they were. The current version is saved first, so you can undo this.">
             <input type="hidden" name="v" value="{{ chosen }}">
             <button type="submit" class="btn btn-primary">{{ icon("history") }}Restore this version</button>
           </form>

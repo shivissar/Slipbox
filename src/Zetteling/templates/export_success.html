@@ -37,7 +37,7 @@
     <a href="{{ url_for('export_view', source_type=source_type, source_id=source_id) }}">export again</a>
   </p>
 
-  <script>
+  <script nonce="{{ csp_nonce }}">
   document.getElementById('reveal-btn').addEventListener('click', async function () {
     const path = this.dataset.path;
     const result = document.getElementById('reveal-result');

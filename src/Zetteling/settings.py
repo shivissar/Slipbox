@@ -33,10 +33,10 @@ DEFAULTS = {
     "ai_embed_model": "",
     "ai_embed_api_key": "",
     "ai_embed_base_url": "",
-    # v3.17: HTML sanitization of rendered markdown. Default False preserves
-    # backward compatibility (permissive inline HTML). Set to True when
-    # importing notes from an untrusted source. Requires the 'bleach' package.
-    "sanitize_note_html": False,
+    # HTML sanitisation of rendered notes (v3.17; on by default since 5.2,
+    # when existing installs were switched on once: html_safety_applied).
+    "sanitize_note_html": True,
+    "html_safety_applied": False,
     # v5.0.1: save the note being edited a moment after typing stops.
     "autosave": True,
     # v5.1: locked notes. Kinds whose notes are always locked, and minutes

@@ -11,6 +11,7 @@ The digit prefix is the canonical ID.
 
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -180,8 +181,33 @@ def write_note(note):
         history.snapshot(note.path)
     except Exception as e:  # history must never block a save
         print("[history] snapshot failed: %s" % e)
-    note.path.write_text(frontmatter.dumps(post), encoding="utf-8")
+    _write_atomically(note.path, frontmatter.dumps(post))
     note.mtime = note.path.stat().st_mtime
+
+
+def _write_atomically(path, text):
+    """Write the whole file or nothing (5.2). The text goes to a hidden
+    temporary file beside the note, is flushed to disk, then replaces the
+    note in one step, so a crash or a full disk can't leave half a note,
+    and the file watcher never reads a half-written one."""
+    path = Path(path)
+    tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.chmod(tmp, stat.S_IMODE(os.stat(path).st_mode))
+        except OSError:
+            pass  # a new note: keep the default permissions
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def soft_delete(note):

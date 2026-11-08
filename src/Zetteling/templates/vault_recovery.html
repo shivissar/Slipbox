@@ -16,7 +16,7 @@
         <li>Don’t keep it in a note: locked notes can’t help you if you’re locked out.</li>
       </ul>
       <p class="hint">Password protection: {{ kdf }}. Note text: AES-256-GCM. Details are on the <a href="{{ url_for('help_page') }}#locked-notes">help page</a>.</p>
-      <p class="flash success" id="key-saved" role="status"{% if not saved_msg %} hidden{% endif %}>{{ saved_msg or "" }}</p>
+      <p class="flash {{ 'error' if save_error else 'success' }}" id="key-saved" role="status"{% if not (saved_msg or save_error) %} hidden{% endif %}>{{ saved_msg or save_error or "" }}</p>
       <div class="vault-actions">
         <form method="post" action="{{ url_for('vault_recovery_save') }}" class="inline" id="save-key-form">
           <input type="hidden" name="code" value="{{ code }}">
@@ -29,7 +29,7 @@
     </div>
   </div>
 </main>
-<script>
+<script nonce="{{ csp_nonce }}">
   (function () {
     var box = document.getElementById("saved-key"), done = document.getElementById("done-key");
     var sync = function () { done.setAttribute("aria-disabled", box.checked ? "false" : "true"); done.tabIndex = box.checked ? 0 : -1; };
