@@ -41,6 +41,8 @@ DEFAULTS = {
     # v5.1: locked notes. Kinds whose notes are always locked, and minutes
     # of inactivity before locked notes close again (0 = only on quit).
     "locked_kinds": [],
+    # v5.2: the welcome tour has been shown (it starts by itself once)
+    "tour_seen": False,
     "lock_after_minutes": 15,
     # v5.0: appearance. Allowed values live in themes.py.
     "theme_mode": "auto",

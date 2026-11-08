@@ -29,6 +29,12 @@ The full, user-facing history is on the About page inside the app
 * Search filters: kind:, tag:/-tag:, thread:, code:/-code:, after:,
   before:, is:locked/unlocked, "phrase", -word, in the search page, palette
   and link picker.
+* Welcome tour: a short spotlight tour of the window (library, new
+  note and templates, search, note list, edit, lock, history, export,
+  side panel, writing shortcuts, browse, settings). Starts by itself once
+  (settings.tour_seen, saved when it opens), again from the compass button
+  in the sidebar, /tour or the palette. Skips parts not on the page;
+  arrow keys, Esc, focus kept in the card; respects reduced motion.
 * Help page rewritten: grouped sections, sticky contents sidebar that
   follows your place, shorter text, new features documented.
 * Fixes: exports no longer pass [[id]] links to pandoc as raw brackets;

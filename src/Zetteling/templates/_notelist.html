@@ -1,7 +1,7 @@
 {%- from "_ui.html" import icon -%}
 {%- set lk = active_kind if active_kind is defined else "all" -%}
 {%- set current_id = note.id if note is defined and note else None -%}
-<section class="listcol col card" aria-label="Notes">
+<section class="listcol col card" aria-label="Notes" data-tour="list">
   <div class="listcol-head">
     <div class="listcol-title">
       <h2>{{ "All notes" if lk == "all" else lk|capitalize }}</h2>

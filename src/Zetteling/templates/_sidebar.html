@@ -5,15 +5,15 @@
   <a class="brand" href="{{ url_for('index') }}">{{ mascot(30, 36) }}<span>Zetteling</span></a>
 
   <div class="side-actions">
-    <button type="button" class="side-search" data-open-palette>
+    <button type="button" class="side-search" data-open-palette data-tour="search">
       {{ icon("search") }}<span>Search</span><kbd>⌘K</kbd>
     </button>
-    <a class="btn btn-primary btn-block" href="{{ url_for('new', kind=ak if ak in kinds else 'research') }}">
+    <a class="btn btn-primary btn-block" href="{{ url_for('new', kind=ak if ak in kinds else 'research') }}" data-tour="new">
       {{ icon("plus") }}<span class="grow">New note</span><span class="kbd-hint">⌘N</span>
     </a>
   </div>
 
-  <div class="side-group">
+  <div class="side-group" data-tour="library">
     <div class="side-label">Library</div>
     <a class="side-link {% if ep in ('index', 'search') and ak == 'all' %}active{% endif %}" href="{{ url_for('index', kind='all') }}" {% if ep in ('index', 'search') and ak == 'all' %}aria-current="page"{% endif %}>
       <span class="dot dot-ring" aria-hidden="true"></span><span class="grow">All notes</span><span class="count">{{ nav_counts.all }}</span>
@@ -26,7 +26,7 @@
     {%- endfor %}
   </div>
 
-  <div class="side-group">
+  <div class="side-group" data-tour="browse">
     <div class="side-label">Browse</div>
     <a class="side-link {% if ep in ('tags_index', 'tag_view') %}active{% endif %}" href="{{ url_for('tags_index') }}">{{ icon("tag") }}<span class="grow">Tags</span><span class="count">{{ nav_counts.tags }}</span></a>
     <a class="side-link {% if ep in ('threads_index', 'thread_view') %}active{% endif %}" href="{{ url_for('threads_index') }}">{{ icon("thread") }}<span class="grow">Threads</span><span class="count">{{ nav_counts.threads }}</span></a>
@@ -39,8 +39,9 @@
   <div class="side-spacer"></div>
 
   <div class="side-foot">
-    <a class="side-link {% if ep == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}">{{ icon("sliders") }}<span class="grow">Settings</span></a>
-    <a class="icon-btn" href="{{ url_for('help_page') }}" aria-label="Help" title="Help">{{ icon("help") }}</a>
+    <a class="side-link {% if ep == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}" data-tour="settings">{{ icon("sliders") }}<span class="grow">Settings</span></a>
+    <a class="icon-btn" href="{{ url_for('tour') }}" aria-label="Take the tour" title="Take the tour" data-tour="tour" data-start-tour>{{ icon("compass") }}</a>
+    <a class="icon-btn" href="{{ url_for('help_page') }}" aria-label="Help" title="Help" data-tour="help">{{ icon("help") }}</a>
     <button type="button" class="icon-btn" data-cycle-mode aria-label="Change light or dark mode" title="Light, dark or match your Mac">
       <span class="when-light">{{ icon("moon") }}</span><span class="when-dark">{{ icon("sun") }}</span>
     </button>

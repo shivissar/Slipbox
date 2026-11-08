@@ -235,6 +235,7 @@
     book: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"></path><path d="M5 17a3 3 0 0 1 3-3h11"></path>',
     chart: '<path d="M5 20V11M12 20V4M19 20v-7"></path>',
     sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle>',
+    compass: '<circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path>',
     help: '<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5"></path><path d="M12 17.5h.01"></path>',
     sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>',
     moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>',
@@ -299,6 +300,9 @@
     c.push({ group: "Go to", label: "Appearance and themes", icon: "sliders", href: "/settings#appearance" });
     c.push({ group: "Go to", label: "Help and shortcuts", icon: "help", href: "/help" });
     c.push({ group: "Go to", label: "About, privacy and licence", icon: "help", href: "/about" });
+    c.push({ group: "Go to", label: "Take the tour", sub: "A one-minute look around the window", icon: "compass", run: function () {
+      if (ctx.noteId) { closePalette(); setTimeout(function () { tourStart(1); }, 50); } else window.location.href = "/tour";
+    } });
     c.push({ group: "Go to", label: "Manuscripts", icon: "list", href: "/manuscripts" });
     c.push({ group: "Go to", label: "Codebook", icon: "list", href: "/codes" });
     c.push({ group: "New from a template", label: "New manuscript", sub: "Gather notes into one draft", icon: "plus", run: function () { postTo("/manuscripts/new"); } });
@@ -1044,4 +1048,202 @@
     inp.addEventListener("input", fill);
     inp.addEventListener("focus", fill);
   });
+
+  /* ------------------------------------------------------------------ *
+   * Welcome tour (5.2): starts by itself once, on the first main page you
+   * see; again from the compass button in the sidebar or ⌘K. Each stop
+   * spotlights one part of the window; stops whose part isn't on this
+   * page are skipped.
+   * ------------------------------------------------------------------ */
+  var TOUR = [
+    { title: "Welcome to Zetteling", mascot: true,
+      body: "<p>A place for short notes in your own words, linked into a web of ideas that grows with your work.</p><p>This tour takes about a minute. Use the arrow keys or the buttons, and leave whenever you like.</p>" },
+    { target: "library", title: "Four kinds of note",
+      body: "<p>Research, journal, teaching and life notes each have their own list. Links, search and backlinks work across all four.</p>" },
+    { target: "new", title: "New note",
+      body: "<p><kbd>⌘N</kbd>. Start blank or from a template: interview memo, fieldnote, reading note or lecture plan. <kbd>⇧⌘N</kbd> starts a journal entry.</p>" },
+    { target: "search", title: "Find anything",
+      body: "<p><kbd>⌘K</kbd> searches every note and runs any command. Filters narrow it down: <code>kind:journal</code>, <code>tag:drones</code>, <code>after:2025</code>.</p>" },
+    { target: "list", title: "Your notes",
+      body: "<p>The notes in the list you’ve picked, newest first, with a box above to search them.</p>" },
+    { target: "edit", title: "Write and edit",
+      body: "<p><kbd>⌘E</kbd>. Your note saves itself a moment after you stop typing.</p>" },
+    { target: "lock", title: "Lock a note",
+      body: "<p>Encrypts the note’s text with a password only you know: for interviews, diaries, anything private. Set it up once in Settings → Locked notes.</p>" },
+    { target: "history", title: "History",
+      body: "<p>Earlier versions of this note, what changed since, and one-click restore.</p>" },
+    { target: "export", title: "Export",
+      body: "<p>Word, LaTeX, HTML and more, with your Zotero citations formatted.</p>" },
+    { target: "rail", title: "Everything connected to this note",
+      body: "<p>Its thread, the notes that link here (with the sentence they’re in), notes that mention it without linking, and related notes.</p><p>The <em>Interrogate</em> tab lets you question the note with an AI model, if you set one up.</p>" },
+    { title: "While you write",
+      body: "<ul class='tour-keys'><li><kbd>[[</kbd> link another note</li><li><kbd>@</kbd> cite from your Zotero library</li><li><kbd>![[</kbd> embed a note’s whole text</li><li>select a passage, <kbd>⇧⌘C</kbd> to code it for analysis</li></ul>" },
+    { target: "browse", title: "Browse",
+      body: "<p>Tags and threads, your citations, manuscripts (notes gathered into one draft), the codebook of coded passages, and writing stats.</p>" },
+    { target: "settings", title: "Make it yours",
+      body: "<p>Themes, fonts and colours; templates; locked notes; AI providers; and your Zotero library.</p>" },
+    { target: "tour", title: "That’s the tour", mascot: true, place: "above",
+      body: "<p>Find it again here whenever you like. Help, next to it, explains everything in detail.</p><p>Happy note-making.</p>" }
+  ];
+
+  var tourEl = null, tourStops = [], tourAt = 0, tourReturnFocus = null;
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function tourTarget(stop) {
+    if (!stop.target) return null;
+    var el = document.querySelector('[data-tour="' + stop.target + '"]');
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4 || r.right < 0 || r.left > window.innerWidth) return null;
+    var cs = window.getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.display === "none") return null;
+    return el;
+  }
+
+  function tourBuild() {
+    tourEl = document.createElement("div");
+    tourEl.className = "tour" + (reduceMotion ? " no-motion" : "");
+    tourEl.innerHTML =
+      '<div class="tour-catch"></div>' +
+      '<div class="tour-spot" aria-hidden="true"></div>' +
+      '<div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-body">' +
+        '<div class="tour-art"></div>' +
+        '<p class="tour-step" aria-live="polite"></p>' +
+        '<h2 id="tour-title"></h2>' +
+        '<div id="tour-body" class="tour-body"></div>' +
+        '<div class="tour-dots" aria-hidden="true"></div>' +
+        '<div class="tour-actions">' +
+          '<button type="button" class="btn tour-skip">Skip tour</button><span class="grow"></span>' +
+          '<button type="button" class="btn tour-back">Back</button>' +
+          '<button type="button" class="btn btn-primary tour-next">Next</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(tourEl);
+    tourEl.querySelector(".tour-skip").addEventListener("click", function () { tourEnd(); });
+    tourEl.querySelector(".tour-back").addEventListener("click", function () { tourGo(tourAt - 1); });
+    tourEl.querySelector(".tour-next").addEventListener("click", function () {
+      // Starting from a list with no note open: carry on from the latest
+      // note, so the note's own buttons are part of the tour.
+      if (tourAt === 0 && !ctx.noteId && document.querySelector('[data-tour="list"] a[href*="/note/"]')) {
+        window.location.href = "/tour?step=2"; return;
+      }
+      if (tourAt >= tourStops.length - 1) tourEnd(); else tourGo(tourAt + 1);
+    });
+    tourEl.querySelector(".tour-catch").addEventListener("click", function (e) { e.preventDefault(); });
+  }
+
+  function tourPlace() {
+    if (!tourEl) return;
+    var stop = tourStops[tourAt], el = tourTarget(stop);
+    var spot = tourEl.querySelector(".tour-spot"), card = tourEl.querySelector(".tour-card");
+    var vw = window.innerWidth, vh = window.innerHeight, gap = 16, pad = 6;
+    var cw = card.offsetWidth, ch = card.offsetHeight;
+    if (!el) {
+      tourEl.classList.add("centered");
+      spot.style.cssText = "top:" + (vh / 2) + "px;left:" + (vw / 2) + "px;width:0;height:0";
+      card.style.left = Math.max(12, (vw - cw) / 2) + "px";
+      card.style.top = Math.max(12, (vh - ch) / 2) + "px";
+      return;
+    }
+    tourEl.classList.remove("centered");
+    var r = el.getBoundingClientRect();
+    var top = Math.max(4, r.top - pad), left = Math.max(4, r.left - pad);
+    var bottom = Math.min(vh - 4, r.bottom + pad), right = Math.min(vw - 4, r.right + pad);
+    spot.style.cssText = "top:" + top + "px;left:" + left + "px;width:" + (right - left) + "px;height:" + (bottom - top) + "px";
+    var clampX = function (x) { return Math.max(12, Math.min(x, vw - cw - 12)); };
+    var clampY = function (y) { return Math.max(12, Math.min(y, vh - ch - 12)); };
+    var midY = clampY(r.top + r.height / 2 - ch / 2), midX = clampX(r.left + r.width / 2 - cw / 2);
+    var options = {
+      right: [right + gap, midY, right + gap + cw <= vw - 8],
+      left: [left - gap - cw, midY, left - gap - cw >= 8],
+      below: [midX, bottom + gap, bottom + gap + ch <= vh - 8],
+      above: [midX, top - gap - ch, top - gap - ch >= 8]
+    };
+    var order = ["right", "left", "below", "above"];
+    if (stop.place) order.unshift(stop.place);
+    options = order.map(function (k) { return options[k]; });
+    var pick = options.filter(function (o) { return o[2]; })[0] || [clampX((vw - cw) / 2), clampY((vh - ch) / 2)];
+    card.style.left = pick[0] + "px";
+    card.style.top = pick[1] + "px";
+  }
+
+  function tourGo(i) {
+    if (i < 0 || i >= tourStops.length) return;
+    tourAt = i;
+    var stop = tourStops[i], card = tourEl.querySelector(".tour-card");
+    var art = tourEl.querySelector(".tour-art"), tpl = document.getElementById("tour-mascot");
+    art.innerHTML = stop.mascot && tpl ? tpl.innerHTML : "";
+    art.hidden = !stop.mascot;
+    tourEl.querySelector(".tour-step").textContent = (i + 1) + " of " + tourStops.length;
+    tourEl.querySelector("#tour-title").textContent = stop.title;
+    tourEl.querySelector("#tour-body").innerHTML = stop.body;
+    tourEl.querySelector(".tour-dots").innerHTML = tourStops.map(function (_, k) {
+      return '<span class="' + (k === i ? "on" : "") + '"></span>';
+    }).join("");
+    tourEl.querySelector(".tour-back").hidden = i === 0;
+    tourEl.querySelector(".tour-skip").hidden = i === tourStops.length - 1;
+    var next = tourEl.querySelector(".tour-next");
+    next.textContent = i === 0 ? "Show me around" : (i === tourStops.length - 1 ? "Done" : "Next");
+    var el = tourTarget(stop);
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    tourPlace();
+    next.focus();
+  }
+
+  function tourStart(at) {
+    if (tourEl) return;
+    closePalette && closePalette();
+    tourStops = TOUR.filter(function (s) { return !s.target || tourTarget(s); });
+    tourReturnFocus = document.activeElement;
+    tourBuild();
+    document.documentElement.classList.add("touring");
+    tourGo(Math.max(0, Math.min((at || 1) - 1, tourStops.length - 1)));
+    // Shown once is enough: don't start it by itself again even if the
+    // window is closed mid-tour.
+    if (body.getAttribute("data-tour-auto") === "1") markTourSeen();
+  }
+  function markTourSeen() {
+    body.removeAttribute("data-tour-auto");
+    fetch("/api/tour/seen", { method: "POST", headers: { "Accept": "application/json" } }).catch(function () {});
+  }
+
+  function tourEnd() {
+    if (!tourEl) return;
+    tourEl.remove(); tourEl = null;
+    document.documentElement.classList.remove("touring");
+    markTourSeen();
+    if (/[?&]tour=\d/.test(window.location.search)) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch (err) { /* ignore */ }
+    }
+    if (tourReturnFocus && tourReturnFocus.focus) tourReturnFocus.focus();
+  }
+  window.__zettelTour = function () { tourStart(1); };
+
+  document.addEventListener("keydown", function (e) {
+    if (!tourEl) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); tourEnd(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); e.stopPropagation(); tourEl.querySelector(".tour-next").click(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); e.stopPropagation(); if (tourAt > 0) tourGo(tourAt - 1); }
+    else if (e.key === "Tab") {
+      var f = Array.prototype.filter.call(tourEl.querySelectorAll(".tour-card button"), function (b) { return !b.hidden; });
+      var i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    }
+    // Keep the app's own shortcuts (⌘K, ⌘N…) out of the way mid-tour, but
+    // don't preventDefault: ⌘Q, ⌘W and copy must still reach the Mac.
+    else if (e.metaKey || e.ctrlKey) { e.stopPropagation(); }
+  }, true);
+  window.addEventListener("resize", function () { tourPlace(); });
+
+  document.querySelectorAll("[data-start-tour]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      // On a note, tour right here; elsewhere, go to a note first.
+      if (ctx.noteId) { e.preventDefault(); tourStart(1); }
+    });
+  });
+  var tourParam = /[?&]tour=(\d+)/.exec(window.location.search);
+  if (body.getAttribute("data-tour-auto") === "1" || tourParam) {
+    setTimeout(function () { tourStart(tourParam ? parseInt(tourParam[1], 10) : 1); }, reduceMotion ? 50 : 450);
+  }
 })();

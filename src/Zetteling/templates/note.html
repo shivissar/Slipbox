@@ -12,7 +12,7 @@
       {%- if note.locked %}<span class="chip chip-lock" title="The text of this note is encrypted on disk">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
       <span class="grow"></span>
       {%- if not note.unreadable %}
-      <a class="btn" href="{{ url_for('edit', note_id=note.id) }}" title="Edit (⌘E)">{{ icon("edit") }}Edit</a>
+      <a class="btn" href="{{ url_for('edit', note_id=note.id) }}" title="Edit (⌘E)" data-tour="edit">{{ icon("edit") }}Edit</a>
       {%- endif %}
       {%- if note.locked %}
       {%- if not note.unreadable %}
@@ -23,12 +23,12 @@
       {%- endif %}
       {%- else %}
       <form method="post" action="{{ url_for('note_lock', note_id=note.id) }}" class="inline">
-        <button type="submit" class="icon-btn" aria-label="Lock this note" title="{{ 'Lock this note (encrypt its text)' if vault_state.set_up else 'Lock this note: set up a password first' }}">{{ icon("lock") }}</button>
+        <button type="submit" class="icon-btn" data-tour="lock" aria-label="Lock this note" title="{{ 'Lock this note (encrypt its text)' if vault_state.set_up else 'Lock this note: set up a password first' }}">{{ icon("lock") }}</button>
       </form>
       {%- endif %}
       <a class="icon-btn" href="{{ url_for('split_picker', note_id=note.id) }}" aria-label="Open another note beside this one" title="Open another note beside this one">{{ icon("split") }}</a>
-      <a class="icon-btn" href="{{ url_for('note_history', note_id=note.id) }}" aria-label="History" title="History: earlier versions of this note">{{ icon("history") }}</a>
-      <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export">{{ icon("export") }}</a>
+      <a class="icon-btn" href="{{ url_for('note_history', note_id=note.id) }}" data-tour="history" aria-label="History" title="History: earlier versions of this note">{{ icon("history") }}</a>
+      <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export" data-tour="export">{{ icon("export") }}</a>
       <form method="post" action="{{ url_for('delete', note_id=note.id) }}" class="inline"
             onsubmit="return confirm('Move this note to the trash?\n\nIt goes to the .trash folder inside your notes folder, so you can get it back from Finder.');">
         <button type="submit" class="icon-btn" aria-label="Move to trash" title="Move to trash">{{ icon("trash") }}</button>
@@ -82,7 +82,7 @@
     </div>
   </main>
 
-  <aside class="rail col card {% if rail == 'chat' %}rail-wide{% endif %}" aria-label="Side panel">
+  <aside class="rail col card {% if rail == 'chat' %}rail-wide{% endif %}" aria-label="Side panel" data-tour="rail">
     <div class="rail-head">
       <div class="seg full" role="tablist" aria-label="Side panel">
         <a role="tab" aria-selected="{{ 'true' if rail == 'context' else 'false' }}" href="{{ url_for('view', note_id=note.id) }}"

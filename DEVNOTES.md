@@ -133,3 +133,14 @@ v5.2.0 research tools (8 Nov 2026)
   takes the next free second.
 - Tests: tests/test_research_tools.py plus Playwright checks outside the
   repo.
+- Welcome tour (app.js, "Welcome tour" block; CSS "Welcome tour (5.2)"):
+  stops point at [data-tour="…"] hooks in _sidebar.html, _notelist.html
+  and note.html, and are skipped when the hook isn't on the page. Starts
+  when body has data-tour-auto (context processor: settings.tour_seen is
+  false and the page is index/view/search) or the URL has ?tour=N. It is
+  marked seen as soon as it opens (POST /api/tour/seen). /tour?step=N goes
+  to the latest note, so starting from a list carries on there. The key
+  handler is a capture listener: it stops the app's own ⌘ shortcuts but
+  never calls preventDefault on them, so ⌘Q/⌘W still reach the Mac menu.
+  Moving a hook or renaming a stop: update the TOUR array and
+  tour_test.py (outside the repo).

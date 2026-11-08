@@ -1,4 +1,4 @@
-{%- from "_ui.html" import icon -%}
+{%- from "_ui.html" import icon, mascot -%}
 {%- set ap = appearance -%}
 <!doctype html>
 <html lang="en"
@@ -40,6 +40,7 @@
 </head>
 <body data-endpoint="{{ request.endpoint or '' }}"
       {% if note is defined and note %}data-note-id="{{ note.id }}" data-note-title="{{ note.title }}" data-note-kind="{{ note.kind or 'research' }}"{% endif %}
+      {% if tour_autostart %}data-tour-auto="1"{% endif %}
       data-templates="{% for slug, name in template_index %}{{ slug }}::{{ name }}{% if not loop.last %}|{% endif %}{% endfor %}"
       {% if thread_contexts is defined and thread_contexts %}data-threads="{{ thread_contexts|map(attribute='name')|join('|') }}"{% endif %}
       data-chat="{{ 'on' if chat_available is defined and chat_available else 'off' }}"
@@ -74,5 +75,6 @@
     </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <template id="tour-mascot">{{ mascot(64, 76, wave=True) }}</template>
 </body>
 </html>

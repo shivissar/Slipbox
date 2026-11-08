@@ -98,6 +98,9 @@ def inject_globals():
         "kinds": KINDS,
         "vault_state": _vault_state(),
         "template_index": _template_index(),
+        # 5.2: the welcome tour starts by itself once, on a main page
+        "tour_autostart": (not settings.get("tour_seen", False)
+                           and request.endpoint in ("index", "view", "search")),
     }
 
 
@@ -1755,6 +1758,27 @@ def codes_csv():
 @app.route("/api/codes")
 def api_codes():
     return jsonify(codebook.suggestions(request.args.get("q", "")))
+
+
+# ---------- 5.2 welcome tour ---------- #
+
+
+@app.route("/tour")
+def tour():
+    """Start the tour on the most recent note, so every stop has something
+    to point at (or on the note list if there are no notes yet)."""
+    step = request.args.get("step", "1")
+    step = step if step.isdigit() and 0 < int(step) < 50 else "1"
+    recent = db.list_recent_cards(1)
+    if recent:
+        return redirect(url_for("view", note_id=recent[0]["id"], tour=step))
+    return redirect(url_for("index", tour=step))
+
+
+@app.route("/api/tour/seen", methods=["POST"])
+def tour_seen():
+    settings.save({"tour_seen": True})
+    return jsonify({"ok": True})
 
 
 # ---------- 5.2 templates ---------- #
