@@ -1,4 +1,17 @@
-# Zetteling DEVNOTES
+# Verweis DEVNOTES
+
+(Called Zetteling until 5.2.0; older entries keep that name.)
+
+## Rename to Verweis (9 November 2026)
+
+- Everything visible says Verweis; package src/Verweis; Briefcase app key
+  Verweis, so the bundle ID is com.shivissar.verweis and the app-data folder
+  moves. migrate.move_old_app_data() runs in App.startup before anything
+  opens the database; vault.rename_legacy_files() runs in create_app().
+- Deliberately unchanged: vault.VAULT_FORMAT, NOTE_FORMAT, BEGIN/END and the
+  HKDF info strings (all "zetteling…"), which are bound into the ciphertext;
+  ZETTEL_* environment variables; zettel.db; the "zettel-rail-hidden"
+  localStorage key.
 
 v4.0.0: migrated from Flask+pywebview to BeeWare/Toga. Detailed changelog not reconstructed; the prior project's DEVNOTES.md was not carried over during the port, and three rounds of conversation_search across the prior chats returned no retrievable evidence of the migration discussions. See git log for the actual diff.
 

@@ -18,7 +18,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Zetteling import ai, codebook, db, embed, flask_app, net, notes, settings, updates, watcher  # noqa: E402
+from Verweis import ai, codebook, db, embed, flask_app, net, notes, settings, updates, watcher  # noqa: E402
 
 app = flask_app.app
 
@@ -86,7 +86,7 @@ def test_codebook_csv_saved_to_export_folder(client, tmp_path, monkeypatch):
     db.upsert_note(n)
     r = client.post("/codes/export")
     assert r.status_code == 302 and "/codes" in r.headers["Location"]
-    files = list((tmp_path / "exports").glob("*-zetteling-codebook.csv"))
+    files = list((tmp_path / "exports").glob("*-verweis-codebook.csv"))
     assert len(files) == 1 and shown == [files[0]]
     rows = list(csv.reader(io.StringIO(files[0].read_text())))
     excerpts = [row[-1] for row in rows[1:]]
@@ -95,7 +95,7 @@ def test_codebook_csv_saved_to_export_folder(client, tmp_path, monkeypatch):
     assert files[0].name in html and "shown in Finder" in html
     r = client.post("/codes/export", data={"code": "trust"})
     assert "/codes/trust" in r.headers["Location"]
-    assert len(list((tmp_path / "exports").glob("*-zetteling-trust.csv"))) == 1
+    assert len(list((tmp_path / "exports").glob("*-verweis-trust.csv"))) == 1
     for page in ("/codes", "/codes/trust"):
         assert 'action="/codes/export"' in client.get(page).get_data(as_text=True)
 

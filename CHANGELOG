@@ -1,9 +1,23 @@
-# Zetteling Release Notes
+# Verweis Release Notes
 
-The full, user-facing history is on the About page inside the app
-(src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
+Verweis was called Zetteling until 5.2.0; entries below that predate the
+rename keep the old name. The full, user-facing history is on the About
+page inside the app (src/Verweis/templates/about.html). Engineering notes
+are in DEVNOTES.md.
 
 ## 5.2.0 (November 2026)
+
+* Renamed Zetteling to Verweis (German for a cross-reference). Package
+  src/Verweis, app ID com.shivissar.verweis, homepage
+  https://shivissar.com/verweis, repository shivissar/Verweis. On first
+  launch, migrate.py moves the old app-data folder
+  (com.shivissar.zetteling) into the new one and repoints settings that
+  named places inside it; the hidden .zetteling-vault.json and
+  .zetteling-codebook.json in the notes folder are renamed to .verweis-*
+  (the old names are still read until then). The locked-note encryption
+  labels (zetteling-vault-v1, zetteling-locked-v1, the BEGIN/END marker,
+  HKDF info strings) keep the old name: changing them would make existing
+  locked notes unreadable. New "V" icon in the style of the old "Z".
 
 * Note history (history.py): a copy of the file before it is overwritten,
   at most every 10 minutes while editing and always before restore, lock,

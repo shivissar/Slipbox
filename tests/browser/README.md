@@ -1,6 +1,6 @@
 # Browser tests
 
-Seven Playwright suites that drive Zetteling's pages in Chromium against a
+Seven Playwright suites that drive Verweis's pages in Chromium against a
 copy of a small fixture library (`fixture/`: nine notes, a BibTeX file and
 settings). Each run copies the fixture to a temporary folder, so nothing
 outside it is touched.

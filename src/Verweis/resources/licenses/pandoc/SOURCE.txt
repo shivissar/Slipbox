@@ -1,0 +1,14 @@
+Pandoc 3.1.13 (universal macOS binary), bundled at resources/bin/pandoc.
+
+Licence: GNU General Public License, version 2 or later (GPL-2.0-or-later).
+See COPYING.md and COPYRIGHT in this folder.
+Copyright (C) 2006-2023 John MacFarlane and contributors.
+
+Complete corresponding source code for this exact version:
+  https://github.com/jgm/pandoc/releases/tag/3.1.13
+  https://github.com/jgm/pandoc/tree/3.1.13
+
+Pandoc is a separate program. Verweis runs it as an external command and
+is not a derivative of it; Verweis's own licence (PolyForm Noncommercial
+1.0.0) does not apply to pandoc, and pandoc's licence does not apply to
+Verweis.

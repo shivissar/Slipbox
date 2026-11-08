@@ -8,7 +8,7 @@ D = H.prepare("zlockui")
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
-from Zetteling import flask_app, embed, settings, watcher, vault, db, notes as N
+from Verweis import flask_app, embed, settings, watcher, vault, db, notes as N
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 settings.save({"autosave": True})

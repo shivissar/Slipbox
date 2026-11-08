@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, kind_chip, squiggle -%}
+{% block title %}History · {{ note.title }}{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Note history">
+  <div class="pane-bar">
+    <a class="btn" href="{{ url_for('view', note_id=note.id) }}">← Back to the note</a>
+    <strong>History</strong>
+    {%- if note.locked %}<span class="chip chip-lock">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
+    <span class="grow"></span>
+  </div>
+  <div class="pane-body history-wrap">
+    <header>
+      <h1 class="history-title">{{ note.title }}</h1>
+      {{ squiggle() }}
+    </header>
+    {%- if restored %}<div class="flash success">Restored. The version it replaced is now at the top of the list, so you can undo this.</div>{% endif %}
+    {%- if not versions %}
+    <p class="hint">No earlier versions yet. Verweis keeps one at most every 10 minutes while you edit, and one before every restore, lock or bulk change.</p>
+    {%- else %}
+    <div class="history-grid">
+      <nav class="history-list" aria-label="Versions, newest first">
+        {%- for v in versions %}
+        <a href="{{ url_for('note_history', note_id=note.id, v=v.name) }}" class="history-item{% if v.name == chosen %} active{% endif %}"{% if v.name == chosen %} aria-current="true"{% endif %}>
+          <strong>{{ v.when.strftime('%-d %b %Y, %H:%M') }}</strong>
+          <span>{{ v.reason }}{% if v.locked %} {{ icon("lock", "i sm") }}{% endif %}</span>
+        </a>
+        {%- endfor %}
+      </nav>
+      <section class="history-detail" aria-label="Selected version">
+        {%- if version and version.damaged %}
+        <p class="locked-note-msg">This version is encrypted and can’t be opened: the file was changed or damaged.</p>
+        {%- elif version %}
+        <div class="history-actions">
+          <div>
+            <strong>{{ version.title }}</strong>
+            <span class="hint">{{ version.body|wordcount }} words{% if version.tags %} · {{ version.tags|join(', ') }}{% endif %}</span>
+          </div>
+          <form method="post" action="{{ url_for('note_history_restore', note_id=note.id) }}"
+                data-confirm="Restore this version?&#10;&#10;The note’s title, tags, kind and text go back to how they were. The current version is saved first, so you can undo this.">
+            <input type="hidden" name="v" value="{{ chosen }}">
+            <button type="submit" class="btn btn-primary">{{ icon("history") }}Restore this version</button>
+          </form>
+        </div>
+        <h2 class="h-sub">How it differs from now</h2>
+        {%- if diff %}
+        <p class="hint">Lines marked <span class="dl-del-key">−</span> are in this version but not in the note now; lines marked <span class="dl-add-key">+</span> are in the note now but not in this version.</p>
+        <div class="diff" role="table" aria-label="Line changes">
+          {%- for kind, line in diff %}
+          <div class="dl dl-{{ kind }}" role="row"><span class="dm" aria-hidden="true">{{ {'add': '+', 'del': '−', 'ctx': '', 'gap': ''}[kind] }}</span><span>{{ line or ' ' }}</span></div>
+          {%- endfor %}
+        </div>
+        {%- else %}
+        <p class="hint">The text is the same as now{% if version.title != note.title or version.tags != note.tags %}; the title or tags differ{% endif %}.</p>
+        {%- endif %}
+        <h2 class="h-sub">This version</h2>
+        <div class="rendered history-preview">{{ preview|safe }}</div>
+        {%- endif %}
+      </section>
+    </div>
+    {%- endif %}
+  </div>
+</main>
+{% endblock %}

@@ -81,4 +81,4 @@ logs/
 tests/browser/screenshots/
 
 # settings written when running from source (may hold API keys)
-src/Zetteling/settings.json*
+src/Verweis/settings.json*

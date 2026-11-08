@@ -14,7 +14,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Zetteling import codebook, db, export, history, note_templates, notes  # noqa: E402
+from Verweis import codebook, db, export, history, note_templates, notes  # noqa: E402
 
 
 @pytest.fixture

@@ -1,0 +1,579 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
+{% block title %}Settings{% endblock %}
+{% block main %}
+<main class="pane col card">
+  <div class="pane-bar"><h1 style="margin: 0; font-size: 1.5em; font-weight: 900">Settings</h1></div>
+  <div class="pane-body" style="justify-content: flex-start">
+    <div class="settings" style="width: 100%; max-width: 1040px; margin: 0 auto">
+      <nav class="settings-nav" aria-label="Settings sections">
+        <a href="#appearance">Appearance</a>
+        <a href="#general">Folders</a>
+        <a href="#writing">Writing</a>
+        <a href="#templates">Templates</a>
+        <a href="#locked">Locked notes</a>
+        <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
+        <a href="#bibliography">Bibliography</a>
+        <a href="#housekeeping">Trash and history</a>
+        <a href="#updates">Updates {% if update_status.notice %}<span class="chip chip-accent">New</span>{% endif %}</a>
+        <a href="#about">About and legal</a>
+      </nav>
+
+      <div class="settings-main">
+        {%- if saved %}
+        <div class="flash success">
+          Settings saved.
+          {%- if current.ai_chat_provider %} Use <strong>Test connection</strong> under AI to check your provider.{% endif %}
+          {%- if notes_dir_changed %}<br><strong>You changed the notes folder.</strong> Quit Verweis (⌘Q) and open it again to use the new folder.{% endif %}
+        </div>
+        {%- endif %}
+        {%- if error %}<div class="flash error">Error: {{ error }}</div>{% endif %}
+
+        {# ---------------- Appearance: applies and saves instantly ---------------- #}
+        <section class="set-section" id="appearance">
+          <h2>Appearance</h2>
+          <p>Make Verweis look the way you like. Changes apply straight away and are saved for next time.</p>
+
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Light or dark</strong><span>“Match my Mac” follows macOS, so the app turns dark in the evening if your Mac does.</span></div>
+              <div class="seg" role="group" aria-label="Light or dark">
+                {%- for key, label in theme_modes.items() %}
+                <button type="button" data-ap-key="theme_mode" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if appearance.mode == key else 'false' }}">{{ label }}</button>
+                {%- endfor %}
+              </div>
+            </div>
+
+            {%- for group, keys, ap_key, current_key in [("Light theme", light_themes, "theme_light", appearance.light), ("Dark theme", dark_themes, "theme_dark", appearance.dark)] %}
+            <div class="set-row stack">
+              <div class="set-text"><strong>{{ group }}</strong></div>
+              <div class="theme-grid">
+                {%- for key in keys %}{% set t = theme_options[key] %}{% set pv = t.preview %}
+                <button type="button" class="theme-card" data-ap-key="{{ ap_key }}" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if current_key == key else 'false' }}">
+                  <span class="swatch" style="background: {{ pv.sky }}" aria-hidden="true">
+                    <span class="hill" style="background: {{ pv.hill }}"></span>
+                    <span class="card-mini" style="background: {{ pv.surface }}"><i style="background: {{ pv.ink }}; width: 70%"></i><i style="background: {{ pv.ink }}; opacity: 0.35"></i><i style="background: {{ pv.accent }}; width: 45%"></i></span>
+                  </span>
+                  <b>{{ t.label }}</b><small>{{ t.blurb }}</small>
+                </button>
+                {%- endfor %}
+              </div>
+            </div>
+            {%- endfor %}
+
+            <div class="set-row">
+              <div class="set-text"><strong>Accent colour</strong><span>Buttons, links and highlights. “Theme colour” uses each theme’s own.</span></div>
+              <div class="swatches">
+                <button type="button" class="btn" data-accent="" aria-pressed="{{ 'false' if appearance.accent else 'true' }}">Theme colour</button>
+                {%- for sw in accent_swatches %}
+                <button type="button" class="swatch-btn" data-accent="{{ sw }}" style="background: {{ sw }}" aria-label="Accent {{ sw }}" aria-pressed="{{ 'true' if appearance.accent == sw else 'false' }}"></button>
+                {%- endfor %}
+                <label class="sr-only" for="accent-picker">Pick any colour</label>
+                <input type="color" id="accent-picker" value="{{ (appearance.accent or '#34C38F')|lower }}" title="Pick any colour">
+              </div>
+            </div>
+
+            {%- for group, ap_key, current_font, sample in [("Interface font", "ui_font", appearance.ui_font, "Aa Bb Cc"), ("Reading and writing font", "reading_font", appearance.reading_font, "Plans as resources")] %}
+            <div class="set-row stack">
+              <div class="set-text"><strong>{{ group }}</strong>{% if ap_key == "reading_font" %}<span>Used for note text, titles and the editor.</span>{% endif %}</div>
+              <div class="font-grid">
+                {%- for key, f in font_options.items() %}
+                <button type="button" class="font-card" data-ap-key="{{ ap_key }}" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if current_font == key else 'false' }}">
+                  <span class="sample" style="font-family: {% if key == 'nunito' %}'Nunito'{% elif key == 'zen' %}'Zen Maru Gothic'{% elif key == 'atkinson' %}'Atkinson Hyperlegible'{% elif key == 'literata' %}'Literata'{% else %}system-ui{% endif %}, sans-serif">{{ sample }}</span>
+                  <b>{{ f.label }}</b><small>{{ f.blurb }}</small>
+                </button>
+                {%- endfor %}
+              </div>
+            </div>
+            {%- endfor %}
+
+            <div class="set-row">
+              <div class="set-text"><strong>Text size</strong></div>
+              <div class="seg" role="group" aria-label="Text size">
+                {%- for key, label in text_sizes.items() %}
+                <button type="button" data-ap-key="text_size" data-ap-value="{{ key }}" aria-pressed="{{ 'true' if appearance.text_size == key else 'false' }}">{{ label }}</button>
+                {%- endfor %}
+              </div>
+            </div>
+
+            <div class="set-row">
+              <label class="set-text" for="illustrations-toggle"><strong>Illustrations</strong><span>The sky, hills and stars behind the app. Turn off for a calmer screen while you write.</span></label>
+              <input type="checkbox" class="switch" id="illustrations-toggle" {% if appearance.illustrations %}checked{% endif %}>
+            </div>
+          </div>
+        </section>
+
+        <form method="post" class="settings-main" style="gap: 36px" id="settings-form">
+          {%- if settings_problem %}
+          <div class="flash warn unreadable-list" id="settings-problem">
+            <p><strong>Your settings file couldn’t be read</strong> ({{ settings_problem.error }}).
+            {%- if settings_problem.from_backup %} Verweis restored your settings from the copy it saved last time, <code>settings.json.bak</code>; check them below, especially folders and AI keys.
+            {%- else %} No backup copy was found, so these are the default settings: set your folders, AI keys and bibliography again.{% endif %}
+            {%- if settings_problem.kept %} The unreadable file was kept as <code>{{ settings_problem.kept }}</code> in <code>{{ settings_problem.folder }}</code>.
+            {%- else %} The unreadable file will be kept beside it, renamed, the next time settings are saved.{% endif %}</p>
+          </div>
+          {%- endif %}
+          {# ---------------- Folders ---------------- #}
+          <section class="set-section" id="general">
+            <h2>Folders</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="notes-dir">Notes folder</label>
+                  <span>Each note is a Markdown file with YAML front matter. A folder in iCloud Drive or Dropbox gives you backups. Changing this does <strong>not</strong> move existing notes; copy them across first, then quit and reopen Verweis.</span>
+                  <span>In use now: <span class="path-pill">{{ active_notes_dir }}</span></span>
+                </div>
+                <div class="set-control"><input type="text" id="notes-dir" name="notes_dir" value="{{ current.notes_dir }}" placeholder="{{ active_notes_dir }}"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="export-dir">Export folder</label>
+                  <span>Where exported files are saved. Each file gets a date and time prefix, so earlier exports are never overwritten.</span>
+                  <span>In use now: <span class="path-pill">{{ active_export_dir }}</span></span>
+                </div>
+                <div class="set-control"><input type="text" id="export-dir" name="export_dir" value="{{ current.export_dir }}" placeholder="~/Downloads/verweis-exports"></div>
+              </div>
+            </div>
+            {%- if unreadable_files %}
+            <div class="flash warn unreadable-list" id="unreadable">
+              <p><strong>{{ unreadable_files|length }} file{{ '' if unreadable_files|length == 1 else 's' }} in your notes folder couldn’t be read</strong>, so {{ 'it isn’t' if unreadable_files|length == 1 else 'they aren’t' }} in your lists or search. Usually the front matter (the lines between <code>---</code> at the top) has a typing error, such as an unclosed bracket or quote. Open the file in a text editor and fix it; Verweis picks it up as soon as it’s saved. Nothing in the file has been changed.</p>
+              <ul>
+                {%- for name, reason in unreadable_files|dictsort %}
+                <li><code>{{ name }}</code>: {{ reason }}</li>
+                {%- endfor %}
+              </ul>
+            </div>
+            {%- endif %}
+          </section>
+
+          {# ---------------- Writing ---------------- #}
+          <section class="set-section" id="writing">
+            <h2>Writing</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <label class="set-text" for="sanitize"><strong>Sanitise note HTML</strong>
+                  <span>Removes scripts, event handlers and other unsafe markup when notes are shown, keeping ordinary formatting, images, tables and links. Leave it on: a note pasted or synced from elsewhere could otherwise run code inside Verweis. Turn it off only if every note is your own and you rely on inline HTML it removes. See <a href="{{ url_for('privacy_page') }}">Privacy</a>.</span>
+                </label>
+                <input type="checkbox" class="switch" id="sanitize" name="sanitize_note_html" {% if current.sanitize_note_html %}checked{% endif %}>
+              </div>
+              <div class="set-row">
+                <label class="set-text" for="autosave"><strong>Save automatically</strong>
+                  <span>Saves the note you’re editing a moment after you stop typing, and again when you leave it. Related notes update when you leave the note or press ⌘S. Turn this off if you want edits to stay unsaved until you press Save.</span>
+                </label>
+                <input type="checkbox" class="switch" id="autosave" name="autosave" {% if current.autosave is not defined or current.autosave %}checked{% endif %}>
+              </div>
+            </div>
+          </section>
+
+          {# ---------------- AI ---------------- #}
+          <section class="set-section" id="ai">
+            <h2>AI</h2>
+            <p>Off unless you choose a provider. Nothing is sent anywhere until you ask: Interrogate and tag suggestions send the note you are working on; related notes send each note when it is saved. See <a href="{{ url_for('privacy_page') }}">Privacy</a> for what goes where.</p>
+
+            {%- for w in retired_warnings %}
+            <div class="flash warn" style="display: flex; gap: 12px; align-items: flex-start">
+              {{ icon("warn") }}
+              <span>Your {{ "chat" if w.role == "chat" else "embedding" }} model <strong>{{ w.model }}</strong> was shut down by its provider on {{ w.date }}, so {{ "Interrogate and tag suggestions" if w.role == "chat" else "new and edited notes can’t be embedded" }}. Type <strong>{{ w.replacement }}</strong> in the {{ "chat" if w.role == "chat" else "embedding" }} Model field below{% if w.role == "embed" %}, save, then press <strong>Re-index all notes</strong>{% endif %}.</span>
+            </div>
+            {%- endfor %}
+
+            <h3 style="margin: 6px 0 0">Chat: Interrogate and tag suggestions</h3>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text"><label class="field-label" for="ai-provider-select">Provider</label></div>
+                <div class="set-control">
+                  <select name="ai_chat_provider" id="ai-provider-select">
+                    <option value="" {% if not current.ai_chat_provider %}selected{% endif %}>None (AI features off)</option>
+                    {%- for p in ai_providers %}
+                    <option value="{{ p }}" {% if current.ai_chat_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
+                    {%- endfor %}
+                  </select>
+                </div>
+              </div>
+              {%- for p, sdk in [("anthropic", "anthropic"), ("openai", "openai"), ("gemini", "google-genai")] %}
+              {%- if current.ai_chat_provider == p and not ai_status[p ~ "_sdk"] %}
+              <div class="set-row"><div class="flash error" style="margin: 0; width: 100%">The <code>{{ sdk }}</code> package is not installed in this build. Run <code>pip install {{ sdk }}</code>.</div></div>
+              {%- endif %}
+              {%- endfor %}
+
+              <div id="ai-fields-anthropic" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="a-key">API key</label><span>From <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>.</span></div>
+                  <div class="set-control"><input type="password" id="a-key" name="ai_chat_api_key_anthropic" autocomplete="off" placeholder="sk-ant-…" value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="a-model">Model</label><span>Leave blank for <code>{{ ai_default_models.anthropic }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="a-model" name="ai_chat_model_anthropic" placeholder="{{ ai_default_models.anthropic }}" value="{% if current.ai_chat_provider == 'anthropic' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-openai" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-key">API key</label><span>Works with OpenAI and services that copy its API, such as OpenRouter, Together, Groq and DeepSeek.</span></div>
+                  <div class="set-control"><input type="password" id="o-key" name="ai_chat_api_key_openai" autocomplete="off" placeholder="sk-…" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-url">Base URL</label><span>For example <code>https://openrouter.ai/api/v1</code>.</span></div>
+                  <div class="set-control"><input type="text" id="o-url" name="ai_chat_base_url_openai" placeholder="{{ ai_default_base_urls.openai }}" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="o-model">Model</label><span>Leave blank for <code>{{ ai_default_models.openai }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="o-model" name="ai_chat_model_openai" placeholder="{{ ai_default_models.openai }}" value="{% if current.ai_chat_provider == 'openai' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-gemini" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="g-key">API key</label><span>From <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</span></div>
+                  <div class="set-control"><input type="password" id="g-key" name="ai_chat_api_key_gemini" autocomplete="off" placeholder="AIza…" value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="g-model">Model</label><span>Leave blank for <code>{{ ai_default_models.gemini }}</code>, which Google keeps pointed at its newest Flash model.</span></div>
+                  <div class="set-control"><input type="text" id="g-model" name="ai_chat_model_gemini" placeholder="{{ ai_default_models.gemini }}" value="{% if current.ai_chat_provider == 'gemini' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-fields-ollama" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="l-url">Base URL</label><span>Runs on this Mac; no key needed. Install from <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a>, then run <code>ollama pull {{ ai_default_models.ollama }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="l-url" name="ai_chat_base_url_ollama" placeholder="{{ ai_default_base_urls.ollama }}" value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="l-model">Model</label></div>
+                  <div class="set-control"><input type="text" id="l-model" name="ai_chat_model_ollama" placeholder="{{ ai_default_models.ollama }}" value="{% if current.ai_chat_provider == 'ollama' %}{{ current.ai_chat_model }}{% endif %}"></div></div>
+              </div>
+
+              <input type="hidden" name="ai_chat_api_key" id="ai-chat-api-key">
+              <input type="hidden" name="ai_chat_model" id="ai-chat-model">
+              <input type="hidden" name="ai_chat_base_url" id="ai-chat-base-url">
+              <div class="set-row">
+                <span class="set-text" id="ai-test-result" role="status"><span>Save first, then test.</span></span>
+                <button type="button" class="btn" id="ai-test-btn">Test connection</button>
+              </div>
+            </div>
+
+            <h3 style="margin: 6px 0 0">Embeddings: related notes</h3>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text"><label class="field-label" for="ai-embed-provider-select">Provider</label><span>Can differ from the chat provider. Anthropic has no embeddings API; Voyage is embeddings-only.</span></div>
+                <div class="set-control">
+                  <select name="ai_embed_provider" id="ai-embed-provider-select">
+                    <option value="" {% if not current.ai_embed_provider %}selected{% endif %}>None (related notes off)</option>
+                    {%- for p in ai_embed_providers %}
+                    <option value="{{ p }}" {% if current.ai_embed_provider == p %}selected{% endif %}>{{ ai_provider_labels[p] }}</option>
+                    {%- endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div id="ai-embed-fields-openai" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-key">API key</label></div>
+                  <div class="set-control"><input type="password" id="eo-key" name="ai_embed_api_key_openai" autocomplete="off" placeholder="sk-…" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-url">Base URL</label></div>
+                  <div class="set-control"><input type="text" id="eo-url" name="ai_embed_base_url_openai" placeholder="https://api.openai.com/v1" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eo-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.openai }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="eo-model" name="ai_embed_model_openai" placeholder="{{ ai_default_embed_models.openai }}" value="{% if current.ai_embed_provider == 'openai' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-gemini" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eg-key">API key</label></div>
+                  <div class="set-control"><input type="password" id="eg-key" name="ai_embed_api_key_gemini" autocomplete="off" placeholder="AIza…" value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="eg-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.gemini }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="eg-model" name="ai_embed_model_gemini" placeholder="{{ ai_default_embed_models.gemini }}" value="{% if current.ai_embed_provider == 'gemini' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-ollama" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="el-url">Base URL</label><span>Pull a model first, for example <code>ollama pull nomic-embed-text</code>. <code>ollama list</code> shows the exact names you have.</span></div>
+                  <div class="set-control"><input type="text" id="el-url" name="ai_embed_base_url_ollama" placeholder="http://127.0.0.1:11434" value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_base_url }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="el-model">Model</label></div>
+                  <div class="set-control"><input type="text" id="el-model" name="ai_embed_model_ollama" placeholder="{{ ai_default_embed_models.ollama }}" value="{% if current.ai_embed_provider == 'ollama' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <div id="ai-embed-fields-voyage" class="ai-fields" style="display: none">
+                <div class="set-row"><div class="set-text"><label class="field-label" for="ev-key">API key</label><span>From <code>voyageai.com</code>.</span></div>
+                  <div class="set-control"><input type="password" id="ev-key" name="ai_embed_api_key_voyage" autocomplete="off" placeholder="pa-…" value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_api_key }}{% endif %}"></div></div>
+                <div class="set-row"><div class="set-text"><label class="field-label" for="ev-model">Model</label><span>Leave blank for <code>{{ ai_default_embed_models.voyage }}</code>.</span></div>
+                  <div class="set-control"><input type="text" id="ev-model" name="ai_embed_model_voyage" placeholder="{{ ai_default_embed_models.voyage }}" value="{% if current.ai_embed_provider == 'voyage' %}{{ current.ai_embed_model }}{% endif %}"></div></div>
+              </div>
+
+              <input type="hidden" name="ai_embed_api_key" id="ai-embed-api-key">
+              <input type="hidden" name="ai_embed_model" id="ai-embed-model">
+              <input type="hidden" name="ai_embed_base_url" id="ai-embed-base-url">
+              <div class="set-row">
+                <div class="set-text"><strong>Index</strong><span>{{ embedding_count }} of {{ total_notes }} notes embedded. Re-index after choosing a provider or changing the model; it runs in the background.</span><span id="reindex-result" role="status"></span></div>
+                <button type="button" class="btn" id="reindex-btn">Re-index all notes</button>
+              </div>
+            </div>
+          </section>
+
+          {# ---------------- Bibliography ---------------- #}
+          <section class="set-section" id="bibliography">
+            <h2>Bibliography</h2>
+            <div class="set-group">
+              <div class="set-row">
+                <div class="set-text">
+                  <label class="field-label" for="bib-path">BibTeX file</label>
+                  <span>Export your Zotero library with Better BibTeX and tick <strong>Keep updated</strong>, so new references appear on their own. Leave blank to turn citations off.</span>
+                  {%- if env_override %}<span>An environment variable also sets <code>ZETTEL_BIB_PATH</code>; the path here takes priority when filled in.</span>{% endif %}
+                </div>
+                <div class="set-control"><input type="text" id="bib-path" name="bib_path" value="{{ current.bib_path }}" placeholder="~/Zotero/My Library.bib"></div>
+              </div>
+            </div>
+          </section>
+
+          <div style="position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--surface) 30%); display: flex; gap: 10px; align-items: center">
+            <button type="submit" class="btn btn-primary btn-lg">Save settings</button>
+            <span class="muted small">Appearance saves itself; everything below it saves with this button.</span>
+          </div>
+        </form>
+
+
+        {# ---------------- Templates ---------------- #}
+        <section class="set-section" id="templates">
+          <h2>Templates</h2>
+          {%- if tpl_msg %}<div class="flash {{ 'warn' if tpl_msg.startswith('Couldn') else 'success' }}">{{ tpl_msg }}</div>{% endif %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Start new notes from a template</strong>
+                <span>Pick one at the top of a new note, or with <kbd>⌘K</kbd>. <code>{{ "{{date}}" }}</code>, <code>{{ "{{time}}" }}</code> and <code>{{ "{{weekday}}" }}</code> are filled in for you. Templates live in <code>.templates</code> inside your notes folder.</span>
+              </div>
+              <a class="btn btn-primary" href="{{ url_for('template_edit') }}">{{ icon("plus") }}New template</a>
+            </div>
+            {%- for t in note_templates %}
+            <div class="set-row">
+              <div class="set-text"><strong><span class="dot dot-{{ t.kind }}" aria-hidden="true"></span> {{ t.name }}</strong><span>{{ t.description or "No description." }}</span></div>
+              <div class="vault-inline">
+                <a class="btn" href="{{ url_for('new', template=t.slug) }}">Use</a>
+                <a class="btn" href="{{ url_for('template_edit', slug=t.slug) }}">Edit</a>
+                <form method="post" action="{{ url_for('template_delete', slug=t.slug) }}" class="inline" data-confirm="Delete the “{{ t.name }}” template? Notes made from it are not affected.">
+                  <button type="submit" class="icon-btn" aria-label="Delete {{ t.name }}" title="Delete">{{ icon("trash") }}</button>
+                </form>
+              </div>
+            </div>
+            {%- endfor %}
+            <form method="post" action="{{ url_for('templates_restore') }}" class="set-row">
+              <div class="set-text"><strong>Built-in templates</strong><span>Interview memo, fieldnote, reading note and lecture plan. Restoring adds back any you’ve deleted; your edits to the others are kept.</span></div>
+              <button type="submit" class="btn">Restore built-ins</button>
+            </form>
+          </div>
+        </section>
+
+        {# ---------------- Locked notes (own forms, outside the main form) ---------------- #}
+        <section class="set-section" id="locked">
+          <h2>Locked notes</h2>
+          {%- if vault_msg %}<div class="flash {{ 'error' if vault_err else 'success' }}">{{ vault_msg }}</div>{% endif %}
+          {%- if not vault_state.set_up %}
+          <div class="set-group">
+            <div class="set-row stack">
+              <div class="set-text"><strong>Encrypt the notes you choose</strong>
+                <span>A locked note’s text is encrypted on disk, so it reads as gibberish in Finder, other apps, backups and sync services. Its title, tags, kind, threads and dates stay readable, so your lists and threads still work. Locked notes are never sent to an AI provider. <a href="{{ url_for('help_page') }}#locked-notes">How it works</a></span>
+              </div>
+              <form method="post" action="{{ url_for('vault_setup') }}" class="vault-form" data-unlock-form>
+                <label class="field-label" for="v-pw">Choose a password</label>
+                <input type="password" id="v-pw" name="password" minlength="10" autocomplete="new-password" required>
+                <label class="field-label" for="v-pw2">The same password again</label>
+                <input type="password" id="v-pw2" name="confirm" minlength="10" autocomplete="new-password" required>
+                <p class="hint">At least 10 characters. Four or five unrelated words make a strong password that’s easy to remember. Next you’ll get a recovery key: without the password or that key, locked notes can’t be opened by anyone, including you.</p>
+                <button type="submit" class="btn btn-primary">Set up locked notes</button>
+              </form>
+            </div>
+          </div>
+          {%- else %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>{{ icon("unlock" if vault_state.open else "lock", "i sm") }} {{ "Open" if vault_state.open else "Closed" }}</strong>
+                <span>{{ locked_count }} locked note{{ '' if locked_count == 1 else 's' }}. {% if vault_state.open %}Readable until you quit{% if vault_state.idle_seconds %} or leave Verweis idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.{% else %}Enter your password to read or edit them.{% endif %}</span>
+              </div>
+              {%- if vault_state.open %}
+              <form method="post" action="{{ url_for('vault_lock') }}" class="inline"><input type="hidden" name="next" value="/settings#locked"><button type="submit" class="btn">{{ icon("lock") }}Lock now</button></form>
+              {%- else %}
+              <a class="btn btn-primary" href="{{ url_for('unlock_page', next='/settings#locked') }}">{{ icon("unlock") }}Unlock</a>
+              {%- endif %}
+            </div>
+            <form method="post" action="{{ url_for('vault_settings') }}" class="set-row stack">
+              <div class="set-text"><strong>Always lock these kinds</strong><span>New notes of a ticked kind are created locked. Ticking a kind also locks the notes of that kind you already have (locked notes need to be open), and any that arrive later in plain text, from another Mac or another app, are locked while locked notes are open. A note whose lock you remove yourself stays unlocked. Unticking leaves existing locked notes as they are.</span>
+                {%- if pending_kind_locks and not vault_state.open %}<span class="flash warn" style="margin-top: 6px">{{ pending_kind_locks }} note{{ '' if pending_kind_locks == 1 else 's' }} of {{ 'this kind' if vault_state.locked_kinds|length == 1 else 'these kinds' }} {{ 'is' if pending_kind_locks == 1 else 'are' }} in plain text. {{ 'It' if pending_kind_locks == 1 else 'They' }}’ll be locked when you unlock.</span>{% endif %}</div>
+              <div class="kind-checks">
+                {%- for k in kinds %}
+                <label class="check-row"><input type="checkbox" name="locked_kinds" value="{{ k }}" {% if k in vault_state.locked_kinds %}checked{% endif %}> <span class="dot dot-{{ k }}" aria-hidden="true"></span>{{ k|capitalize }}</label>
+                {%- endfor %}
+              </div>
+              <div class="set-text"><strong>Close locked notes after</strong><span>How long Verweis can sit idle before locked notes need the password again. Quitting always closes them.</span></div>
+              <div class="vault-inline">
+                <select name="lock_after_minutes" aria-label="Close locked notes after">
+                  {%- for m, label in [(5, "5 minutes idle"), (15, "15 minutes idle"), (30, "30 minutes idle"), (60, "1 hour idle"), (0, "Only when I quit")] %}
+                  <option value="{{ m }}" {% if vault_state.idle_seconds == m * 60 %}selected{% endif %}>{{ label }}</option>
+                  {%- endfor %}
+                </select>
+                <button type="submit" class="btn">Save</button>
+              </div>
+            </form>
+            <form method="post" action="{{ url_for('vault_password') }}" class="set-row stack" data-unlock-form>
+              <div class="set-text"><strong>Change password</strong><span>Your recovery key keeps working. Old backups of your notes still open with the old password.</span></div>
+              <div class="vault-grid">
+                <input type="password" name="old_password" placeholder="Current password" autocomplete="current-password" required aria-label="Current password">
+                <input type="password" name="new_password" placeholder="New password" minlength="10" autocomplete="new-password" required aria-label="New password">
+                <input type="password" name="confirm" placeholder="New password again" minlength="10" autocomplete="new-password" required aria-label="New password again">
+                <button type="submit" class="btn">Change password</button>
+              </div>
+            </form>
+            <div class="set-row">
+              <div class="set-text"><strong>Forgot your password?</strong><span>Use the recovery key you saved when you set up locked notes.</span></div>
+              <a class="btn" href="{{ url_for('vault_recover') }}">Use recovery key</a>
+            </div>
+            {%- if vault_state.open and locked_count %}
+            <form method="post" action="{{ url_for('vault_remove_all') }}" class="set-row"
+                  data-confirm="Remove the lock from all {{ locked_count }} locked notes?&#10;&#10;Their text will be saved as plain text again, readable in any app.">
+              <div class="set-text"><strong>Remove all locks</strong><span>Turns every locked note back into plain text and unticks the kinds above.</span></div>
+              <button type="submit" class="btn btn-danger">Remove all locks</button>
+            </form>
+            {%- endif %}
+            <div class="set-row">
+              <div class="set-text"><strong>Encryption</strong><span>Note text: AES-256-GCM, a new key for every save. Password: {{ vault_kdf }}. Keys are stored, wrapped, in <code>.verweis-vault.json</code> in your notes folder and inside each locked note. <a href="{{ url_for('help_page') }}#locked-notes">Details</a></span></div>
+            </div>
+          </div>
+          {%- endif %}
+        </section>
+
+        {# ---------------- Trash and history (own forms) ---------------- #}
+        <section class="set-section" id="housekeeping">
+          <h2>Trash and history</h2>
+          {%- if hk_msg %}<div class="flash success">{{ hk_msg }}</div>{% endif %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Trash</strong>
+                <span>Deleted notes go to <code>.trash</code> in your notes folder, where you can restore them in Finder. Verweis never empties it by itself.
+                {%- if housekeeping.trash %} It holds {{ housekeeping.trash }} note{{ '' if housekeeping.trash == 1 else 's' }}{% if housekeeping.trash_versions %} and {{ housekeeping.trash_versions }} earlier version{{ '' if housekeeping.trash_versions == 1 else 's' }}{% endif %} ({{ housekeeping.trash_bytes|filesize }}).{% else %} It’s empty.{% endif %}</span>
+              </div>
+              {%- if housekeeping.trash %}
+              <form method="post" action="{{ url_for('trash_empty') }}" class="inline"
+                    data-confirm="Delete the {{ housekeeping.trash }} note{{ '' if housekeeping.trash == 1 else 's' }} in the trash for good, with {{ 'its' if housekeeping.trash == 1 else 'their' }} history?&#10;&#10;This can’t be undone. Copies in backups (Time Machine, iCloud, Git) are not affected.">
+                <button type="submit" class="btn">{{ icon("trash") }}Empty trash</button>
+              </form>
+              {%- endif %}
+            </div>
+            <div class="set-row">
+              <div class="set-text"><strong>History of deleted notes</strong>
+                <span>Earlier versions are kept in the app-data folder, up to {{ history_max }} per note.
+                {%- if housekeeping.orphans %} {{ housekeeping.orphan_versions }} version{{ '' if housekeeping.orphan_versions == 1 else 's' }} ({{ housekeeping.orphan_bytes|filesize }}) belong to {{ housekeeping.orphans }} note{{ '' if housekeeping.orphans == 1 else 's' }} no longer in your notes folder or the trash.{% else %} None belong to notes you’ve deleted.{% endif %}</span>
+              </div>
+              {%- if housekeeping.orphans %}
+              <form method="post" action="{{ url_for('history_prune') }}" class="inline"
+                    data-confirm="Delete the history of {{ housekeeping.orphans }} deleted note{{ '' if housekeeping.orphans == 1 else 's' }}?&#10;&#10;This can’t be undone.">
+                <button type="submit" class="btn">{{ icon("trash") }}Delete their history</button>
+              </form>
+              {%- endif %}
+            </div>
+          </div>
+        </section>
+
+        {# ---------------- Updates (own forms) ---------------- #}
+        {%- set upd = update_status %}
+        <section class="set-section" id="updates">
+          <h2>Updates</h2>
+          {%- if upd_msg %}<div class="flash {{ 'error' if upd.error and upd_msg == upd.error else 'success' }}">{{ upd_msg }}</div>{% endif %}
+          <div class="set-group">
+            <form method="post" action="{{ url_for('update_settings') }}" class="set-row" data-autosubmit>
+              <label class="set-text" for="update-check"><strong>Check for new versions</strong>
+                <span>Once a day, Verweis asks GitHub whether a newer version has been published and, if so, shows a notice at the foot of the sidebar. It never downloads or installs anything by itself. The check sends GitHub your IP address and Verweis’s version number, and nothing from your notes. See <a href="{{ url_for('privacy_page') }}#updates">Privacy</a>.</span>
+              </label>
+              <input type="checkbox" class="switch" id="update-check" name="update_check" {% if upd.enabled %}checked{% endif %}>
+              <noscript><button type="submit" class="btn">Save</button></noscript>
+            </form>
+            <form method="post" action="{{ url_for('update_check') }}" class="set-row">
+              <input type="hidden" name="next" value="/settings">
+              <div class="set-text">
+                {%- if upd.newer %}
+                <strong>Verweis {{ upd.latest.version }} is available</strong>
+                <span>You have {{ upd.current }}. <a href="{{ url_for('update_page') }}">See what’s new and how to install it</a>.</span>
+                {%- elif upd.latest %}
+                <strong>You have the latest version ({{ upd.current }})</strong>
+                <span>{% if upd.checked_at %}Checked {{ upd.checked_at[:16]|replace("T", " ") }} UTC.{% endif %}</span>
+                {%- else %}
+                <strong>Verweis {{ upd.current }}</strong>
+                <span>{% if upd.error %}{{ upd.error }}{% else %}Not checked yet.{% endif %}</span>
+                {%- endif %}
+              </div>
+              <button type="submit" class="btn">Check now</button>
+            </form>
+          </div>
+        </section>
+
+        {# ---------------- About ---------------- #}
+        <section class="set-section" id="about">
+          <h2>About and legal</h2>
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Verweis {{ version }}</strong><span>{{ attribution }}</span></div>
+              <a class="btn" href="{{ url_for('about_page') }}">What’s new</a>
+            </div>
+            <div class="set-row">
+              <div class="set-control">
+                <a class="chip chip-accent" href="{{ url_for('help_page') }}">Help and shortcuts</a>
+                <a class="chip chip-thread" href="{{ url_for('privacy_page') }}">Privacy</a>
+                <a class="chip chip-teaching" href="{{ url_for('license_page') }}">Licence: PolyForm Noncommercial 1.0.0</a>
+              </div>
+            </div>
+            <div class="set-row"><div class="set-text"><strong>Where settings live</strong><span><code>settings.json</code>, with a backup copy beside it (<code>settings.json.bak</code>), in the app’s data folder on this Mac. API keys are stored in both in plain text, so treat those files like a password.</span></div></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var chatSelect = document.getElementById("ai-provider-select");
+  var embedSelect = document.getElementById("ai-embed-provider-select");
+  var chatPanes = { anthropic: "ai-fields-anthropic", openai: "ai-fields-openai", gemini: "ai-fields-gemini", ollama: "ai-fields-ollama" };
+  var embedPanes = { openai: "ai-embed-fields-openai", gemini: "ai-embed-fields-gemini", ollama: "ai-embed-fields-ollama", voyage: "ai-embed-fields-voyage" };
+  function syncPanes(select, panes) {
+    Object.keys(panes).forEach(function (k) {
+      var el = document.getElementById(panes[k]);
+      if (el) el.style.display = select.value === k ? "" : "none";
+    });
+  }
+  function syncHidden(select, prefix, ids) {
+    var v = select.value;
+    ["api_key", "model", "base_url"].forEach(function (f) { document.getElementById(ids[f]).value = ""; });
+    if (!v) return;
+    ["api_key", "model", "base_url"].forEach(function (f) {
+      var field = document.querySelector('[name="' + prefix + "_" + f + "_" + v + '"]');
+      if (field) document.getElementById(ids[f]).value = field.value;
+    });
+  }
+  chatSelect.addEventListener("change", function () { syncPanes(chatSelect, chatPanes); });
+  embedSelect.addEventListener("change", function () { syncPanes(embedSelect, embedPanes); });
+  document.getElementById("settings-form").addEventListener("submit", function () {
+    syncHidden(chatSelect, "ai_chat", { api_key: "ai-chat-api-key", model: "ai-chat-model", base_url: "ai-chat-base-url" });
+    syncHidden(embedSelect, "ai_embed", { api_key: "ai-embed-api-key", model: "ai-embed-model", base_url: "ai-embed-base-url" });
+  });
+  syncPanes(chatSelect, chatPanes);
+  syncPanes(embedSelect, embedPanes);
+
+  var testBtn = document.getElementById("ai-test-btn");
+  var testResult = document.getElementById("ai-test-result");
+  testBtn.addEventListener("click", function () {
+    testResult.innerHTML = "<span>Testing…</span>";
+    fetch("/api/ai/test", { method: "POST" }).then(function (r) { return r.json(); }).then(function (d) {
+      testResult.innerHTML = "";
+      var s = document.createElement("span");
+      s.className = d.ok ? "status-ok" : "status-err";
+      s.textContent = (d.ok ? "Connected. " : "") + d.message;
+      testResult.appendChild(s);
+    }).catch(function (e) { testResult.innerHTML = '<span class="status-err">Request failed</span>'; });
+  });
+
+  var reBtn = document.getElementById("reindex-btn");
+  var reResult = document.getElementById("reindex-result");
+  var poll = null;
+  function check() {
+    fetch("/api/embed/status").then(function (r) { return r.json(); }).then(function (d) {
+      if (d.running) {
+        reResult.textContent = "Re-indexing… " + d.processed + " of " + d.total + (d.errors ? " (" + d.errors + " errors)" : "");
+      } else {
+        if (d.processed > 0 || d.last_error) {
+          reResult.textContent = "Done: " + d.processed + " embedded" + (d.errors ? ". " + d.errors + " errors; last: " + d.last_error.substring(0, 80) : ".");
+          reResult.className = d.errors ? "status-err" : "status-ok";
+        }
+        if (poll) { clearInterval(poll); poll = null; }
+      }
+    }).catch(function () { if (poll) clearInterval(poll); });
+  }
+  reBtn.addEventListener("click", function () {
+    reResult.textContent = "Starting…";
+    fetch("/api/embed/reindex", { method: "POST" }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { reResult.textContent = d.message; reResult.className = "status-err"; return; }
+      check(); poll = setInterval(check, 1000);
+    }).catch(function () { reResult.textContent = "Request failed"; });
+  });
+  fetch("/api/embed/status").then(function (r) { return r.json(); }).then(function (d) {
+    if (d.running) { check(); poll = setInterval(check, 1000); }
+  });
+})();
+</script>
+{% endblock %}

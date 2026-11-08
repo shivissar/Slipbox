@@ -19,9 +19,9 @@ if mode == "broken":
         raise OSError("no ports for you")
     werkzeug.serving.make_server = _refuse
 
-from Zetteling import app as shell  # noqa: E402
+from Verweis import app as shell  # noqa: E402
 
-a = shell.Zetteling(formal_name="Zetteling", app_id="org.example.zetteling")
+a = shell.Verweis(formal_name="Verweis", app_id="org.example.verweis")
 pages = []
 a.webview.set_content = lambda root, content: pages.append(content)
 assert not a.ready

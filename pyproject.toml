@@ -1,24 +1,24 @@
 # This project was generated with 0.4.1 using template: https://github.com/beeware/briefcase-template @ v0.4.1
 [tool.briefcase]
-project_name = "Zetteling"
+project_name = "Verweis"
 bundle = "com.shivissar"
 version = "5.2.0"
-url = "https://shivissar.com/Zetteling"
+url = "https://shivissar.com/verweis"
 license.file = "LICENSE"
 author = "Shiv Issar, Ph.D."
 author_email = "shiv.issar@protonmail.com"
 
-[tool.briefcase.app.Zetteling]
-formal_name = "Zetteling"
+[tool.briefcase.app.Verweis]
+formal_name = "Verweis"
 description = "A local-first, plain-text Zettelkasten note-taking app with AI-assisted interrogation, embeddings-based related notes, and bibliography integration."
-icon = "src/Zetteling/resources/Zetteling"
-long_description = """Zetteling keeps each note as a plain Markdown file in a folder you
+icon = "src/Verweis/resources/Verweis"
+long_description = """Verweis keeps each note as a plain Markdown file in a folder you
 choose, and connects notes with links, tags and threads. Optional AI features
 (note interrogation, tag suggestions, related notes) work with Anthropic,
 OpenAI-compatible services, Google Gemini or Ollama on your own Mac.
 """
 sources = [
-    "src/Zetteling",
+    "src/Verweis",
 ]
 test_sources = [
     "tests",
@@ -47,7 +47,7 @@ test_requires = [
     "pytest",
 ]
 
-[tool.briefcase.app.Zetteling.macOS]
+[tool.briefcase.app.Verweis.macOS]
 universal_build = true
 requires = [
     "toga-cocoa~=0.5.0",
@@ -58,7 +58,7 @@ requires = [
     "cryptography<49",
 ]
 
-[tool.briefcase.app.Zetteling.linux]
+[tool.briefcase.app.Verweis.linux]
 requires = [
     "toga-gtk~=0.5.0",
     # PyGObject 3.52.1 enforces a requirement on libgirepository-2.0-dev. This library
@@ -67,7 +67,7 @@ requires = [
     "pygobject < 3.52.1",
 ]
 
-[tool.briefcase.app.Zetteling.linux.system.debian]
+[tool.briefcase.app.Verweis.linux.system.debian]
 system_requires = [
     # Needed to compile pycairo wheel
     "libcairo2-dev",
@@ -93,7 +93,7 @@ system_runtime_requires = [
     # "gir1.2-webkit2-4.1",
 ]
 
-[tool.briefcase.app.Zetteling.linux.system.rhel]
+[tool.briefcase.app.Verweis.linux.system.rhel]
 system_requires = [
     # Needed to compile pycairo wheel
     "cairo-gobject-devel",
@@ -112,7 +112,7 @@ system_runtime_requires = [
     # "webkit2gtk3",
 ]
 
-[tool.briefcase.app.Zetteling.linux.system.suse]
+[tool.briefcase.app.Verweis.linux.system.suse]
 system_requires = [
     # Needed to compile pycairo wheel
     "cairo-devel",
@@ -131,7 +131,7 @@ system_runtime_requires = [
     # "libwebkit2gtk3", "typelib(WebKit2)",
 ]
 
-[tool.briefcase.app.Zetteling.linux.system.arch]
+[tool.briefcase.app.Verweis.linux.system.arch]
 system_requires = [
     # Needed to compile pycairo wheel
     "cairo",
@@ -158,7 +158,7 @@ system_runtime_requires = [
     # "webkit2gtk",
 ]
 
-[tool.briefcase.app.Zetteling.linux.appimage]
+[tool.briefcase.app.Verweis.linux.appimage]
 manylinux = "manylinux_2_28"
 
 system_requires = [
@@ -179,24 +179,24 @@ linuxdeploy_plugins = [
     "DEPLOY_GTK_VERSION=3 gtk",
 ]
 
-[tool.briefcase.app.Zetteling.linux.flatpak]
+[tool.briefcase.app.Verweis.linux.flatpak]
 flatpak_runtime = "org.gnome.Platform"
 flatpak_runtime_version = "48"
 flatpak_sdk = "org.gnome.Sdk"
 
-[tool.briefcase.app.Zetteling.windows]
+[tool.briefcase.app.Verweis.windows]
 requires = [
     "toga-winforms~=0.5.0",
 ]
 
 # Mobile deployments
-[tool.briefcase.app.Zetteling.iOS]
+[tool.briefcase.app.Verweis.iOS]
 requires = [
     "toga-iOS~=0.5.0",
     "std-nslog~=1.0.3",
 ]
 
-[tool.briefcase.app.Zetteling.android]
+[tool.briefcase.app.Verweis.android]
 requires = [
     "toga-android~=0.5.0",
 ]
@@ -219,7 +219,7 @@ build_gradle_dependencies = [
 # """
 
 # Web deployments
-[tool.briefcase.app.Zetteling.web]
+[tool.briefcase.app.Verweis.web]
 requires = [
     "toga-web~=0.5.0",
 ]

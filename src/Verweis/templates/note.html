@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, kind_chip, kind_tile, squiggle -%}
+{% block title %}{{ note.title }}{% endblock %}
+{% block layout %}layout-note{% endblock %}
+{% block main %}
+  {% include "_notelist.html" %}
+
+  <main class="pane col card" aria-label="Note">
+    <div class="pane-bar">
+      <button type="button" class="icon-btn only-narrow" data-toggle-list aria-label="Show note list" title="Note list">{{ icon("list") }}</button>
+      {{ kind_chip(note.kind) }}
+      {%- if note.locked and not note.unreadable %}
+      <form method="post" action="{{ url_for('vault_lock') }}" class="inline">
+        <input type="hidden" name="next" value="{{ url_for('view', note_id=note.id) }}">
+        <button type="submit" class="chip chip-lock chip-lock-open" title="Encrypted on disk. Locked notes are open, so the text shows here until you quit{% if vault_state.idle_seconds %} or leave Verweis idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}. Click to close them now.">{{ icon("unlock", "i sm") }}Locked · open</button>
+      </form>
+      {%- elif note.locked %}<span class="chip chip-lock" title="Encrypted on disk. Enter your password to read it.">{{ icon("lock", "i sm") }}Locked · closed</span>{% endif %}
+      <span class="grow"></span>
+      {%- if not note.unreadable %}
+      <a class="btn" href="{{ url_for('edit', note_id=note.id) }}" title="Edit (⌘E)" data-tour="edit">{{ icon("edit") }}Edit</a>
+      {%- endif %}
+      {%- if note.locked %}
+      {%- if not note.unreadable %}
+      <form method="post" action="{{ url_for('note_remove_lock', note_id=note.id) }}" class="inline"
+            data-confirm="Remove the lock from this note?&#10;&#10;Its text will be saved as plain text again, readable in any editor.">
+        <button type="submit" class="icon-btn" aria-label="Remove lock" title="Remove lock">{{ icon("unlock") }}</button>
+      </form>
+      {%- endif %}
+      {%- else %}
+      <form method="post" action="{{ url_for('note_lock', note_id=note.id) }}" class="inline">
+        <button type="submit" class="icon-btn" data-tour="lock" aria-label="Lock this note" title="{{ 'Lock this note (encrypt its text)' if vault_state.set_up else 'Lock this note: set up a password first' }}">{{ icon("lock") }}</button>
+      </form>
+      {%- endif %}
+      <a class="icon-btn" href="{{ url_for('split_picker', note_id=note.id) }}" aria-label="Open another note beside this one" title="Open another note beside this one">{{ icon("split") }}</a>
+      <a class="icon-btn" href="{{ url_for('note_history', note_id=note.id) }}" data-tour="history" aria-label="History" title="History: earlier versions of this note">{{ icon("history") }}</a>
+      <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export" data-tour="export">{{ icon("export") }}</a>
+      <form method="post" action="{{ url_for('delete', note_id=note.id) }}" class="inline"
+            data-confirm="Move this note to the trash?&#10;&#10;It goes to the .trash folder inside your notes folder, so you can get it back from Finder.">
+        <button type="submit" class="icon-btn" aria-label="Move to trash" title="Move to trash">{{ icon("trash") }}</button>
+      </form>
+      <button type="button" class="icon-btn" data-toggle-rail aria-label="Show or hide the side panel" title="Side panel">{{ icon("panel") }}</button>
+    </div>
+
+    <div class="pane-body">
+      <article class="measure">
+        {%- if request.args.get("locked") == "1" and note.locked and not note.unreadable %}
+        <div class="flash success lock-flash" role="status">
+          <span><strong>Locked.</strong> This note’s text is now encrypted on disk. Locked notes stay open, so you can still read it here, until you quit{% if vault_state.idle_seconds %} or leave Verweis idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.</span>
+          <form method="post" action="{{ url_for('vault_lock') }}" class="inline">
+            <input type="hidden" name="next" value="{{ url_for('view', note_id=note.id) }}">
+            <button type="submit" class="btn">{{ icon("lock") }}Close locked notes now</button>
+          </form>
+        </div>
+        {%- endif %}
+        <p class="note-meta">
+          <span>Modified {{ note.modified[:16].replace('T', ' ') if note.modified else "" }}</span>
+          <span class="chip chip-mono" title="Note ID">{{ note.id }}</span>
+        </p>
+        <h1 class="note-title">{{ note.title }}</h1>
+        {{ squiggle() }}
+        {%- if note.tags %}
+        <p class="note-tags">
+          {%- for t in note.tags %}<a class="chip tag-chip" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>{% endfor %}
+        </p>
+        {%- endif %}
+        {%- if note.unreadable %}
+        <div class="locked-card">
+          <div class="locked-icon" aria-hidden="true">{{ icon("lock") }}</div>
+          {%- if note.damaged %}
+          <h2>This locked note can’t be opened</h2>
+          <p>Its encrypted text was changed outside Verweis or is damaged. If you have a backup of this file from before the damage, restore it.</p>
+          {%- else %}
+          <h2>This note is locked</h2>
+          <p>Enter your password to open locked notes. They stay open until you quit{% if vault_state.idle_seconds %} or leave Verweis idle for {{ vault_state.idle_seconds // 60 }} minutes{% endif %}.</p>
+          <form method="post" action="{{ url_for('unlock_page') }}" class="unlock-form" data-unlock-form>
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label class="sr-only" for="unlock-pw">Password</label>
+            <input type="password" id="unlock-pw" name="password" autocomplete="current-password" placeholder="Password" required autofocus>
+            <button type="submit" class="btn btn-primary">Unlock</button>
+          </form>
+          <p class="hint">Opening takes a second or two: the password is deliberately slow to check, so it’s slow to guess. <a href="{{ url_for('vault_recover') }}">Forgot it?</a></p>
+          {%- endif %}
+        </div>
+        {%- else %}
+        <div class="rendered">{{ rendered|safe }}</div>
+        {%- endif %}
+        {%- if refs_resolved %}
+        <div class="refs-box">
+          <strong>Refs</strong>
+          {%- for r in refs_resolved %}
+          <span>{% if r.entry %}{{ r.entry.author }} {{ r.entry.year }}. <em>{{ r.entry.title }}</em>.{% else %}{{ r.key }}{% endif %}</span>
+          {%- endfor %}
+        </div>
+        {%- endif %}
+      </article>
+    </div>
+  </main>
+
+  <aside class="rail col card {% if rail == 'chat' %}rail-wide{% endif %}" aria-label="Side panel" data-tour="rail">
+    <div class="rail-head">
+      <div class="seg full" role="tablist" aria-label="Side panel">
+        <a role="tab" aria-selected="{{ 'true' if rail == 'context' else 'false' }}" href="{{ url_for('view', note_id=note.id) }}"
+           class="seg-tab {% if rail == 'context' %}on{% endif %}">Context</a>
+        {%- if chat_available %}
+        <a role="tab" aria-selected="{{ 'true' if rail == 'chat' else 'false' }}" href="{{ url_for('note_chat', note_id=note.id) }}"
+           class="seg-tab {% if rail == 'chat' %}on{% endif %}" title="Interrogate (⌘I)">Interrogate{% if chat_length %} · {{ chat_length // 2 }}{% endif %}</a>
+        {%- elif note.locked %}
+        <span role="tab" aria-selected="false" aria-disabled="true" class="seg-tab" title="Locked notes are never sent to an AI provider">Interrogate</span>
+        {%- else %}
+        <a role="tab" aria-selected="false" href="{{ url_for('settings_page') }}#ai" class="seg-tab" title="Choose an AI provider in Settings to interrogate notes">Interrogate</a>
+        {%- endif %}
+      </div>
+    </div>
+
+    {%- if rail == "chat" %}
+    <div class="rail-body">
+      <div class="chat-meta">
+        <span class="chip chip-mono">{{ provider.model if provider and provider.model else (provider.name if provider else "no provider") }}</span>
+        <span style="flex: 1">Kept in memory only; gone when you quit.</span>
+        {%- if conversation %}
+        <form method="post" action="{{ url_for('note_chat_clear', note_id=note.id) }}" class="inline">
+          <button type="submit" class="link-btn">Clear</button>
+        </form>
+        {%- endif %}
+      </div>
+      {%- if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+      <div class="chat-log" id="chat-log">
+        {%- for msg in conversation %}
+        {%- if msg.role == "user" %}
+        <div class="chat-msg-user">{{ msg.content }}</div>
+        {%- else %}
+        <div class="chat-msg-assistant"><span class="chat-role">Model reply</span><div class="chat-content">{{ msg.content }}</div></div>
+        {%- endif %}
+        {%- else %}
+        <p class="rail-empty">Ask the model about this note: what it assumes, where it is weakest, what would refute it. Copy anything useful into a note in your own words.</p>
+        {%- endfor %}
+      </div>
+
+      {%- if provider %}
+      <div class="prompt-chips">
+        {%- for prompt in suggested_prompts %}<button type="button" class="prompt-chip" data-prompt="{{ prompt }}">{{ prompt }}</button>{% endfor %}
+      </div>
+      <form class="chat-form" id="chat-form" method="post" data-stream-url="{{ url_for('note_chat_stream', note_id=note.id) }}">
+        <label class="field-label" for="chat-input">Ask or push back</label>
+        <textarea name="message" id="chat-input" rows="3" required placeholder="Ask a probing question, or push back on a claim…"></textarea>
+        <div class="row">
+          <span id="chat-status" class="muted small" style="flex: 1">⌘↵ to send</span>
+          <button type="submit" class="btn btn-primary" id="chat-submit">{{ icon("send") }}Send</button>
+        </div>
+      </form>
+      {%- else %}
+      <div class="flash">No AI provider is set up. <a href="{{ url_for('settings_page') }}#ai">Choose one in Settings</a>.</div>
+      {%- endif %}
+    </div>
+
+    {%- else %}
+    <div class="rail-body">
+      {%- if outline is not none %}
+      <section class="rail-section" id="outline">
+        <h3><span>Manuscript</span><span>{{ outline.words }} words</span></h3>
+        <p class="rail-note">{{ outline.notes }} note{{ '' if outline.notes == 1 else 's' }}, in this order. Move them, add more, or export the whole thing.</p>
+        <ol class="outline">
+          {%- for it in outline["items"] %}
+          {%- if it.kind == "heading" %}
+          <li class="ol-heading ol-h{{ it.level }}">{{ it.text }}
+            <span class="ol-tools">
+              {%- if not loop.first %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="up"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move up" title="Move up">↑</button></form>{% endif %}
+              {%- if not loop.last %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="down"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move down" title="Move down">↓</button></form>{% endif %}
+            </span>
+          </li>
+          {%- else %}
+          <li class="ol-note{% if it.missing %} missing{% endif %}">
+            <a href="{{ url_for('view', note_id=it.id) }}">{{ it.title }}</a>{% if it.locked %} {{ icon("lock", "i sm") }}{% endif %}
+            <span class="ol-words">{{ it.words if not it.locked else "" }}</span>
+            <span class="ol-tools">
+              {%- if not loop.first %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="up"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move up" title="Move up">↑</button></form>{% endif %}
+              {%- if not loop.last %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="down"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move down" title="Move down">↓</button></form>{% endif %}
+              <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="remove"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Remove from manuscript" title="Remove from the manuscript (the note itself stays)">×</button></form>
+            </span>
+          </li>
+          {%- endif %}
+          {%- else %}
+          <li class="rail-empty">Nothing yet. Add notes below, or type <kbd>![[</kbd> on its own line while editing.</li>
+          {%- endfor %}
+        </ol>
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_note">
+          <input type="text" name="note" list="ms-notes" placeholder="Add a note…" aria-label="Add a note" required data-ms-notes>
+          <datalist id="ms-notes"></datalist>
+          <button class="btn btn-small" type="submit">Add</button>
+        </form>
+        {%- if all_threads %}
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_thread">
+          <select name="thread" aria-label="Add a whole thread">{% for tname, count in all_threads %}<option value="{{ tname }}">{{ tname }} ({{ count }})</option>{% endfor %}</select>
+          <button class="btn btn-small" type="submit">Add thread</button>
+        </form>
+        {%- endif %}
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_heading">
+          <input type="text" name="heading" placeholder="Add a section heading…" aria-label="Add a section heading" required>
+          <button class="btn btn-small" type="submit">Add</button>
+        </form>
+        <a class="btn btn-primary" style="margin: 10px 8px 0" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}">{{ icon("export") }}Export manuscript</a>
+      </section>
+      {%- endif %}
+      {%- for tc in thread_contexts %}
+      <section class="rail-section">
+        <h3><span>Thread</span><span>{% if tc.position %}{{ tc.position }} of {{ tc.length }}{% endif %}</span></h3>
+        <a class="rail-link" href="{{ url_for('thread_view', thread_name=tc.name) }}" style="padding-left: 0; font-weight: 850">{{ tc.name }}</a>
+        {%- if tc.length and tc.length <= 16 %}
+        <div class="stones" aria-hidden="true">
+          {%- for i in range(1, tc.length + 1) %}<span class="stone {% if tc.position and i < tc.position %}done{% elif i == tc.position %}here{% endif %}"></span>{% endfor %}
+        </div>
+        {%- endif %}
+        <div class="thread-steps">
+          {%- if tc.prev %}
+          <a class="thread-step" href="{{ url_for('view', note_id=tc.prev.id) }}"><small>← Previous</small><span>{{ tc.prev.title or tc.prev.id }}</span></a>
+          {%- else %}<span class="thread-step none"><small>Start of thread</small></span>{% endif %}
+          {%- if tc.next %}
+          <a class="thread-step next" href="{{ url_for('view', note_id=tc.next.id) }}"><small>Next →</small><span>{{ tc.next.title or tc.next.id }}</span></a>
+          {%- else %}<span class="thread-step next none"><small>End of thread</small></span>{% endif %}
+        </div>
+      </section>
+      {%- endfor %}
+
+      <section class="rail-section">
+        <h3><span>Backlinks</span><span>{{ backlinks|length }}</span></h3>
+        {%- for b in backlinks %}
+        <a class="rail-link{% if b.context %} with-context{% endif %}" href="{{ url_for('view', note_id=b.id) }}">{{ kind_tile(b.kind) }}<span><span class="rl-title">{{ b.title }}</span>
+          {%- if b.context %}<span class="rl-context">{{ b.context[0] }} <mark>{{ b.context[1] }}</mark> {{ b.context[2] }}</span>{% endif %}</span></a>
+        {%- else %}
+        <p class="rail-empty">No notes link here yet. Link to this note from another with <kbd>[[</kbd>.</p>
+        {%- endfor %}
+      </section>
+      {%- if mentions %}
+
+      <section class="rail-section" id="mentions">
+        <h3><span>Unlinked mentions</span><span>{{ mentions|length }}</span></h3>
+        <p class="rail-note">These notes use this note’s title without linking to it.</p>
+        {%- for m in mentions %}
+        <div class="mention">
+          <a class="rail-link with-context" href="{{ url_for('view', note_id=m.id) }}">{{ kind_tile(m.kind) }}<span><span class="rl-title">{{ m.title }}</span>
+            <span class="rl-context">{{ m.context[0] }} <mark>{{ m.context[1] }}</mark> {{ m.context[2] }}</span></span></a>
+          <form method="post" action="{{ url_for('link_mention', note_id=note.id) }}" class="mention-form">
+            <input type="hidden" name="source" value="{{ m.id }}">
+            <button type="submit" class="btn btn-small" title="Turn “{{ m.context[1] }}” in “{{ m.title }}” into a link to this note">{{ icon("thread", "i sm") }}Link</button>
+          </form>
+        </div>
+        {%- endfor %}
+      </section>
+      {%- endif %}
+
+      <section class="rail-section">
+        <h3><span>Related</span></h3>
+        {%- for r in similar %}
+        <a class="rail-link" href="{{ url_for('view', note_id=r.id) }}">{{ kind_tile(r.kind) }}<span>{{ r.title }}</span></a>
+        {%- else %}
+        {%- if note.locked %}
+        <p class="rail-empty">Locked notes are never sent to an AI provider, so they have no related notes.</p>
+        {%- else %}
+        <p class="rail-empty">None yet. Related notes appear once an embedding provider is set up and your notes are indexed (<a href="{{ url_for('settings_page') }}#ai">Settings → AI</a>).</p>
+        {%- endif %}
+        {%- endfor %}
+        {%- if similar %}
+        <p class="rail-note">{{ icon("sprout", "i sm") }}<span>Ranked by embedding similarity: a prompt for rediscovery, not a measure of closeness.</span></p>
+        {%- endif %}
+      </section>
+    </div>
+    {%- endif %}
+  </aside>
+{% endblock %}

@@ -18,7 +18,7 @@ os.makedirs(SHOTS, exist_ok=True)
 # use the one on PATH (or set PANDOC=/path/to/pandoc).
 PANDOC = os.environ.get("PANDOC") or shutil.which("pandoc")
 if not PANDOC and sys.platform == "darwin":
-    _bundled = os.path.join(SRC_DIR, "Zetteling", "resources", "bin", "pandoc")
+    _bundled = os.path.join(SRC_DIR, "Verweis", "resources", "bin", "pandoc")
     PANDOC = _bundled if os.path.exists(_bundled) else None
 
 

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Updates{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Updates">
+  <div class="pane-bar">
+    <strong>Updates</strong>
+    <span class="grow"></span>
+    <form method="post" action="{{ url_for('update_check') }}" class="inline">
+      <button type="submit" class="btn">{{ icon("history") }}Check now</button>
+    </form>
+  </div>
+  <div class="pane-body">
+    <div class="measure-wide update-page">
+      {%- set L = upd.latest %}
+      {%- if opened == "download" %}
+      <div class="flash success">Your browser is downloading Verweis {{ L.version if L else "" }}. When it has finished, follow the steps under <a href="#install">Installing it</a>.</div>
+      {%- elif opened == "page" %}
+      <div class="flash success">The release page is open in your browser.</div>
+      {%- elif opened == "no" %}
+      <div class="flash error">That link couldn’t be opened. Visit <code>{{ upd.releases_page }}</code> in your browser instead.</div>
+      {%- endif %}
+      {%- if msg %}<div class="flash {{ 'error' if upd.error and checked else 'success' }}">{{ msg }}</div>{% endif %}
+
+      {%- if upd.newer %}
+      <h1>Verweis {{ L.version }} is available</h1>
+      {{ squiggle() }}
+      <p class="lead">You have {{ upd.current }}.{% if L.published %} {{ L.version }} was released on {{ L.published }}.{% endif %}{% if upd.skipped %} You chose to skip this version, so the sidebar doesn’t mention it.{% endif %}</p>
+
+      <div class="update-actions">
+        {%- if L.dmg_url %}
+        <form method="post" action="{{ url_for('update_open') }}" class="inline">
+          <input type="hidden" name="target" value="download">
+          <button type="submit" class="btn btn-primary btn-lg">{{ icon("download") }}Download Verweis {{ L.version }}</button>
+        </form>
+        {%- endif %}
+        <form method="post" action="{{ url_for('update_open') }}" class="inline">
+          <input type="hidden" name="target" value="page">
+          <button type="submit" class="btn{% if not L.dmg_url %} btn-primary btn-lg{% endif %}">Open the release page</button>
+        </form>
+        {%- if not upd.skipped %}
+        <form method="post" action="{{ url_for('update_skip') }}" class="inline">
+          <button type="submit" class="link-btn">Skip this version</button>
+        </form>
+        {%- endif %}
+      </div>
+      <p class="hint">Both open in your web browser. Verweis never downloads or installs anything by itself.</p>
+
+      {%- if L.notes %}
+      <h2>What’s new{% if L.name and L.version not in L.name %}: {{ L.name }}{% endif %}</h2>
+      <div class="release-notes">{{ L.notes }}</div>
+      {%- endif %}
+
+      <h2 id="install">Installing it</h2>
+      <ol class="update-steps">
+        <li>Download the new version (the button above). Your browser saves <code>Verweis-{{ L.version }}.dmg</code>, usually in Downloads.</li>
+        <li>Quit Verweis (<kbd>⌘Q</kbd>). It saves what you were typing first.</li>
+        <li>Open the downloaded file and drag <strong>Verweis</strong> onto <strong>Applications</strong>. When the Mac asks, choose <strong>Replace</strong>.</li>
+        <li>So that exporting keeps working, run this line in Terminal again, as when you first installed:
+          <div class="copy-line"><code id="xattr-line">xattr -cr /Applications/Verweis.app</code><button type="button" class="btn" data-copy="#xattr-line">Copy</button></div></li>
+        <li>Open Verweis. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong>, scroll down and click <strong>Open Anyway</strong>.</li>
+      </ol>
+      <p>Your notes, settings, note history and locked-notes key are not inside the app, so replacing it leaves them as they are. If the new version needs anything else from you, its notes above say so.</p>
+
+      {%- else %}
+      <h1>{% if upd.latest %}You have the latest version{% else %}Updates{% endif %}</h1>
+      {{ squiggle() }}
+      {%- if upd.latest %}
+      <p class="lead">Verweis {{ upd.current }}{% if upd.latest.version != upd.current %} (the latest published release is {{ upd.latest.version }}){% endif %}.</p>
+      {%- else %}
+      <p class="lead">You have Verweis {{ upd.current }}.{% if not upd.error %} It hasn’t asked GitHub about new versions yet.{% endif %}</p>
+      {%- endif %}
+      {%- if upd.error and not msg %}<p class="flash warn">{{ upd.error }}</p>{% endif %}
+      {%- endif %}
+
+      <h2>How updates work</h2>
+      <p>
+        {%- if upd.enabled %}Once a day, Verweis asks GitHub whether a newer version has been published. When there is one, a notice appears at the foot of the sidebar.
+        {%- else %}Update checks are <strong>off</strong>. Verweis only asks GitHub when you press <em>Check now</em>.
+        {%- endif %}
+        The check sends GitHub your IP address and Verweis’s version number, and nothing from your notes. Pre-releases are never offered.
+        Turn it {{ "off" if upd.enabled else "on" }} in <a href="{{ url_for('settings_page') }}#updates">Settings → Updates</a>; see <a href="{{ url_for('privacy_page') }}#updates">Privacy</a> for details.</p>
+      <p class="hint">
+        {%- if upd.checked_at %}Last answer from GitHub: {{ upd.checked_at[:16]|replace("T", " ") }} UTC.{% endif %}
+        {%- if upd.attempt_at and upd.attempt_at != upd.checked_at %} Last try: {{ upd.attempt_at[:16]|replace("T", " ") }} UTC.{% endif %}
+        All releases: <code>{{ upd.releases_page }}</code></p>
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -8,7 +8,7 @@ D = H.prepare("zauto")
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports")
 sys.path.insert(0, H.SRC_DIR)
-from Zetteling import flask_app, embed, settings, watcher
+from Verweis import flask_app, embed, settings, watcher
 
 calls = []
 embed.embed_note = lambda note: calls.append(note.id)

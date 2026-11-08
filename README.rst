@@ -1,4 +1,4 @@
-Zetteling
+Verweis
 =========
 
 A local-first, plain-text Zettelkasten for macOS. Each note is a Markdown file
