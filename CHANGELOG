@@ -3,6 +3,38 @@
 The full, user-facing history is on the About page inside the app
 (src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
 
+## 5.2.0 (November 2026)
+
+* Note history (history.py): a copy of the file before it is overwritten,
+  at most every 10 minutes while editing and always before restore, lock,
+  link-mention, code rename/merge/removal and outline changes; up to 200
+  per note in <app data>/history/<id>/. History page with line diff and
+  restore (which saves the current version first). Locking a note encrypts
+  its plain-text versions.
+* Backlinks show the sentence around the link. Unlinked mentions (title or
+  its main part before " — " / ": ") with one-click linking that keeps the
+  source wording as [[id|text]].
+* Templates (note_templates.py): .templates/ in the notes folder, seeded
+  with interview memo, fieldnote, reading note, lecture plan; picker on new
+  notes, palette commands, Settings → Templates (edit, new, delete,
+  restore built-ins); {{date}} {{time}} {{weekday}}.
+* Qualitative coding (codebook.py): [passage]{.code .code2} spans
+  (pandoc bracketed spans), rendered highlighted with code chips; ⇧⌘C code
+  picker; `codes` index table (unlocked notes only; locked notes read live
+  while open); Codebook and code pages with definitions, categories,
+  co-occurrence, rename/merge, remove, CSV export.
+* Manuscripts: notes of type manuscript; ![[id]] embed lines render the
+  embedded note (two levels) in any note; outline panel (move, remove, add
+  note, add heading, add thread); export expands embeds.
+* Search filters: kind:, tag:/-tag:, thread:, code:/-code:, after:,
+  before:, is:locked/unlocked, "phrase", -word, in the search page, palette
+  and link picker.
+* Help page rewritten: grouped sections, sticky contents sidebar that
+  follows your place, shorter text, new features documented.
+* Fixes: exports no longer pass [[id]] links to pandoc as raw brackets;
+  single-note exports no longer repeat the title; notes created in the same
+  second get distinct IDs.
+
 ## 5.1.0 (November 2026)
 
 * Locked notes. Per-note lock (padlock button, palette) and per-kind lock

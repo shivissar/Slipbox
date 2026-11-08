@@ -63,6 +63,17 @@ CREATE TABLE IF NOT EXISTS links (
 );
 CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst_id);
 
+-- 5.2 qualitative coding: one row per (passage, code); never for locked notes
+CREATE TABLE IF NOT EXISTS codes (
+    note_id TEXT NOT NULL,
+    code    TEXT NOT NULL,
+    pos     INTEGER NOT NULL,
+    codes_json TEXT NOT NULL,
+    excerpt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_codes_code ON codes(code);
+CREATE INDEX IF NOT EXISTS idx_codes_note ON codes(note_id);
+
 CREATE TABLE IF NOT EXISTS thread_membership (
     thread_name TEXT NOT NULL,
     note_id     TEXT NOT NULL,
@@ -208,6 +219,15 @@ def upsert_note(note):
             # A locked note's text never enters the index, even while open.
             (note.id, note.title, "" if locked else note.body, " ".join(note.tags)),
         )
+        conn.execute("DELETE FROM codes WHERE note_id = ?", (note.id,))
+        if not locked:
+            from . import codebook
+            for codes, excerpt, pos in codebook.extract(note.body):
+                cj = json.dumps(codes)
+                conn.executemany(
+                    "INSERT INTO codes (note_id, code, pos, codes_json, excerpt) VALUES (?, ?, ?, ?, ?)",
+                    [(note.id, c, pos, cj, excerpt) for c in codes],
+                )
         conn.execute("DELETE FROM links WHERE src_id = ?", (note.id,))
         for dst in (() if locked else note.outgoing_links):
             if dst != note.id:
@@ -238,17 +258,129 @@ def delete_note(note_id):
         conn.execute("DELETE FROM notes_fts WHERE id = ?", (note_id,))
         conn.execute("DELETE FROM links WHERE src_id = ? OR dst_id = ?", (note_id, note_id))
         conn.execute("DELETE FROM thread_membership WHERE note_id = ?", (note_id,))
+        conn.execute("DELETE FROM codes WHERE note_id = ?", (note_id,))
 
 
-def get_backlinks(note_id):
+def get_backlinks(note_id, with_context=False):
+    """Notes linking to note_id. With with_context, each also gets
+    'context': (before, link text, after), the sentence around the first
+    link, in plain text (empty for locked notes, whose text isn't indexed)."""
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT m.id, m.title, m.kind FROM links l
+            """SELECT m.id, m.title, m.kind, f.body FROM links l
                JOIN notes_meta m ON m.id = l.src_id
+               LEFT JOIN notes_fts f ON f.id = m.id
                WHERE l.dst_id = ? ORDER BY m.modified DESC""",
             (note_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+    out = []
+    target_title = None
+    for r in rows:
+        d = {"id": r["id"], "title": r["title"], "kind": r["kind"]}
+        body = r["body"] or ""
+        if with_context and body:
+            m = re.search(r"\[\[" + re.escape(note_id) + r"(?:\|([^\]]+))?\]\]", body)
+            if m:
+                if target_title is None:
+                    target_title = (titles_for([note_id]).get(note_id) or {}).get("title", "")
+                titles = titles_for(set(x.group(1) for x in _LINK_RE.finditer(body)))
+                d["context"] = context_around(body, m.start(), m.end(), m.group(1) or target_title, titles)
+        out.append(d)
+    return out
+
+
+def _plain_text(text, titles):
+    text = re.sub(r"\]\{[^}]*\}", "]", text)  # coded spans: drop the {.codes}
+    text = _LINK_RE.sub(lambda m: m.group(2) or titles.get(m.group(1), {}).get("title", ""), text)
+    text = _MD_NOISE_RE.sub(" ", text)
+    return _SPACE_RE.sub(" ", text)
+
+
+def context_around(body, start, end, shown, titles=None, width=110):
+    """The sentence around body[start:end], as (before, shown, after)."""
+    titles = titles or {}
+    left, right = body[:start], body[end:]
+    cut = -1
+    for sep in ("\n\n", ". ", "? ", "! ", "\n- ", "\n* "):
+        i = left.rfind(sep)
+        if i >= 0:
+            cut = max(cut, i + len(sep))
+    before = left[cut:] if cut >= 0 else left
+    m = re.search(r"[.!?](?=\s|$)|\n\n|\n[-*] ", right)
+    after = right[:m.end()] if m else right
+    before = _plain_text(before, titles).lstrip()
+    after = _plain_text(after, titles).rstrip()
+    if len(before) > width:
+        before = "…" + before[-width:].split(" ", 1)[-1]
+    if len(after) > width:
+        after = after[:width].rsplit(" ", 1)[0] + "…"
+    return (before, shown, after)
+
+
+_MASK_RE = re.compile(r"\[\[[^\]]*\]\]|\[@[^\]]*\]|`[^`]*`|```.*?```|\]\{[^}]*\}|https?://\S+", re.S)
+
+
+def find_mention(body, title):
+    """First place `title` appears in body as ordinary text (not inside a
+    link, citation, code or URL), matching whole words, any case, with any
+    punctuation or spacing between the words. Returns (start, end) or None."""
+    words = re.findall(r"\w+", title or "")
+    if not words:
+        return None
+    masked = _MASK_RE.sub(lambda m: " " * len(m.group(0)), body)
+    pat = re.compile(r"(?<!\w)" + r"\W+".join(re.escape(w) for w in words) + r"(?!\w)", re.I)
+    m = pat.search(masked)
+    return (m.start(), m.end()) if m else None
+
+
+def title_variants(title):
+    """The title, plus its main part before a subtitle (" — ", ": " ...),
+    since notes usually mention the short form."""
+    title = (title or "").strip()
+    out = [title] if title else []
+    main = re.split(r"\s+[—–-]\s+|:\s+", title, maxsplit=1)[0].strip()
+    if main and main != title and len(main) >= 4:
+        out.append(main)
+    return out
+
+
+def unlinked_mentions(note_id, title, limit=15):
+    """Notes whose text mentions this note's title (or its main part, before
+    a subtitle) but don't link to it. Locked notes are skipped (their text
+    isn't indexed)."""
+    variants = [v for v in title_variants(title) if len(v) >= 4]
+    phrases = ['"' + " ".join(re.findall(r"\w+", v)) + '"' for v in variants]
+    phrases = [p for p in phrases if p != '""']
+    if not phrases:
+        return []
+    with get_conn() as conn:
+        try:
+            rows = conn.execute(
+                """SELECT m.id, m.title, m.kind, f.body FROM notes_fts f
+                   JOIN notes_meta m ON m.id = f.id
+                   WHERE notes_fts MATCH ? AND m.id != ? AND COALESCE(m.locked, 0) = 0
+                     AND NOT EXISTS (SELECT 1 FROM links l WHERE l.src_id = m.id AND l.dst_id = ?)
+                   ORDER BY m.modified DESC LIMIT ?""",
+                ("body : (" + " OR ".join(phrases) + ")", note_id, note_id, limit * 3),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    out = []
+    for r in rows:
+        body = r["body"] or ""
+        span = None
+        for v in variants:
+            span = find_mention(body, v)
+            if span:
+                break
+        if not span:
+            continue  # FTS stemming matched something looser
+        titles = titles_for(set(x.group(1) for x in _LINK_RE.finditer(body)))
+        out.append({"id": r["id"], "title": r["title"], "kind": r["kind"],
+                    "context": context_around(body, span[0], span[1], body[span[0]:span[1]], titles)})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def get_outlinks(note_id):
@@ -819,6 +951,9 @@ def quick_search(q, limit=8, exclude_id=None):
     results, seen = [], set()
     if exclude_id:
         seen.add(exclude_id)
+    if q and has_filters(parse_query(q)):
+        rows = filtered_search(q, limit=limit + 1)
+        return [{**r, "match": "body" if r.get("snip") else "filter"} for r in rows if r["id"] != exclude_id][:limit]
     with get_conn() as conn:
         if not q:
             rows = conn.execute(
@@ -881,7 +1016,7 @@ def sidebar_counts():
     """Counts shown in the sidebar. Never raises: a broken count should
     not take the whole page down."""
     out = {"research": 0, "journal": 0, "teaching": 0, "life": 0, "all": 0,
-           "tags": 0, "threads": 0, "citations": 0}
+           "tags": 0, "threads": 0, "citations": 0, "codes": 0, "manuscripts": 0}
     try:
         out.update(kind_counts())
         out["tags"] = len(all_tags())
@@ -891,6 +1026,12 @@ def sidebar_counts():
             ).fetchone()["n"]
             out["citations"] = conn.execute(
                 "SELECT COUNT(*) AS n FROM bib_entries"
+            ).fetchone()["n"]
+            out["codes"] = conn.execute(
+                "SELECT COUNT(DISTINCT code) AS n FROM codes"
+            ).fetchone()["n"]
+            out["manuscripts"] = conn.execute(
+                "SELECT COUNT(*) AS n FROM notes_meta WHERE type = 'manuscript'"
             ).fetchone()["n"]
     except Exception as e:  # pragma: no cover - defensive
         print(f"[db] sidebar_counts failed: {e}")
@@ -937,3 +1078,197 @@ def is_locked(note_id):
     with get_conn() as conn:
         r = conn.execute("SELECT locked FROM notes_meta WHERE id = ?", (note_id,)).fetchone()
     return bool(r and r["locked"])
+
+
+# ---------- 5.2 qualitative coding ---------- #
+
+
+def coded_passages(code=None):
+    """Indexed coded passages (unlocked notes only): one dict per passage
+    with note_id, codes, excerpt, pos."""
+    with get_conn() as conn:
+        if code:
+            rows = conn.execute(
+                "SELECT note_id, pos, codes_json, excerpt FROM codes WHERE code = ? ORDER BY note_id, pos", (code,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT DISTINCT note_id, pos, codes_json, excerpt FROM codes ORDER BY note_id, pos"
+            ).fetchall()
+    return [{"note_id": r["note_id"], "pos": r["pos"], "codes": json.loads(r["codes_json"]), "excerpt": r["excerpt"]} for r in rows]
+
+
+def notes_with_code(code):
+    with get_conn() as conn:
+        return [r["note_id"] for r in conn.execute("SELECT DISTINCT note_id FROM codes WHERE code = ?", (code,)).fetchall()]
+
+
+# ---------- 5.2 search filters ---------- #
+
+_FILTER_KEYS = ("kind", "tag", "thread", "code", "before", "after", "is")
+_TOKEN_RE = re.compile(r'(-?)(?:(\w+):)?(?:"([^"]*)"|(\S+))', re.UNICODE)
+_DATE_RE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+
+
+def parse_query(q):
+    """Split a search into free text and filters.
+
+    kind:journal  tag:drones  -tag:old  thread:"tethered autonomy"
+    code:trust  before:2025-06  after:2024  is:locked  "exact phrase"  -word
+    """
+    out = {"words": [], "phrases": [], "not_words": [], "kind": [], "tag": [], "not_tag": [],
+           "thread": [], "code": [], "not_code": [], "before": None, "after": None, "is": [], "bad": []}
+    for m in _TOKEN_RE.finditer(q or ""):
+        neg, key, quoted, bare = m.group(1) == "-", (m.group(2) or "").lower(), m.group(3), m.group(4)
+        val = quoted if quoted is not None else (bare or "")
+        if key and key in _FILTER_KEYS:
+            v = val.strip().lower()
+            if not v:
+                continue
+            if key == "kind":
+                out["kind"].append(v)
+            elif key in ("tag", "code"):
+                out[("not_" if neg else "") + key].append(v.lstrip("#."))
+            elif key == "thread":
+                out["thread"].append(v)
+            elif key in ("before", "after"):
+                if _DATE_RE.match(v):
+                    out[key] = v
+                else:
+                    out["bad"].append(m.group(0))
+            elif key == "is":
+                out["is"].append(v)
+            continue
+        if key:  # "word:with-colon" that isn't a filter: treat as text
+            val = m.group(0).lstrip("-")
+        if quoted is not None and not key:
+            if val.strip():
+                (out["not_words"] if neg else out["phrases"]).append(val.strip())
+        elif val:
+            (out["not_words"] if neg else out["words"]).append(val)
+    return out
+
+
+def has_filters(parsed):
+    return any(parsed[k] for k in ("phrases", "not_words", "kind", "tag", "not_tag", "thread",
+                                   "code", "not_code", "before", "after", "is", "bad"))
+
+
+def describe_filters(parsed):
+    """Plain-English summary of the filters, for the results page."""
+    bits = []
+    if parsed["kind"]:
+        bits.append("kind is " + " or ".join(parsed["kind"]))
+    for t in parsed["tag"]:
+        bits.append("tagged #" + t)
+    for t in parsed["not_tag"]:
+        bits.append("not tagged #" + t)
+    for t in parsed["thread"]:
+        bits.append("in the thread “%s”" % t)
+    for c in parsed["code"]:
+        bits.append("coded " + c)
+    for c in parsed["not_code"]:
+        bits.append("not coded " + c)
+    if parsed["after"]:
+        bits.append("written in or after " + parsed["after"])
+    if parsed["before"]:
+        bits.append("written before " + parsed["before"])
+    if "locked" in parsed["is"]:
+        bits.append("locked")
+    if "unlocked" in parsed["is"]:
+        bits.append("not locked")
+    for p in parsed["phrases"]:
+        bits.append("containing “%s”" % p)
+    for w in parsed["not_words"]:
+        bits.append("without “%s”" % w)
+    for b in parsed["bad"]:
+        bits.append("(ignoring %s: dates look like 2025, 2025-06 or 2025-06-30)" % b)
+    return bits
+
+
+def _fts_terms(words):
+    q = _fts_prefix_query(" ".join(words))
+    return q
+
+
+def filtered_search(q, limit=50):
+    """Search with filters. Returns dicts with id, title, modified, kind,
+    snip (highlighted when there was text to match)."""
+    p = parse_query(q)
+    where, params = [], []
+    if p["kind"]:
+        where.append("m.kind IN (%s)" % ",".join("?" * len(p["kind"])))
+        params += p["kind"]
+    for t in p["tag"]:
+        where.append("EXISTS (SELECT 1 FROM json_each(m.tags_json) j WHERE LOWER(j.value) = ?)")
+        params.append(t)
+    for t in p["not_tag"]:
+        where.append("NOT EXISTS (SELECT 1 FROM json_each(m.tags_json) j WHERE LOWER(j.value) = ?)")
+        params.append(t)
+    for t in p["thread"]:
+        where.append("EXISTS (SELECT 1 FROM thread_membership t WHERE t.note_id = m.id AND LOWER(t.thread_name) = ?)")
+        params.append(t)
+    for c in p["code"]:
+        where.append("EXISTS (SELECT 1 FROM codes c WHERE c.note_id = m.id AND c.code = ?)")
+        params.append(c)
+    for c in p["not_code"]:
+        where.append("NOT EXISTS (SELECT 1 FROM codes c WHERE c.note_id = m.id AND c.code = ?)")
+        params.append(c)
+    if p["after"]:
+        where.append("m.created >= ?")
+        params.append(p["after"])
+    if p["before"]:
+        where.append("m.created < ?")
+        params.append(p["before"])
+    if "locked" in p["is"]:
+        where.append("COALESCE(m.locked, 0) = 1")
+    if "unlocked" in p["is"]:
+        where.append("COALESCE(m.locked, 0) = 0")
+
+    match_parts = []
+    pos = _fts_terms(p["words"])
+    if pos:
+        match_parts.append(pos)
+    for ph in p["phrases"]:
+        words = re.findall(r"\w+", ph, flags=re.UNICODE)
+        if words:
+            match_parts.append('"' + " ".join(words) + '"')
+    for w in p["not_words"]:
+        words = re.findall(r"\w+", w, flags=re.UNICODE)
+        if words:
+            where.append("m.id NOT IN (SELECT id FROM notes_fts WHERE notes_fts MATCH ?)")
+            params.append('"' + " ".join(words) + '"' + ("*" if len(words) == 1 else ""))
+    with get_conn() as conn:
+        try:
+            if match_parts:
+                sql = ("SELECT m.id, m.title, m.modified, m.kind, "
+                       "snippet(notes_fts, 2, '<mark>', '</mark>', '…', 16) AS snip "
+                       "FROM notes_fts JOIN notes_meta m ON m.id = notes_fts.id "
+                       "WHERE notes_fts MATCH ?" + "".join(" AND " + w for w in where) +
+                       " ORDER BY rank LIMIT ?")
+                rows = conn.execute(sql, [" AND ".join(match_parts)] + params + [limit]).fetchall()
+            else:
+                sql = ("SELECT m.id, m.title, m.modified, m.kind, '' AS snip FROM notes_meta m" +
+                       (" WHERE " + " AND ".join(where) if where else "") +
+                       " ORDER BY m.modified DESC LIMIT ?")
+                rows = conn.execute(sql, params + [limit]).fetchall()
+        except sqlite3.OperationalError as e:
+            print("[db] filtered_search failed: %s" % e)
+            return []
+    return [{**dict(r), "kind": r["kind"] or "research"} for r in rows]
+
+
+# ---------- 5.2 manuscripts ---------- #
+
+
+def body_for(note_id):
+    """Indexed text of a note ('' for locked notes)."""
+    with get_conn() as conn:
+        r = conn.execute("SELECT body FROM notes_fts WHERE id = ?", (note_id,)).fetchone()
+    return r["body"] if r else ""
+
+
+def manuscripts():
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT id, title, modified FROM notes_meta WHERE type = 'manuscript' ORDER BY modified DESC").fetchall()]

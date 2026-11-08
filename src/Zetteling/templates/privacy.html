@@ -62,6 +62,9 @@
     <h2>Locked notes</h2>
     <p>If you lock a note, its text is encrypted on your Mac with AES-256-GCM before it is written to disk, under a key protected by your password (Argon2id) and by a recovery key only you hold. A locked note’s text is never sent to any AI provider, never added to the search index and never used for related notes. Its title, tags, kind, threads and dates stay in plain text. Neither your password nor the decrypted text is ever written to disk. See <a href="{{ url_for('help_page') }}#locked-notes">Help → Locked notes</a> for the details and the limits.</p>
 
+    <h2>Note history, templates and the codebook</h2>
+    <p>Earlier versions of your notes are kept on your Mac in the app-data folder (<code>history/</code>), never sent anywhere. Versions of locked notes are encrypted like the notes themselves. Templates (<code>.templates/</code>) and code definitions (<code>.zetteling-codebook.json</code>) are files in your notes folder. Coded passages from locked notes are read only while locked notes are open and are never written to the search index.</p>
+
     <h2>The privacy policy in one sentence</h2>
     <p>Nothing leaves your machine unless you configured an AI provider and either clicked an AI button or saved a note with semantic-search embedding enabled; everything else is entirely local, forever, and without exception.</p>
 

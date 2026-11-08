@@ -250,6 +250,9 @@
     chat: body.getAttribute("data-chat") === "on",
     threads: (body.getAttribute("data-threads") || "").split("|").filter(Boolean),
     vault: body.getAttribute("data-vault") || "none",
+    templates: (body.getAttribute("data-templates") || "").split("|").filter(Boolean).map(function (s) {
+      var i = s.indexOf("::"); return { slug: s.slice(0, i), name: s.slice(i + 2) };
+    }),
     noteLocked: body.getAttribute("data-note-locked") === "1",
   };
   function postTo(url) {
@@ -296,9 +299,15 @@
     c.push({ group: "Go to", label: "Appearance and themes", icon: "sliders", href: "/settings#appearance" });
     c.push({ group: "Go to", label: "Help and shortcuts", icon: "help", href: "/help" });
     c.push({ group: "Go to", label: "About, privacy and licence", icon: "help", href: "/about" });
+    c.push({ group: "Go to", label: "Manuscripts", icon: "list", href: "/manuscripts" });
+    c.push({ group: "Go to", label: "Codebook", icon: "list", href: "/codes" });
+    c.push({ group: "New from a template", label: "New manuscript", sub: "Gather notes into one draft", icon: "plus", run: function () { postTo("/manuscripts/new"); } });
     if (ctx.vault === "open") c.push({ group: "Locked notes", label: "Lock notes now", sub: "Close all locked notes until you enter the password", icon: "lock", run: function () { postTo("/vault/lock"); } });
     else if (ctx.vault === "closed") c.push({ group: "Locked notes", label: "Unlock locked notes", icon: "unlock", href: "/unlock?next=" + encodeURIComponent(window.location.pathname) });
     else c.push({ group: "Locked notes", label: "Set up locked notes", sub: "Choose a password to encrypt chosen notes", icon: "lock", href: "/settings#locked" });
+    ctx.templates.forEach(function (t) {
+      c.push({ group: "New from a template", label: "New " + t.name.charAt(0).toLowerCase() + t.name.slice(1), icon: "plus", href: "/new?template=" + encodeURIComponent(t.slug) });
+    });
     c.push({ group: "Appearance", label: "Always light", icon: "sun", run: function () { setMode("light"); } });
     c.push({ group: "Appearance", label: "Always dark", icon: "moon", run: function () { setMode("dark"); } });
     c.push({ group: "Appearance", label: "Match my Mac (light or dark)", icon: "sliders", run: function () { setMode("auto"); } });
@@ -409,6 +418,7 @@
       if (form) { allowLeave = true; form.requestSubmit ? form.requestSubmit() : form.submit(); }
       return;
     }
+    if (k === "c" && e.shiftKey && window.__zettelCode) { e.preventDefault(); window.__zettelCode(); return; }
     if (k === "n" && e.shiftKey) { e.preventDefault(); window.location.href = "/journal/new"; return; }
     if (k === "n") { e.preventDefault(); window.location.href = "/new?kind=" + currentKind(); return; }
     if (k === "," ) { e.preventDefault(); window.location.href = "/settings"; return; }
@@ -486,6 +496,7 @@
     var becameNote = function (j) {
       // First save of a new note: from here on, save to its edit URL.
       noteId = j.id; isNew = false;
+      var trow = $(".template-row"); if (trow) trow.hidden = true;
       saveUrl = j.edit_url; editForm.action = j.edit_url;
       body.setAttribute("data-note-id", j.id);
       excludeId = j.id;
@@ -587,6 +598,12 @@
     };
     window.addEventListener("beforeunload", function (e) {
       if (unsafeToLeave()) { e.preventDefault(); e.returnValue = ""; }
+    });
+    document.querySelectorAll("[data-template-link]").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (dirty && !window.confirm("Start again from this template? What you've typed so far will be lost.")) { e.preventDefault(); return; }
+        allowLeave = true; submitting = true;  // nothing worth saving from the old start
+      });
     });
     if (cancel) cancel.addEventListener("click", function (e) {
       if (unsafeToLeave() && !window.confirm("Leave without saving? Your changes will be lost.")) e.preventDefault();
@@ -737,6 +754,104 @@
       insertPick(pItems[parseInt(li.getAttribute("data-i"), 10)], e.shiftKey);
     });
     window.addEventListener("resize", function () { autosize(); if (pState) placePicker(); });
+
+    /* Qualitative coding: wrap the selected passage as [passage]{.code}. */
+    var cp = $("#code-picker"), cpInput = $("#code-picker-input"), cpList = $("#code-picker-list"), cpCount = $("#code-picker-count");
+    var cpRange = null, cpItems = [], cpSel = -1, cpReq = 0;
+    var normCode = function (s) {
+      return (s || "").trim().toLowerCase().replace(/[\s_\/–—]+/g, "-").replace(/[^\p{L}\p{N}_-]/gu, "").replace(/^-+|-+$/g, "").slice(0, 60);
+    };
+    var cpTokens = function () { return cpInput.value.split(","); };
+    var closeCodePicker = function (refocus) { if (cp) cp.hidden = true; cpRange = null; if (refocus) ta.focus(); };
+    var drawCodes = function () {
+      var last = normCode(cpTokens().slice(-1)[0]);
+      cpCount.textContent = cpItems.length ? cpItems.length + (cpItems.length === 1 ? " code" : " codes") : "";
+      var rows = cpItems.map(function (it, i) {
+        return '<li class="picker-item' + (i === cpSel ? " sel" : "") + '" role="option" data-i="' + i + '">' +
+          '<span class="qcode-tag">' + esc(it.code) + '</span><span class="s">' + esc(it.count + (it.count === 1 ? " passage" : " passages")) +
+          (it.description ? " · " + esc(it.description.slice(0, 70)) : "") + "</span></li>";
+      });
+      var exists = cpItems.some(function (it) { return it.code === last; });
+      if (last && !exists) rows.unshift('<li class="picker-empty">Enter adds the new code <span class="qcode-tag">' + esc(last) + "</span></li>");
+      if (!rows.length) rows.push('<li class="picker-empty">No codes yet. Type a name, such as <em>trust</em>, and press Enter.</li>');
+      cpList.innerHTML = rows.join("");
+    };
+    var fetchCodes = debounce(function () {
+      var id = ++cpReq;
+      fetch("/api/codes?q=" + encodeURIComponent(normCode(cpTokens().slice(-1)[0])))
+        .then(function (r) { return r.json(); })
+        .then(function (list) { if (id !== cpReq) return; cpItems = list || []; cpSel = -1; drawCodes(); })
+        .catch(function () {});
+    }, 90);
+    var applyCodes = function (codes) {
+      var seen = {}, list = [];
+      codes.map(normCode).forEach(function (c) { if (c && !seen[c]) { seen[c] = 1; list.push(c); } });
+      if (!list.length || !cpRange) return;
+      var s = cpRange[0], e2 = cpRange[1], text = ta.value.slice(s, e2), out;
+      var m = text.match(/^\[([\s\S]*)\]\{((?:\s*\.[\p{L}\p{N}_-]+)+)\s*\}$/u);
+      if (m) {
+        var have = (m[2].match(/\.[\p{L}\p{N}_-]+/gu) || []).map(function (x) { return x.slice(1); });
+        list.forEach(function (c) { if (have.indexOf(c) < 0) have.push(c); });
+        out = "[" + m[1] + "]{" + have.map(function (c) { return "." + c; }).join(" ") + "}";
+      } else {
+        out = "[" + text + "]{" + list.map(function (c) { return "." + c; }).join(" ") + "}";
+      }
+      ta.focus();
+      ta.setRangeText(out, s, e2, "end");
+      closeCodePicker(false);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      toast(list.length === 1 ? "Coded: " + list[0] : "Coded: " + list.join(", "));
+    };
+    var openCodePicker = function () {
+      if (!cp) return;
+      var s = ta.selectionStart, e2 = ta.selectionEnd;
+      while (s < e2 && /\s/.test(ta.value[s])) s++;
+      while (e2 > s && /\s/.test(ta.value[e2 - 1])) e2--;
+      if (s >= e2) { toast("Select a passage first"); ta.focus(); return; }
+      if (/\n\s*\n/.test(ta.value.slice(s, e2))) { toast("Code one paragraph at a time"); return; }
+      cpRange = [s, e2];
+      closePicker();
+      var xy = caretXY(e2);
+      var maxLeft = wrap.clientWidth - Math.min(420, wrap.clientWidth - 12);
+      cp.style.top = (ta.offsetTop + xy.top + xy.height + 6) + "px";
+      cp.style.left = Math.max(0, Math.min(xy.left, maxLeft)) + "px";
+      cp.hidden = false;
+      cpInput.value = ""; cpItems = []; cpSel = -1; drawCodes(); fetchCodes();
+      cpInput.focus();
+    };
+    window.__zettelCode = openCodePicker;
+    var codeBtn = $("#code-btn");
+    if (codeBtn) {
+      // Keep the textarea's selection when the button is pressed.
+      codeBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      codeBtn.addEventListener("click", openCodePicker);
+    }
+    if (cpInput) {
+      cpInput.addEventListener("input", function () { fetchCodes(); drawCodes(); });
+      cpInput.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { cpSel = Math.min(cpSel + 1, cpItems.length - 1); drawCodes(); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { cpSel = Math.max(cpSel - 1, -1); drawCodes(); e.preventDefault(); }
+        else if (e.key === "Tab" && cpItems.length) {
+          var t = cpTokens(); t[t.length - 1] = (t.length > 1 ? " " : "") + cpItems[Math.max(cpSel, 0)].code;
+          cpInput.value = t.join(","); e.preventDefault(); fetchCodes();
+        }
+        else if (e.key === "Enter") {
+          e.preventDefault(); e.stopPropagation();
+          var toks = cpTokens();
+          if (cpSel >= 0 && cpItems[cpSel]) toks[toks.length - 1] = cpItems[cpSel].code;
+          applyCodes(toks);
+        }
+        else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeCodePicker(true); }
+      });
+      cpInput.addEventListener("blur", function () { setTimeout(function () { if (document.activeElement !== cpInput) closeCodePicker(false); }, 180); });
+      cpList.addEventListener("mousedown", function (e) {
+        var li = e.target.closest(".picker-item");
+        if (!li) return;
+        e.preventDefault();
+        var toks = cpTokens(); toks[toks.length - 1] = cpItems[parseInt(li.getAttribute("data-i"), 10)].code;
+        applyCodes(toks);
+      });
+    }
 
     // "Links in this note": resolve [[id]] to titles as you type.
     var linksList = $("#links-list"), linksCount = $("#links-count");
@@ -914,5 +1029,19 @@
       var b = f.querySelector('button[type="submit"]');
       if (b) { b.disabled = true; b.textContent = "Unlocking…"; }
     });
+  });
+
+  /* Manuscript outline: suggest notes for "Add a note…". */
+  document.querySelectorAll("[data-ms-notes]").forEach(function (inp) {
+    var dl = document.getElementById(inp.getAttribute("list"));
+    var fill = debounce(function () {
+      fetch("/api/notes/search?limit=12&q=" + encodeURIComponent(inp.value) + (ctx.noteId ? "&exclude=" + ctx.noteId : ""))
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          dl.innerHTML = (list || []).map(function (n) { return '<option value="' + esc(n.title) + " · " + n.id + '">'; }).join("");
+        }).catch(function () {});
+    }, 120);
+    inp.addEventListener("input", fill);
+    inp.addEventListener("focus", fill);
   });
 })();

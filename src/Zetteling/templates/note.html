@@ -27,6 +27,7 @@
       </form>
       {%- endif %}
       <a class="icon-btn" href="{{ url_for('split_picker', note_id=note.id) }}" aria-label="Open another note beside this one" title="Open another note beside this one">{{ icon("split") }}</a>
+      <a class="icon-btn" href="{{ url_for('note_history', note_id=note.id) }}" aria-label="History" title="History: earlier versions of this note">{{ icon("history") }}</a>
       <a class="icon-btn" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}" aria-label="Export" title="Export">{{ icon("export") }}</a>
       <form method="post" action="{{ url_for('delete', note_id=note.id) }}" class="inline"
             onsubmit="return confirm('Move this note to the trash?\n\nIt goes to the .trash folder inside your notes folder, so you can get it back from Finder.');">
@@ -141,6 +142,55 @@
 
     {%- else %}
     <div class="rail-body">
+      {%- if outline is not none %}
+      <section class="rail-section" id="outline">
+        <h3><span>Manuscript</span><span>{{ outline.words }} words</span></h3>
+        <p class="rail-note">{{ outline.notes }} note{{ '' if outline.notes == 1 else 's' }}, in this order. Move them, add more, or export the whole thing.</p>
+        <ol class="outline">
+          {%- for it in outline["items"] %}
+          {%- if it.kind == "heading" %}
+          <li class="ol-heading ol-h{{ it.level }}">{{ it.text }}
+            <span class="ol-tools">
+              {%- if not loop.first %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="up"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move up" title="Move up">↑</button></form>{% endif %}
+              {%- if not loop.last %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="down"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move down" title="Move down">↓</button></form>{% endif %}
+            </span>
+          </li>
+          {%- else %}
+          <li class="ol-note{% if it.missing %} missing{% endif %}">
+            <a href="{{ url_for('view', note_id=it.id) }}">{{ it.title }}</a>{% if it.locked %} {{ icon("lock", "i sm") }}{% endif %}
+            <span class="ol-words">{{ it.words if not it.locked else "" }}</span>
+            <span class="ol-tools">
+              {%- if not loop.first %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="up"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move up" title="Move up">↑</button></form>{% endif %}
+              {%- if not loop.last %}<form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="down"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Move down" title="Move down">↓</button></form>{% endif %}
+              <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="inline"><input type="hidden" name="action" value="remove"><input type="hidden" name="n" value="{{ it.n }}"><button class="icon-btn tiny" aria-label="Remove from manuscript" title="Remove from the manuscript (the note itself stays)">×</button></form>
+            </span>
+          </li>
+          {%- endif %}
+          {%- else %}
+          <li class="rail-empty">Nothing yet. Add notes below, or type <kbd>![[</kbd> on its own line while editing.</li>
+          {%- endfor %}
+        </ol>
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_note">
+          <input type="text" name="note" list="ms-notes" placeholder="Add a note…" aria-label="Add a note" required data-ms-notes>
+          <datalist id="ms-notes"></datalist>
+          <button class="btn btn-small" type="submit">Add</button>
+        </form>
+        {%- if all_threads %}
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_thread">
+          <select name="thread" aria-label="Add a whole thread">{% for tname, count in all_threads %}<option value="{{ tname }}">{{ tname }} ({{ count }})</option>{% endfor %}</select>
+          <button class="btn btn-small" type="submit">Add thread</button>
+        </form>
+        {%- endif %}
+        <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">
+          <input type="hidden" name="action" value="add_heading">
+          <input type="text" name="heading" placeholder="Add a section heading…" aria-label="Add a section heading" required>
+          <button class="btn btn-small" type="submit">Add</button>
+        </form>
+        <a class="btn btn-primary" style="margin: 10px 8px 0" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}">{{ icon("export") }}Export manuscript</a>
+      </section>
+      {%- endif %}
       {%- for tc in thread_contexts %}
       <section class="rail-section">
         <h3><span>Thread</span><span>{% if tc.position %}{{ tc.position }} of {{ tc.length }}{% endif %}</span></h3>
@@ -164,11 +214,29 @@
       <section class="rail-section">
         <h3><span>Backlinks</span><span>{{ backlinks|length }}</span></h3>
         {%- for b in backlinks %}
-        <a class="rail-link" href="{{ url_for('view', note_id=b.id) }}">{{ kind_tile(b.kind) }}<span>{{ b.title }}</span></a>
+        <a class="rail-link{% if b.context %} with-context{% endif %}" href="{{ url_for('view', note_id=b.id) }}">{{ kind_tile(b.kind) }}<span><span class="rl-title">{{ b.title }}</span>
+          {%- if b.context %}<span class="rl-context">{{ b.context[0] }} <mark>{{ b.context[1] }}</mark> {{ b.context[2] }}</span>{% endif %}</span></a>
         {%- else %}
         <p class="rail-empty">No notes link here yet. Link to this note from another with <kbd>[[</kbd>.</p>
         {%- endfor %}
       </section>
+      {%- if mentions %}
+
+      <section class="rail-section" id="mentions">
+        <h3><span>Unlinked mentions</span><span>{{ mentions|length }}</span></h3>
+        <p class="rail-note">These notes use this note’s title without linking to it.</p>
+        {%- for m in mentions %}
+        <div class="mention">
+          <a class="rail-link with-context" href="{{ url_for('view', note_id=m.id) }}">{{ kind_tile(m.kind) }}<span><span class="rl-title">{{ m.title }}</span>
+            <span class="rl-context">{{ m.context[0] }} <mark>{{ m.context[1] }}</mark> {{ m.context[2] }}</span></span></a>
+          <form method="post" action="{{ url_for('link_mention', note_id=note.id) }}" class="mention-form">
+            <input type="hidden" name="source" value="{{ m.id }}">
+            <button type="submit" class="btn btn-small" title="Turn “{{ m.context[1] }}” in “{{ m.title }}” into a link to this note">{{ icon("thread", "i sm") }}Link</button>
+          </form>
+        </div>
+        {%- endfor %}
+      </section>
+      {%- endif %}
 
       <section class="rail-section">
         <h3><span>Related</span></h3>

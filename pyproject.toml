@@ -2,7 +2,7 @@
 [tool.briefcase]
 project_name = "Zetteling"
 bundle = "com.shivissar"
-version = "5.1.0"
+version = "5.2.0"
 url = "https://shivissar.com/Zetteling"
 license.file = "LICENSE"
 author = "Shiv Issar, Ph.D."

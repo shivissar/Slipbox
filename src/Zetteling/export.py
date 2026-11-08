@@ -14,6 +14,7 @@ bib.py with bibtexparser.
 import os
 import shutil
 import stat
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -105,16 +106,70 @@ def collect_notes_for_source(source_type, source_id):
     return []
 
 
-def build_combined_markdown(notes_list, title=None):
+_EMBED_RE = re.compile(r"^[ \t]*!\[\[(\d{14})(?:\|([^\]\n]*))?\]\][ \t]*$", re.M)
+_WIKILINK_RE = re.compile(r"\[\[(\d{14})(?:\|([^\]]+))?\]\]")
+
+
+def _expand_embeds(body, embed_titles=False, depth=0, seen=None):
+    """Replace ![[id]] lines with the embedded note's text (5.2), up to
+    three levels deep, skipping cycles."""
+    seen = set(seen or ())
+
+    def repl(m):
+        nid = m.group(1)
+        if depth >= 3 or nid in seen:
+            return ""
+        n = _load_note(nid)
+        if n is None or n.unreadable:
+            return ""
+        inner = _expand_embeds(_strip_frontmatter(n.body), embed_titles, depth + 1, seen | {nid})
+        return (f"## {n.title}\n\n{inner}" if embed_titles else inner).strip() + "\n"
+    return _EMBED_RE.sub(repl, body or "")
+
+
+def embeds_unreadable(note, depth=0, seen=None):
+    """True if a note embeds (at any depth an export would reach) a locked
+    note that can't be read right now."""
+    seen = set(seen or ()) | {note.id}
+    if depth >= 3:
+        return False
+    for m in _EMBED_RE.finditer(note.body or ""):
+        if m.group(1) in seen:
+            continue
+        n = _load_note(m.group(1))
+        if n is None:
+            continue
+        if n.unreadable or embeds_unreadable(n, depth + 1, seen):
+            return True
+    return False
+
+
+def _links_to_text(md):
+    """[[id|text]] -> text; [[id]] -> the linked note's title (5.2: these
+    used to reach pandoc as raw brackets)."""
+    def repl(m):
+        if m.group(2):
+            return m.group(2)
+        meta = db.get_note_meta(m.group(1))
+        return meta["title"] if meta else m.group(1)
+    return _WIKILINK_RE.sub(repl, md)
+
+
+def build_combined_markdown(notes_list, title=None, embed_titles=False, single=False):
     """Concatenate a list of Notes into a single Markdown document with
-    an optional top-level title."""
+    an optional top-level title. Embedded notes are expanded and links
+    become plain text. A single note (a manuscript, say) isn't given an
+    extra heading: its title is the document title."""
     parts = []
     if title:
         parts.append(f"% {title}\n")
     for n in notes_list:
-        parts.append(_note_to_markdown(n))
+        body = _expand_embeds(_strip_frontmatter(n.body), embed_titles, seen={n.id})
+        if not single and not body.lstrip().startswith("# "):
+            body = f"# {n.title}\n\n{body}"
+        parts.append(body)
         parts.append("")  # blank line between notes
-    return "\n".join(parts)
+    return _links_to_text("\n".join(parts))
 
 
 def run_pandoc(markdown_text, fmt, citeproc=False):

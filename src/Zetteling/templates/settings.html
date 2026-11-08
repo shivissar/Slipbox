@@ -10,6 +10,7 @@
         <a href="#appearance">Appearance</a>
         <a href="#general">Folders</a>
         <a href="#writing">Writing</a>
+        <a href="#templates">Templates</a>
         <a href="#locked">Locked notes</a>
         <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
         <a href="#bibliography">Bibliography</a>
@@ -287,6 +288,37 @@
             <span class="muted small">Appearance saves itself; everything below it saves with this button.</span>
           </div>
         </form>
+
+
+        {# ---------------- Templates ---------------- #}
+        <section class="set-section" id="templates">
+          <h2>Templates</h2>
+          {%- if tpl_msg %}<div class="flash success">{{ tpl_msg }}</div>{% endif %}
+          <div class="set-group">
+            <div class="set-row">
+              <div class="set-text"><strong>Start new notes from a template</strong>
+                <span>Pick one at the top of a new note, or with <kbd>⌘K</kbd>. <code>{{ "{{date}}" }}</code>, <code>{{ "{{time}}" }}</code> and <code>{{ "{{weekday}}" }}</code> are filled in for you. Templates live in <code>.templates</code> inside your notes folder.</span>
+              </div>
+              <a class="btn btn-primary" href="{{ url_for('template_edit') }}">{{ icon("plus") }}New template</a>
+            </div>
+            {%- for t in note_templates %}
+            <div class="set-row">
+              <div class="set-text"><strong><span class="dot dot-{{ t.kind }}" aria-hidden="true"></span> {{ t.name }}</strong><span>{{ t.description or "No description." }}</span></div>
+              <div class="vault-inline">
+                <a class="btn" href="{{ url_for('new', template=t.slug) }}">Use</a>
+                <a class="btn" href="{{ url_for('template_edit', slug=t.slug) }}">Edit</a>
+                <form method="post" action="{{ url_for('template_delete', slug=t.slug) }}" class="inline" onsubmit="return confirm('Delete the “{{ t.name }}” template? Notes made from it are not affected.');">
+                  <button type="submit" class="icon-btn" aria-label="Delete {{ t.name }}" title="Delete">{{ icon("trash") }}</button>
+                </form>
+              </div>
+            </div>
+            {%- endfor %}
+            <form method="post" action="{{ url_for('templates_restore') }}" class="set-row">
+              <div class="set-text"><strong>Built-in templates</strong><span>Interview memo, fieldnote, reading note and lecture plan. Restoring adds back any you’ve deleted; your edits to the others are kept.</span></div>
+              <button type="submit" class="btn">Restore built-ins</button>
+            </form>
+          </div>
+        </section>
 
         {# ---------------- Locked notes (own forms, outside the main form) ---------------- #}
         <section class="set-section" id="locked">

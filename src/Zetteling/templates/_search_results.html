@@ -1,5 +1,6 @@
 {%- if q -%}
 <h2>Results for “{{ q }}”</h2>
+{%- if filters %}<p class="search-filters">Notes {{ filters|join(", ") }}. <a href="{{ url_for('help_page') }}#search-filters">Search filters</a></p>{% endif %}
 <ul class="cards">
   {%- for r in results %}
   <li>

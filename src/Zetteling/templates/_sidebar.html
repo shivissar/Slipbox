@@ -31,6 +31,8 @@
     <a class="side-link {% if ep in ('tags_index', 'tag_view') %}active{% endif %}" href="{{ url_for('tags_index') }}">{{ icon("tag") }}<span class="grow">Tags</span><span class="count">{{ nav_counts.tags }}</span></a>
     <a class="side-link {% if ep in ('threads_index', 'thread_view') %}active{% endif %}" href="{{ url_for('threads_index') }}">{{ icon("thread") }}<span class="grow">Threads</span><span class="count">{{ nav_counts.threads }}</span></a>
     <a class="side-link {% if ep == 'citekeys_index' %}active{% endif %}" href="{{ url_for('citekeys_index') }}">{{ icon("book") }}<span class="grow">Citations</span><span class="count">{{ nav_counts.citations }}</span></a>
+    <a class="side-link {% if ep == 'manuscripts_page' %}active{% endif %}" href="{{ url_for('manuscripts_page') }}">{{ icon("manuscript") }}<span class="grow">Manuscripts</span><span class="count">{{ nav_counts.manuscripts }}</span></a>
+    <a class="side-link {% if ep in ('codebook_page', 'code_page') %}active{% endif %}" href="{{ url_for('codebook_page') }}">{{ icon("code") }}<span class="grow">Codebook</span><span class="count">{{ nav_counts.codes }}</span></a>
     <a class="side-link {% if ep == 'stats_page' %}active{% endif %}" href="{{ url_for('stats_page') }}">{{ icon("chart") }}<span class="grow">Stats</span></a>
   </div>
 

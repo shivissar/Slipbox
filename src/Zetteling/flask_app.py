@@ -12,6 +12,7 @@ get mangled by an upstream sanitizer in our toolchain.
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import json
+import re
 import os
 import xml.etree.ElementTree as etree
 
@@ -36,11 +37,14 @@ from . import embed
 from . import export
 from . import notes
 from . import vault
+from . import history
+from . import note_templates
+from . import codebook
 from . import settings
 from . import themes
 from . import watcher
 
-__version__ = "5.1.0"
+__version__ = "5.2.0"
 
 app = Flask(__name__)
 
@@ -93,6 +97,7 @@ def inject_globals():
         "nav_counts": db.sidebar_counts(),
         "kinds": KINDS,
         "vault_state": _vault_state(),
+        "template_index": _template_index(),
     }
 
 
@@ -119,6 +124,23 @@ def _locked_kinds():
 
 def _kind_locked(kind):
     return (kind or "").strip().lower() in _locked_kinds()
+
+
+_TEMPLATE_CACHE = {"key": None, "value": []}
+
+
+def _template_index():
+    """(slug, name) pairs for the palette, re-read only when the templates
+    folder changes."""
+    try:
+        d = note_templates.templates_dir()
+        key = (str(d), d.stat().st_mtime) if d.exists() else (str(d), None)
+        if key != _TEMPLATE_CACHE["key"]:
+            _TEMPLATE_CACHE["value"] = [(t["slug"], t["name"]) for t in note_templates.list_templates()]
+            _TEMPLATE_CACHE["key"] = (str(d), d.stat().st_mtime)
+        return _TEMPLATE_CACHE["value"]
+    except OSError:
+        return []
 
 
 def _vault_state():
@@ -187,15 +209,18 @@ def _locked_response(mode, message="Locked notes are closed. Enter your password
 
 
 def _lock_note(note):
-    """Encrypt a readable note in place. The caller scrubs the index."""
+    """Encrypt a readable note in place, and its saved versions. The caller
+    scrubs the index."""
     note.locked = True
     notes.write_note(note)
     db.upsert_note(note)
+    history.encrypt_versions(note.id)
     embed.delete_embedding_for_note(note.id)
     chat.clear_conversation(note.id)
 
 
 def _unlock_note(note):
+    history.snapshot(note.path, "unlock", force=True)
     note.locked = False
     note.cipher = ""
     notes.write_note(note)
@@ -288,6 +313,36 @@ class CitekeyExtension(Extension):
         )
 
 
+# ---------- 5.2 coded passages ---------- #
+# [passage]{.code .other} -> a highlighted passage followed by its codes.
+
+
+class CodedSpanProcessor(InlineProcessor):
+    def handleMatch(self, m, data):
+        if "\n\n" in m.group(1):
+            return None, None, None
+        codes = re.findall(r"\.([\w-]+)", m.group(2))
+        wrap = etree.Element("span")
+        wrap.set("class", "qcode")
+        mark = etree.SubElement(wrap, "mark")
+        mark.text = m.group(1)
+        tags = etree.SubElement(wrap, "span")
+        tags.set("class", "qcode-tags")
+        for c in codes:
+            a = etree.SubElement(tags, "a")
+            a.set("href", f"/codes/{c}")
+            a.set("class", "qcode-tag")
+            a.text = c
+        return wrap, m.start(0), m.end(0)
+
+
+class CodedSpanExtension(Extension):
+    def extendMarkdown(self, md):
+        md.inlinePatterns.register(
+            CodedSpanProcessor(codebook.SPAN_RE.pattern), "codedspan", 172
+        )
+
+
 MD = markdown.Markdown(
     extensions=[
         "fenced_code",
@@ -296,6 +351,7 @@ MD = markdown.Markdown(
         "codehilite",
         WikilinkExtension(),
         CitekeyExtension(),
+        CodedSpanExtension(),
     ],
     extension_configs={
         "codehilite": {
@@ -313,7 +369,46 @@ MD = markdown.Markdown(
 # slightly different allowlist; _render_note_html is the only one.
 
 
-def _render_note_html(body):
+EMBED_LINE_RE = re.compile(r"^[ \t]*!\[\[(\d{14})(?:\|([^\]\n]*))?\]\][ \t]*$", re.M)
+
+
+def _render_note_html(body, _depth=0, _seen=None):
+    """Render a note body. Lines that are just ![[id]] embed that note
+    (5.2): its text appears in place, framed, with a link to it. Embeds
+    nest two levels deep; deeper or circular ones show as links."""
+    if not EMBED_LINE_RE.search(body or ""):
+        return _render_markdown_html(body)
+    seen = set(_seen or ())
+    out, last = [], 0
+    for m in EMBED_LINE_RE.finditer(body):
+        chunk = body[last:m.start()]
+        if chunk.strip():
+            out.append(str(_render_markdown_html(chunk)))
+        out.append(_embed_html(m.group(1), _depth, seen))
+        last = m.end()
+    tail = body[last:]
+    if tail.strip():
+        out.append(str(_render_markdown_html(tail)))
+    return Markup("".join(out))
+
+
+def _embed_html(note_id, depth, seen):
+    from markupsafe import escape
+    note = _find_note_by_id(note_id)
+    if note is None:
+        return '<div class="embed embed-broken">Missing note: %s</div>' % escape(note_id)
+    head = ('<div class="embed-head"><a href="/note/%s">%s</a><span>%s words</span></div>'
+            % (escape(note.id), escape(note.title), len((note.body or "").split())))
+    if note.unreadable:
+        inner = str(_locked_placeholder(note))
+    elif depth >= 2 or note.id in seen:
+        inner = '<p class="hint">Embedded again further down; open it to read.</p>'
+    else:
+        inner = str(_render_note_html(note.body, depth + 1, seen | {note.id}))
+    return '<section class="embed">%s<div class="embed-body">%s</div></section>' % (head, inner)
+
+
+def _render_markdown_html(body):
     """Convert a note body to HTML and optionally sanitize. Sanitization
     is gated on the `sanitize_note_html` setting (default False) which
     users enable when they import external markdown from an untrusted
@@ -331,13 +426,13 @@ def _render_note_html(body):
     try:
         import bleach
     except ImportError:
-        if not getattr(_render_note_html, "_warned", False):
+        if not getattr(_render_markdown_html, "_warned", False):
             print(
                 "[app] sanitize_note_html is enabled but the 'bleach' package "
                 "is not installed. Falling back to unsanitized output. "
                 "Install it with: .venv/bin/pip install bleach"
             )
-            _render_note_html._warned = True
+            _render_markdown_html._warned = True
         return raw
     allowed_tags = [
         "p", "br", "hr", "pre", "code", "blockquote",
@@ -397,6 +492,8 @@ def _search_results(q):
     quote, a lone hyphen) — falls back to the forgiving prefix search."""
     if not q:
         return []
+    if db.has_filters(db.parse_query(q)):
+        return db.filtered_search(q)
     try:
         return db.search(q)
     except Exception:
@@ -462,12 +559,14 @@ def welcome_skip():
 def search():
     q = request.args.get("q", "").strip()
     results = _search_results(q)
+    filters = db.describe_filters(db.parse_query(q)) if q else []
     if request.headers.get("HX-Request"):
-        return render_template("_search_results.html", results=results, q=q)
+        return render_template("_search_results.html", results=results, q=q, filters=filters)
     return render_template(
         "index.html",
         list_cards=_list_for("all"),
         results=results,
+        filters=filters,
         q=q,
         active_kind="all",
         kind_counts=db.kind_counts(),
@@ -480,7 +579,9 @@ def view(note_id):
     if not note:
         abort(404)
     rendered = None if note.unreadable else _render_note_html(note.body)
-    backlinks = db.get_backlinks(note_id)
+    backlinks = db.get_backlinks(note_id, with_context=True)
+    mentions = [] if note.unreadable else db.unlinked_mentions(note_id, note.title)
+    outline = _outline(note) if note.type == "manuscript" and not note.unreadable else None
     thread_contexts = []
     for t in db.threads_for_note(note_id):
         thread_contexts.append({
@@ -500,6 +601,9 @@ def view(note_id):
         "note.html",
         rail="context",
         backlinks=backlinks,
+        mentions=mentions,
+        outline=outline,
+        all_threads=db.all_threads() if outline is not None else [],
         thread_contexts=thread_contexts,
         similar=similar,
         **_note_page_context(note, rendered),
@@ -645,6 +749,7 @@ def edit(note_id):
         except vault.VaultLocked:
             return _locked_response(mode)
         if newly_locked:
+            history.encrypt_versions(note.id)
             embed.delete_embedding_for_note(note.id)
             db.scrub_index()
         elif fresh and mode != "auto":
@@ -730,6 +835,9 @@ def new():
     preselect_kind = request.args.get("kind", "research").strip().lower()
     if preselect_kind not in ("research", "journal", "teaching", "life"):
         preselect_kind = "research"
+    prefill = note_templates.render(request.args.get("template", "").strip()) if request.args.get("template") else None
+    if prefill:
+        preselect_kind = prefill["kind"]
     if _kind_locked(preselect_kind) and not vault.is_unlocked():
         return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
     return render_template(
@@ -737,6 +845,8 @@ def new():
         note=None,
         all_threads=db.all_threads(),
         preselect_kind=preselect_kind,
+        prefill=prefill,
+        note_templates=note_templates.list_templates(),
         autosave=bool(settings.get("autosave", True)),
     )
 
@@ -891,6 +1001,8 @@ def settings_page():
     return render_template(
         "settings.html",
         vault_msg=request.args.get("vault_msg", "")[:200],
+        tpl_msg=request.args.get("tpl_msg", "")[:200],
+        note_templates=note_templates.list_templates(),
         vault_err=request.args.get("vault_err") == "1",
         vault_kdf=vault.kdf_description() if vault.is_set_up() else "",
         locked_count=len(db.locked_ids()),
@@ -1171,7 +1283,7 @@ def export_view(source_type, source_id):
     notes_list = export.collect_notes_for_source(source_type, source_id)
     if not notes_list:
         abort(404)
-    if any(n.unreadable for n in notes_list):
+    if any(n.unreadable for n in notes_list) or any(export.embeds_unreadable(n) for n in notes_list):
         return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
 
     # Determine a sensible title for the export
@@ -1185,7 +1297,9 @@ def export_view(source_type, source_id):
     if request.method == "POST":
         fmt = request.form.get("format", "docx")
         citeproc = request.form.get("citeproc") == "on"
-        markdown_text = export.build_combined_markdown(notes_list, title=title)
+        embed_titles = request.form.get("embed_titles") == "on"
+        markdown_text = export.build_combined_markdown(notes_list, title=title, embed_titles=embed_titles,
+                                                       single=(source_type == "note"))
         output, error = export.run_pandoc(markdown_text, fmt, citeproc=citeproc)
         if error:
             return render_template(
@@ -1396,6 +1510,359 @@ def note_remove_lock(note_id):
         _unlock_note(note)
         embed.embed_note(note)
     return redirect(url_for("view", note_id=note_id))
+
+
+# ---------- 5.2 manuscripts ---------- #
+
+_HEADING_LINE_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+def _outline_items(body):
+    """[(line index, 'heading'|'embed', level or note id, text)]"""
+    items = []
+    in_code = False
+    for i, line in enumerate((body or "").split("\n")):
+        if line.strip().startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+        m = EMBED_LINE_RE.match(line)
+        if m:
+            items.append((i, "embed", m.group(1), m.group(2) or ""))
+            continue
+        h = _HEADING_LINE_RE.match(line)
+        if h:
+            items.append((i, "heading", len(h.group(1)), h.group(2)))
+    return items
+
+
+def _outline(note):
+    """The manuscript's sections and embedded notes, with word counts."""
+    rows, total = [], len(EMBED_LINE_RE.sub("", note.body or "").split())
+    for n, (line, kind, a, b) in enumerate(_outline_items(note.body)):
+        if kind == "heading":
+            rows.append({"n": n, "kind": "heading", "level": a, "text": b})
+            continue
+        meta = db.get_note_meta(a)
+        words = 0
+        if meta and not meta.get("locked"):
+            words = len((db.body_for(a) or "").split())
+        total += words
+        rows.append({"n": n, "kind": "embed", "id": a, "title": (meta or {}).get("title") or "Missing note",
+                     "missing": meta is None, "locked": bool(meta and meta.get("locked")), "words": words})
+    return {"items": rows, "words": total, "notes": sum(1 for r in rows if r["kind"] == "embed")}
+
+
+@app.route("/manuscripts")
+def manuscripts_page():
+    rows = []
+    for m in db.manuscripts():
+        note = _find_note_by_id(m["id"])
+        if not note:
+            continue
+        o = _outline(note) if not note.unreadable else {"notes": 0, "words": 0}
+        rows.append({"id": note.id, "title": note.title, "modified": note.modified, "notes": o["notes"],
+                     "words": o["words"], "locked": note.locked})
+    return render_template("manuscripts.html", rows=rows)
+
+
+@app.route("/manuscripts/new", methods=["POST"])
+def manuscript_new():
+    with _SAVE_LOCK:
+        note = notes.create_note("Untitled manuscript", body="", tags=[], type_="manuscript", kind="research")
+        db.upsert_note(note)
+    return redirect(url_for("edit", note_id=note.id))
+
+
+@app.route("/note/<note_id>/outline", methods=["POST"])
+def manuscript_outline(note_id):
+    """Reorder, remove or add the notes in a manuscript."""
+    note = _find_note_by_id(note_id)
+    if not note:
+        abort(404)
+    if note.unreadable:
+        return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
+    lines = (note.body or "").split("\n")
+    items = _outline_items(note.body)
+    action = request.form.get("action", "")
+    try:
+        n = int(request.form.get("n", "-1"))
+    except ValueError:
+        n = -1
+    changed = False
+    if action in ("up", "down", "remove") and 0 <= n < len(items):
+        i = items[n][0]
+        if action == "remove" and items[n][1] == "embed":
+            del lines[i]
+            changed = True
+        elif action == "up" and n > 0:
+            j = items[n - 1][0]
+            lines[i], lines[j] = lines[j], lines[i]
+            changed = True
+        elif action == "down" and n < len(items) - 1:
+            j = items[n + 1][0]
+            lines[i], lines[j] = lines[j], lines[i]
+            changed = True
+    elif action == "add_note":
+        m = re.search(r"(\d{14})", request.form.get("note", ""))
+        if m and m.group(1) != note.id and db.get_note_meta(m.group(1)):
+            lines += ["", "![[%s]]" % m.group(1)]
+            changed = True
+    elif action == "add_thread":
+        ids = [c["id"] for c in db.thread_chain(request.form.get("thread", ""))]
+        ids = [i for i in ids if i != note.id]
+        if ids:
+            lines += [""] + ["![[%s]]" % i for i in ids]
+            changed = True
+    elif action == "add_heading":
+        text = request.form.get("heading", "").strip()
+        if text:
+            lines += ["", "## " + text]
+            changed = True
+    if changed:
+        with _SAVE_LOCK:
+            history.snapshot(note.path, "outline", force=True)
+            note.body = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n") + "\n"
+            try:
+                notes.write_note(note)
+            except vault.VaultLocked:
+                return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
+            db.upsert_note(note)
+    return redirect(url_for("view", note_id=note_id) + "#outline")
+
+
+# ---------- 5.2 qualitative coding ---------- #
+
+
+def _code_or_404(code):
+    code = codebook.normalize(code)
+    if not codebook.CODE_NAME_RE.match(code or ""):
+        abort(404)
+    return code
+
+
+def _passage_rows(occ):
+    """Group coded passages by note for display, with plain-text excerpts."""
+    by_note = {}
+    for o in occ:
+        meta = db.get_note_meta(o["note_id"])
+        if not meta:
+            continue
+        g = by_note.setdefault(o["note_id"], {"id": o["note_id"], "title": meta["title"], "kind": meta["kind"],
+                                              "created": meta.get("created", ""), "locked": o["locked"], "passages": []})
+        titles = db.titles_for(set(re.findall(r"\[\[(\d{14})", o["excerpt"])))
+        g["passages"].append({"text": db._plain_text(o["excerpt"], titles).strip(), "codes": o["codes"]})
+    return sorted(by_note.values(), key=lambda g: g["created"], reverse=True)
+
+
+@app.route("/codes")
+def codebook_page():
+    rows, closed = codebook.summary()
+    return render_template("codebook.html", rows=rows, closed=closed, msg=request.args.get("msg", "")[:200])
+
+
+@app.route("/codes/<code>")
+def code_page(code):
+    code = _code_or_404(code)
+    occ = codebook.occurrences(code)
+    defs = codebook.load_definitions().get(code, {})
+    together, same_notes = codebook.cooccurrence(code)
+    _, closed = codebook.summary()
+    return render_template(
+        "code.html", code=code, groups=_passage_rows(occ), n_passages=len(occ),
+        definition=defs, together=together[:12], same_notes=same_notes[:12], closed=closed,
+        categories=sorted({d.get("category", "") for d in codebook.load_definitions().values() if d.get("category")}),
+        msg=request.args.get("msg", "")[:200],
+    )
+
+
+@app.route("/codes/<code>/define", methods=["POST"])
+def code_define(code):
+    code = _code_or_404(code)
+    codebook.set_definition(code, request.form.get("description"), request.form.get("category"))
+    return redirect(url_for("code_page", code=code, msg="Saved."))
+
+
+def _rewrite_code(old, new):
+    """Rename/merge (new) or remove (new=None) a code in every note that has
+    it. Returns (notes changed, locked notes that couldn't be read)."""
+    ids = set(db.notes_with_code(old))
+    if vault.is_unlocked():
+        ids |= {o["note_id"] for o in codebook._locked_occurrences() if old in o["codes"]}
+    changed = 0
+    for nid in sorted(ids):
+        note = _find_note_by_id(nid)
+        if not note or note.unreadable:
+            continue
+        new_body = codebook.apply_rename(note.body, old, new)
+        if new_body == note.body:
+            continue
+        with _SAVE_LOCK:
+            history.snapshot(note.path, "rename-code", force=True)
+            note.body = new_body
+            notes.write_note(note)
+            db.upsert_note(note)
+        changed += 1
+    defs = codebook.load_definitions()
+    if old in defs:
+        if new and new not in defs:
+            defs[new] = defs[old]
+        defs.pop(old, None)
+        codebook.save_definitions(defs)
+    closed = 0 if vault.is_unlocked() else len(db.locked_ids())
+    return changed, closed
+
+
+def _plural(n, word):
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
+
+
+@app.route("/codes/<code>/rename", methods=["POST"])
+def code_rename(code):
+    old = _code_or_404(code)
+    new = codebook.normalize(request.form.get("new_name", ""))
+    if not codebook.CODE_NAME_RE.match(new or "") or new == old:
+        return redirect(url_for("code_page", code=old, msg="Choose a different name: letters, numbers and hyphens."))
+    merging = bool(db.notes_with_code(new)) or new in codebook.load_definitions()
+    changed, closed = _rewrite_code(old, new)
+    msg = "%s “%s” into “%s” in %s." % ("Merged" if merging else "Renamed", old, new, _plural(changed, "note"))
+    if closed:
+        msg += " %s couldn’t be checked because locked notes are closed." % _plural(closed, "locked note")
+    return redirect(url_for("code_page", code=new, msg=msg))
+
+
+@app.route("/codes/<code>/remove", methods=["POST"])
+def code_remove(code):
+    old = _code_or_404(code)
+    changed, closed = _rewrite_code(old, None)
+    msg = "Removed the code “%s” from %s. The passages themselves are unchanged." % (old, _plural(changed, "note"))
+    if closed:
+        msg += " %s couldn’t be checked because locked notes are closed." % _plural(closed, "locked note")
+    return redirect(url_for("codebook_page", msg=msg))
+
+
+@app.route("/codes.csv")
+def codes_csv():
+    code = request.args.get("code")
+    code = _code_or_404(code) if code else None
+    data = codebook.to_csv(code)
+    name = "zetteling-%s.csv" % (code or "codebook")
+    return Response(data, mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=%s" % name})
+
+
+@app.route("/api/codes")
+def api_codes():
+    return jsonify(codebook.suggestions(request.args.get("q", "")))
+
+
+# ---------- 5.2 templates ---------- #
+
+
+@app.route("/templates/new", methods=["GET", "POST"])
+@app.route("/templates/<slug>/edit", methods=["GET", "POST"])
+def template_edit(slug=None):
+    t = note_templates.get(slug) if slug else None
+    if slug and t is None:
+        abort(404)
+    if request.method == "POST":
+        f = request.form
+        new_slug = note_templates.save(slug, f.get("name"), f.get("description"), f.get("kind"),
+                                       f.get("tags"), f.get("title"), f.get("body"))
+        return redirect(url_for("settings_page", tpl_msg="Template saved.") + "#templates")
+    return render_template("template_edit.html", t=t, slug=slug)
+
+
+@app.route("/templates/<slug>/delete", methods=["POST"])
+def template_delete(slug):
+    note_templates.delete(slug)
+    return redirect(url_for("settings_page", tpl_msg="Template deleted.") + "#templates")
+
+
+@app.route("/templates/restore", methods=["POST"])
+def templates_restore():
+    n = note_templates.restore_defaults()
+    msg = "Restored %d built-in template%s." % (n, "" if n == 1 else "s") if n else "All built-in templates are already there."
+    return redirect(url_for("settings_page", tpl_msg=msg) + "#templates")
+
+
+# ---------- 5.2 unlinked mentions ---------- #
+
+
+@app.route("/note/<note_id>/link-mention", methods=["POST"])
+def link_mention(note_id):
+    """Turn the first plain mention of this note's title in another note
+    into a link, keeping that note's wording as the link text."""
+    target = _find_note_by_id(note_id)
+    source = _find_note_by_id(request.form.get("source", ""))
+    if not target or not source:
+        abort(404)
+    if source.locked or source.unreadable:
+        abort(409)
+    with _SAVE_LOCK:
+        span = None
+        for variant in db.title_variants(target.title):
+            span = db.find_mention(source.body, variant)
+            if span:
+                break
+        if span:
+            history.snapshot(source.path, "link", force=True)
+            s, e = span
+            source.body = source.body[:s] + "[[%s|%s]]" % (target.id, source.body[s:e]) + source.body[e:]
+            notes.write_note(source)
+            db.upsert_note(source)
+    return redirect(url_for("view", note_id=note_id) + "#mentions")
+
+
+# ---------- 5.2 note history ---------- #
+
+
+@app.route("/note/<note_id>/history")
+def note_history(note_id):
+    note = _find_note_by_id(note_id)
+    if not note:
+        abort(404)
+    if note.unreadable and not note.damaged:
+        return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
+    versions = history.list_versions(note_id)
+    chosen = request.args.get("v") or (versions[0]["name"] if versions else "")
+    version = history.read_version(note_id, chosen) if chosen else None
+    if version is not None and version.unreadable and not version.damaged:
+        return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
+    preview = diff = None
+    if version is not None and not version.unreadable:
+        MD.reset()
+        preview = _render_note_html(version.body)
+        diff = history.diff_lines(version.body, note.body)
+    return render_template(
+        "note_history.html", note=note, versions=versions, chosen=chosen,
+        version=version, preview=preview, diff=diff,
+        restored=request.args.get("restored") == "1",
+    )
+
+
+@app.route("/note/<note_id>/history/restore", methods=["POST"])
+def note_history_restore(note_id):
+    note = _find_note_by_id(note_id)
+    name = request.form.get("v", "")
+    version = history.read_version(note_id, name) if note else None
+    if not note or version is None:
+        abort(404)
+    if note.unreadable or version.unreadable:
+        if note.damaged or version.damaged:
+            abort(409)
+        return redirect(url_for("unlock_page", next=url_for("note_history", note_id=note_id, v=name)))
+    try:
+        with _SAVE_LOCK:
+            history.snapshot(note.path, "restore", force=True)
+            note.title, note.body, note.tags, note.kind = version.title, version.body, version.tags, version.kind
+            notes.write_note(note)
+            db.upsert_note(note)
+    except vault.VaultLocked:
+        return redirect(url_for("unlock_page", next=url_for("note_history", note_id=note_id, v=name)))
+    embed.embed_note(note)
+    return redirect(url_for("note_history", note_id=note_id, restored=1))
 
 
 def create_app():

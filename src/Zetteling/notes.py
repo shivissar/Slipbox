@@ -175,6 +175,11 @@ def write_note(note):
         refs=note.refs,
         **meta,
     )
+    try:  # 5.2: keep the previous version (at most every 10 minutes)
+        from . import history
+        history.snapshot(note.path)
+    except Exception as e:  # history must never block a save
+        print("[history] snapshot failed: %s" % e)
     note.path.write_text(frontmatter.dumps(post), encoding="utf-8")
     note.mtime = note.path.stat().st_mtime
 
@@ -192,8 +197,18 @@ def soft_delete(note):
     return dest
 
 
+def _unused_id(note_id):
+    """Note IDs are 14-digit timestamps. Two notes made in the same second
+    used to share one; move to the next free second instead (5.2)."""
+    from datetime import datetime, timedelta
+    while any(NOTES_DIR.glob(f"{note_id}*.md")):
+        t = datetime.strptime(note_id, "%Y%m%d%H%M%S") + timedelta(seconds=1)
+        note_id = t.strftime("%Y%m%d%H%M%S")
+    return note_id
+
+
 def create_note(title, body="", tags=None, type_="zettel", kind=DEFAULT_KIND, locked=False):
-    note_id = now_id()
+    note_id = _unused_id(now_id())
     # Avoid collision if two notes are made in the same minute
     base = make_filename(note_id, title)
     candidate = NOTES_DIR / base

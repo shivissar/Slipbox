@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}{{ "Edit template" if t else "New template" }}{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Template">
+  <div class="pane-bar">
+    <a class="btn" href="{{ url_for('settings_page') }}#templates">← Templates</a>
+    <strong>{{ "Edit template" if t else "New template" }}</strong>
+    <span class="grow"></span>
+    <button type="submit" form="tpl-form" class="btn btn-primary">{{ icon("check") }}Save template</button>
+  </div>
+  <div class="pane-body">
+    <form method="post" id="tpl-form" class="measure tpl-form">
+      <label class="field-label" for="tpl-name">Name</label>
+      <input type="text" id="tpl-name" name="name" value="{{ t.name if t else '' }}" required placeholder="e.g. Seminar notes">
+      <label class="field-label" for="tpl-desc">Description <span class="hint">(shown when you hover over it)</span></label>
+      <input type="text" id="tpl-desc" name="description" value="{{ t.description if t else '' }}" placeholder="When to use it">
+      <div class="tpl-grid">
+        <div>
+          <span class="field-label">Kind of note</span>
+          <div class="kind-checks">
+            {%- for k in kinds %}
+            <label class="check-row"><input type="radio" name="kind" value="{{ k }}" {% if (t and t.kind == k) or (not t and k == 'research') %}checked{% endif %}> <span class="dot dot-{{ k }}" aria-hidden="true"></span>{{ k|capitalize }}</label>
+            {%- endfor %}
+          </div>
+        </div>
+        <div>
+          <label class="field-label" for="tpl-tags">Tags <span class="hint">(comma-separated)</span></label>
+          <input type="text" id="tpl-tags" name="tags" value="{{ t.tags|join(', ') if t else '' }}">
+        </div>
+      </div>
+      <label class="field-label" for="tpl-title">Title of new notes</label>
+      <input type="text" id="tpl-title" name="title" value="{{ t.title if t else '' }}" placeholder="e.g. Seminar: {{ '{{date}}' }}">
+      <label class="field-label" for="tpl-body">Text of new notes <span class="hint">(Markdown; {{ "{{date}}" }}, {{ "{{time}}" }} and {{ "{{weekday}}" }} are filled in)</span></label>
+      <textarea id="tpl-body" name="body" class="tpl-body" spellcheck="true">{{ t.body if t else '' }}</textarea>
+    </form>
+  </div>
+</main>
+{% endblock %}

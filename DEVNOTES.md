@@ -113,3 +113,23 @@ v5.1.0 locked notes (8 Nov 2026)
   journal locked, idle lock, export guard).
 - Not checked on macOS: Argon2id 2 GiB timing and memory inside the Toga
   app; print layout of the recovery key page in WKWebView.
+
+v5.2.0 research tools (8 Nov 2026)
+- history.py: snapshot() is called from notes.write_note (throttled to
+  INTERVAL=600 s, skipped when identical) and forced before bulk changes.
+  Versions are named <id>-v<UTC stamp>-<reason>.md so parse_file works on
+  them. encrypt_versions() runs from _lock_note and kind-change locking.
+- Embeds: _render_note_html splits on EMBED_LINE_RE and renders segments
+  with _render_markdown_html (the old function); embeds nest to depth 2
+  with a cycle guard. export._expand_embeds does the same for pandoc (depth
+  3) and _links_to_text replaces [[id|text]]/[[id]].
+- Coding: codebook.SPAN_RE is shared by the Markdown extension (priority
+  172, between wikilink 175 and citekey 170, so links and citations inside
+  a passage still render) and the indexer. Locked notes never reach the
+  `codes` table; codebook.occurrences() decrypts them live when open.
+- Search: db.parse_query/filtered_search; plain queries without filters
+  still go to the old FTS path, so raw FTS syntax (OR, NOT, *) keeps working.
+- notes._unused_id(): IDs are timestamps; a second note in the same second
+  takes the next free second.
+- Tests: tests/test_research_tools.py plus Playwright checks outside the
+  repo.

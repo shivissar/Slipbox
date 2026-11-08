@@ -45,6 +45,12 @@ sudo apt install pandoc    # Ubuntu/Debian</code></pre>
         <input type="checkbox" name="citeproc" checked>
         Process citations through pandoc-citeproc using the configured BibTeX file
       </label>
+      {%- if notes_list|length == 1 and '![[' in (notes_list[0].body or '') %}
+      <label style="margin-top: 0.5rem;">
+        <input type="checkbox" name="embed_titles">
+        Start each included note with its title as a heading (leave off if your manuscript has its own headings)
+      </label>
+      {%- endif %}
 
       <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Export to file</button>
       <p class="meta" style="font-size: 0.78rem; margin-top: 0.6rem;">

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Codebook{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Codebook">
+  <div class="pane-bar">
+    <strong>Codebook</strong>
+    <span class="grow"></span>
+    {%- if rows %}<a class="btn" href="{{ url_for('codes_csv') }}" title="Every coded passage, one row per code">{{ icon("export") }}Export passages (CSV)</a>{% endif %}
+  </div>
+  <div class="pane-body">
+    <div class="measure-wide">
+      <h1>Codebook</h1>
+      {{ squiggle() }}
+      {%- if msg %}<div class="flash success">{{ msg }}</div>{% endif %}
+      {%- if closed %}<div class="flash warn">{{ icon("lock", "i sm") }} {{ closed }} locked note{{ '' if closed == 1 else 's' }} not included. <a href="{{ url_for('unlock_page', next=request.path) }}">Unlock</a> to include their coded passages (they’re read while open and never saved to the index).</div>{% endif %}
+      {%- if not rows %}
+      <div class="empty-card">
+        <p><strong>No codes yet.</strong> While editing a note, select a passage and press <kbd>⌘⇧C</kbd> to give it a code, such as <em>trust</em> or <em>workarounds</em>. Every coded passage then appears here, grouped by code.</p>
+        <p class="hint">In the file it looks like <code>[the passage]{.trust}</code>, pandoc’s own notation, so it stays readable anywhere and exports as plain text. <a href="{{ url_for('help_page') }}#coding">More on coding</a></p>
+      </div>
+      {%- else %}
+      <table class="codebook-table">
+        <thead><tr><th>Code</th><th>Definition</th><th class="num">Passages</th><th class="num">Notes</th></tr></thead>
+        <tbody>
+        {%- set ns = namespace(cat=None) %}
+        {%- for r in rows %}
+          {%- if r.category != ns.cat %}{% set ns.cat = r.category %}
+          <tr class="cat-row"><th colspan="4">{{ r.category or "Uncategorised" }}</th></tr>
+          {%- endif %}
+          <tr>
+            <td><a class="qcode-tag big" href="{{ url_for('code_page', code=r.code) }}">{{ r.code }}</a>{% if r.locked %} <span class="hint" title="Includes passages from open locked notes">{{ icon("lock", "i sm") }}</span>{% endif %}</td>
+            <td class="def">{{ r.description or "—" }}</td>
+            <td class="num">{{ r.excerpts }}</td>
+            <td class="num">{{ r.notes }}</td>
+          </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      {%- endif %}
+    </div>
+  </div>
+</main>
+{% endblock %}
