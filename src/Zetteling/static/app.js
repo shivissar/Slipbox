@@ -1093,9 +1093,25 @@
    * spotlights one part of the window; stops whose part isn't on this
    * page are skipped.
    * ------------------------------------------------------------------ */
+  // 5.2: the first stops (intro: true) explain the method before the app.
+  var SLIPS_ART =
+    '<svg class="tour-slips" viewBox="0 0 220 96" width="220" height="96" aria-hidden="true">' +
+      '<path d="M58 34 C 88 20, 104 20, 128 30" /><path d="M58 52 C 80 74, 104 80, 124 72" /><path d="M164 42 L 164 58" />' +
+      '<rect x="8" y="22" width="54" height="40" rx="7" class="s1"/><rect x="126" y="8" width="76" height="34" rx="7" class="s2"/>' +
+      '<rect x="122" y="58" width="84" height="32" rx="7" class="s3"/>' +
+      '<line x1="18" y1="36" x2="50" y2="36"/><line x1="18" y1="46" x2="42" y2="46"/>' +
+      '<line x1="136" y1="20" x2="190" y2="20"/><line x1="136" y1="29" x2="176" y2="29"/>' +
+      '<line x1="132" y1="70" x2="194" y2="70"/><line x1="132" y1="79" x2="170" y2="79"/>' +
+    '</svg>';
   var TOUR = [
-    { title: "Welcome to Zetteling", mascot: true,
-      body: "<p>A place for short notes in your own words, linked into a web of ideas that grows with your work.</p><p>This tour takes about a minute. Use the arrow keys or the buttons, and leave whenever you like.</p>" },
+    { title: "Welcome to Zetteling", mascot: true, next: "Begin",
+      body: "<p>A place for short notes in your own words, linked into a web of ideas that grows with your work.</p><p>This tour takes about two minutes: first the idea behind a Zettelkasten, then the app. Use the arrow keys or the buttons, and leave whenever you like.</p><p class='tour-aside'>Know the method already? <button type='button' class='linklike tour-jump'>Go straight to the app</button></p>" },
+    { intro: true, art: SLIPS_ART, title: "The idea: a slip-box",
+      body: "<p>A Zettelkasten (German for “slip box”) is the note-taking method of the sociologist Niklas Luhmann, who kept around 90,000 paper slips over four decades.</p><p>Its value lies less in any single note than in the links between them. Over time a well-linked slip-box starts to answer back: it brings forgotten notes into view and puts ideas side by side that you would not have thought to compare.</p>" },
+    { intro: true, title: "Four habits", wide: true,
+      body: "<ol class='tour-list'><li><strong>One idea per note.</strong> “Algorithmic governance erodes accountability” is a note; “Notes on chapter 3” is not.</li><li><strong>Your own words.</strong> Rewriting an idea is where understanding happens. Keep what a source says, with its citation, apart from what you make of it.</li><li><strong>Links are the structure.</strong> No folders: when you write a note, link it to the notes it speaks to, and say why in the sentence around the link.</li><li><strong>Write for later.</strong> Each note is material for some future piece of writing, so write it to make sense on its own, months from now.</li></ol>" },
+    { intro: true, title: "How Zetteling helps", wide: true, next: "Show me the app",
+      body: "<ul class='tour-list'><li>Every note gets a permanent ID, so links survive renaming.</li><li><kbd>[[</kbd> links one note to another, and every note shows what links back to it.</li><li><strong>Threads</strong> keep notes that continue one another in order, like the numbered branches of Luhmann’s slips.</li><li><strong>Manuscripts</strong> gather a line of thought into a draft.</li><li>The four kinds and your tags are loose groupings; the links do the real work.</li></ul><p class='tour-aside'>Help → <em>What a Zettelkasten is</em> has more, with further reading.</p>" },
     { target: "library", title: "Four kinds of note",
       body: "<p>Research, journal, teaching and life notes each have their own list. Links, search and backlinks work across all four.</p>" },
     { target: "new", title: "New note",
@@ -1160,14 +1176,28 @@
     tourEl.querySelector(".tour-skip").addEventListener("click", function () { tourEnd(); });
     tourEl.querySelector(".tour-back").addEventListener("click", function () { tourGo(tourAt - 1); });
     tourEl.querySelector(".tour-next").addEventListener("click", function () {
-      // Starting from a list with no note open: carry on from the latest
-      // note, so the note's own buttons are part of the tour.
-      if (tourAt === 0 && !ctx.noteId && document.querySelector('[data-tour="list"] a[href*="/note/"]')) {
-        window.location.href = "/tour?step=2"; return;
+      if (tourAt >= tourStops.length - 1) tourEnd(); else tourToApp(tourAt + 1);
+    });
+    tourEl.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest(".tour-jump")) {
+        e.preventDefault();
+        var first = tourStops.findIndex(function (s) { return s !== tourStops[0] && !s.intro; });
+        tourToApp(first > 0 ? first : 1);
       }
-      if (tourAt >= tourStops.length - 1) tourEnd(); else tourGo(tourAt + 1);
     });
     tourEl.querySelector(".tour-catch").addEventListener("click", function (e) { e.preventDefault(); });
+  }
+
+  // Moving on to stop i. The first stop about the app itself, reached from a
+  // list with no note open: carry on from the latest note, so the note's
+  // own buttons are part of the tour.
+  function tourToApp(i) {
+    var s = tourStops[i];
+    var fromIntro = !tourStops[tourAt].target && s && !!s.target;
+    if (fromIntro && !ctx.noteId && document.querySelector('[data-tour="list"] a[href*="/note/"], .note-card a[href*="/note/"], a.card[href*="/note/"]')) {
+      window.location.href = "/tour?step=" + (i + 1); return;
+    }
+    tourGo(i);
   }
 
   function tourPlace() {
@@ -1210,8 +1240,9 @@
     tourAt = i;
     var stop = tourStops[i], card = tourEl.querySelector(".tour-card");
     var art = tourEl.querySelector(".tour-art"), tpl = document.getElementById("tour-mascot");
-    art.innerHTML = stop.mascot && tpl ? tpl.innerHTML : "";
-    art.hidden = !stop.mascot;
+    art.innerHTML = stop.mascot && tpl ? tpl.innerHTML : (stop.art || "");
+    art.hidden = !stop.mascot && !stop.art;
+    card.classList.toggle("wide", !!stop.wide);
     tourEl.querySelector(".tour-step").textContent = (i + 1) + " of " + tourStops.length;
     tourEl.querySelector("#tour-title").textContent = stop.title;
     tourEl.querySelector("#tour-body").innerHTML = stop.body;
@@ -1221,7 +1252,7 @@
     tourEl.querySelector(".tour-back").hidden = i === 0;
     tourEl.querySelector(".tour-skip").hidden = i === tourStops.length - 1;
     var next = tourEl.querySelector(".tour-next");
-    next.textContent = i === 0 ? "Show me around" : (i === tourStops.length - 1 ? "Done" : "Next");
+    next.textContent = stop.next || (i === tourStops.length - 1 ? "Done" : "Next");
     var el = tourTarget(stop);
     if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
     tourPlace();

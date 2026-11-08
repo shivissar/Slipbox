@@ -1306,3 +1306,14 @@ button.chip-lock-open:hover { background: var(--accent-soft); }
 /* 5.2: a link to a deleted note, and the page it opens */
 .missing-note form { display: block; margin: 8px 0 18px; }
 .missing-links { margin: 6px 0 10px; }
+
+/* 5.2: the tour's introduction to the method */
+.tour.centered .tour-card.wide { width: min(500px, calc(100vw - 24px)); }
+.tour-list { text-align: left; margin: 0.2em 0 0.7em; padding-left: 1.3em; }
+.tour-list li { margin: 0.4em 0; }
+.tour-aside { font-size: 0.92em; color: var(--ink-3, var(--ink-2)); }
+.tour-body .linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
+.tour-slips path, .tour-slips line { fill: none; stroke: var(--ink-3, #9aa); stroke-width: 2; stroke-linecap: round; }
+.tour-slips path { stroke-dasharray: 3 5; }
+.tour-slips rect { stroke: none; }
+.tour-slips .s1 { fill: var(--k-research-soft); } .tour-slips .s2 { fill: var(--k-journal-soft); } .tour-slips .s3 { fill: var(--k-teaching-soft); }

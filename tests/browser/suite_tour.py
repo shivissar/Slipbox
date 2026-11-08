@@ -47,11 +47,29 @@ with sync_playwright() as p:
     pg.mouse.click(700, 450); pg.wait_for_timeout(300)
     check("page underneath is not clickable", pg.url == url and pg.locator(".tour-card").count() == 1)
 
+    # 5.2: three stops on the method come first, on the same page.
+    check("welcome offers to skip the method", pg.locator(".tour-jump").count() == 1
+          and pg.inner_text(".tour-next") == "Begin")
+    intro = []
+    for _ in range(3):
+        pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(350)
+        intro.append(pg.inner_text("#tour-title"))
+    check("the method before the app, on the same page", intro == ["The idea: a slip-box", "Four habits", "How Zetteling helps"]
+          and "/note/" not in pg.url, (intro, pg.url))
+    pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300); pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300)
+    check("slip-box picture shown", pg.locator(".tour-art svg.tour-slips").count() == 1)
+    pg.screenshot(path=f"{SH}/v52_tour_slipbox.png")
+    pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(300)
+    pg.screenshot(path=f"{SH}/v52_tour_habits.png")
+    pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(300)
+    check("last method stop leads to the app", pg.inner_text(".tour-next") == "Show me the app")
+    pg.screenshot(path=f"{SH}/v52_tour_helps.png")
+
     # Step on from the list: it carries on from the latest note.
     pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(1100)
-    check("from the list it moves to the latest note", "/note/" in pg.url and "tour=2" in pg.url, pg.url)
+    check("from the list it moves to the latest note", "/note/" in pg.url and "tour=5" in pg.url, pg.url)
     check("arrow key moves on", pg.inner_text("#tour-title") == "Four kinds of note")
-    check("and picks up at step 2", pg.locator(".tour-step").text_content().startswith("2 of"))
+    check("and picks up at step 5", pg.locator(".tour-step").text_content().startswith("5 of"))
     spot = pg.locator(".tour-spot").bounding_box(); lib = pg.locator('[data-tour="library"]').bounding_box()
     check("spotlight surrounds its target", spot and lib and spot["x"] <= lib["x"] and spot["y"] <= lib["y"]
           and spot["x"] + spot["width"] >= lib["x"] + lib["width"] - 1, (spot, lib))
@@ -60,7 +78,13 @@ with sync_playwright() as p:
           or card["x"] + card["width"] <= lib["x"] or card["y"] + card["height"] <= lib["y"], (card, lib))
     pg.screenshot(path=f"{SH}/v52_tour_library.png")
     pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300)
-    check("arrow key goes back", pg.inner_text("#tour-title") == "Welcome to Zetteling")
+    check("arrow key goes back", pg.inner_text("#tour-title") == "How Zetteling helps")
+    for _ in range(3):
+        pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(200)
+    check("back to the welcome", pg.inner_text("#tour-title") == "Welcome to Zetteling")
+    pg.click(".tour-jump"); pg.wait_for_timeout(500)
+    check("Go straight to the app skips the method", pg.inner_text("#tour-title") == "Four kinds of note")
+    pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(200)
     check("app shortcuts are held back mid-tour", (pg.keyboard.press("Meta+k"), pg.wait_for_timeout(300), pg.is_hidden("#palette"))[2])
 
     # Skip ends it, and it doesn't come back.

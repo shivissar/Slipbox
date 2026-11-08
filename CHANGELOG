@@ -29,7 +29,9 @@ The full, user-facing history is on the About page inside the app
 * Search filters: kind:, tag:/-tag:, thread:, code:/-code:, after:,
   before:, is:locked/unlocked, "phrase", -word, in the search page, palette
   and link picker.
-* Welcome tour: a short spotlight tour of the window (library, new
+* Welcome tour: three cards on the method first (the slip-box idea,
+  four habits, how Zetteling supports them; "Go straight to the app"
+  skips them), then a short spotlight tour of the window (library, new
   note and templates, search, note list, edit, lock, history, export,
   side panel, writing shortcuts, browse, settings). Starts by itself once
   (settings.tour_seen, saved when it opens), again from the compass button
