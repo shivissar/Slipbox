@@ -1302,3 +1302,7 @@ button.chip-lock-open:hover { background: var(--accent-soft); }
 .unreadable-list p { margin: 0 0 8px; }
 .unreadable-list ul { margin: 0; padding-left: 1.2em; }
 .unreadable-list code { word-break: break-all; }
+
+/* 5.2: a link to a deleted note, and the page it opens */
+.missing-note form { display: block; margin: 8px 0 18px; }
+.missing-links { margin: 6px 0 10px; }

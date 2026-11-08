@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Not found{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Not found">
+  <div class="pane-bar">
+    <button type="button" class="btn" data-history-back>{{ icon("back") }}Back</button>
+    <span class="grow"></span>
+  </div>
+  <div class="pane-body">
+    <div class="measure">
+      <h1>Nothing here</h1>
+      {{ squiggle() }}
+      <p>This page doesn’t exist, or what it showed has been deleted. Go <a href="#" data-history-back>back</a>, or to <a href="{{ url_for('index') }}">your notes</a>.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

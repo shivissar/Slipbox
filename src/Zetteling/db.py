@@ -544,6 +544,21 @@ def search(query, limit=50):
         return [dict(r) for r in rows]
 
 
+def ids_mentioning(note_id):
+    """Notes whose indexed text contains this 14-digit ID (5.2: used to find
+    links to a deleted note, whose rows in `links` go with it). Locked
+    notes' text isn't indexed, so they never appear."""
+    if not (note_id or "").isdigit():
+        return []
+    with get_conn() as conn:
+        try:
+            rows = conn.execute("SELECT id FROM notes_fts WHERE notes_fts MATCH ?",
+                                ('body : "%s"' % note_id,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [r["id"] for r in rows]
+
+
 def indexed_mtimes():
     """{filename: (id, mtime)} for every indexed note (start-up shortcut)."""
     with get_conn() as conn:

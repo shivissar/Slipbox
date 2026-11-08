@@ -117,7 +117,25 @@ with sync_playwright() as p:
     pg.click("button:has-text('Copy')"); pg.wait_for_timeout(300)
     check("Copy button responds", pg.locator("button:has-text('Copied'), button:has-text('Copy')").count() >= 1)
 
-    check("no console errors", not errs, errs[:4])
+    # 5.2: a link to a deleted note opens a page inside the app, with Back
+    from Zetteling import notes as N, db as DB
+    gone = N.create_note("Soon deleted", body="x"); DB.upsert_note(gone)
+    src = N.create_note("Points at it", body=f"See [[{gone.id}]] here."); DB.upsert_note(src)
+    pg.on("dialog", lambda d: d.accept())
+    pg.goto(f"{BASE}/note/{gone.id}"); pg.wait_for_timeout(300)
+    pg.click(f'form[action="/note/{gone.id}/delete"] button'); pg.wait_for_timeout(400)
+    pg.goto(f"{BASE}/note/{src.id}"); pg.wait_for_timeout(300)
+    check("red link keeps the old title", pg.inner_text("a.wikilink.broken") == "Soon deleted")
+    pg.click("a.wikilink.broken"); pg.wait_for_timeout(400)
+    check("deleted-note page inside the app", "This note was deleted" in pg.inner_text("main")
+          and pg.locator("nav.sidebar, .side-link").count() > 0)
+    pg.screenshot(path=f"{SH}/v52_deleted_note.png")
+    pg.click("main [data-history-back]"); pg.wait_for_timeout(400)
+    check("Back returns to the note", pg.url.endswith(f"/note/{src.id}"), pg.url)
+    pg.click("a.wikilink.broken"); pg.wait_for_timeout(400)
+    pg.click('button:has-text("Restore it")'); pg.wait_for_timeout(400)
+    check("Restore brings it back", pg.url.endswith(f"/note/{gone.id}") and "Soon deleted" in pg.inner_text("main"))
+    check("no console errors", not [e for e in errs if "404" not in e], errs[:4])
     b.close()
 
 srv.shutdown()

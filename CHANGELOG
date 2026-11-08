@@ -144,6 +144,15 @@ The full, user-facing history is on the About page inside the app
 * Licence page: the plain-English summary now matches PolyForm
   Noncommercial's permitted purposes (personal use without anticipated
   commercial application; non-commercial organisations).
+* Links to deleted notes: clicking one showed the server's bare "Not
+  Found" page with no way back. It now opens a page in the app: the note's
+  old title and deletion date, Restore it (from .trash), the notes still
+  linking to it, and an explicit "Turn links into plain text" (history
+  kept first). Red links show the deleted note's title. 404 and 500 pages
+  are rendered inside the app with Back.
+* Citation labels name all authors (bib.py joins authors with "; ", and
+  the label split only on " and ", so "Latour and Woolgar 1979" showed as
+  "Latour 1979").
 
 ## 5.1.0 (November 2026)
 

@@ -356,6 +356,9 @@
           <dt>A note is missing from the lists</dt>
           <dd>If the sidebar says a note can’t be read, its front matter (the lines between <code>---</code> at the top of the file) has an error, usually an unclosed bracket or quotation mark, or a colon in the title without quotation marks around it. <a href="{{ url_for('settings_page') }}#unreadable">Settings → Folders</a> lists the files and the problem. Fix it in a text editor and the note comes back as soon as you save. Otherwise, check the file is directly in the notes folder, not a subfolder.</dd>
 
+          <dt>A link shows in red</dt>
+          <dd>The note it points to was deleted. Click the link: if the note is in the trash you can restore it, and you can turn the remaining links to it into plain text. Nothing changes unless you choose to.</dd>
+
           <dt>A link shows as broken</dt>
           <dd>Links use the note’s 14-digit ID, not its title. Use the <code>[[</code> picker to insert it.</dd>
 

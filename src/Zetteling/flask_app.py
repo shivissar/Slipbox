@@ -386,9 +386,31 @@ class WikilinkProcessor(InlineProcessor):
             el.set("class", "wikilink")
             el.text = alias or title
         else:
+            # 5.2: a link to a deleted note says so, with the note's old
+            # title when it's in the trash, and opens a page explaining it.
+            old = _trashed_title(link_id)
             el.set("class", "wikilink broken")
-            el.text = alias or link_id
+            el.set("title", "Deleted note (in the trash)" if old else "No note with this ID")
+            el.text = alias or old or link_id
         return el, m.start(0), m.end(0)
+
+
+def _trashed_title(note_id):
+    """Title of a note in the trash, or "" (cached per request)."""
+    try:
+        cache = g.setdefault("_trash_titles", {})
+    except RuntimeError:  # no request (tests, export)
+        cache = {}
+    if note_id not in cache:
+        title = ""
+        path = notes.find_trashed(note_id)
+        if path is not None:
+            try:
+                title = notes.parse_file(path).title
+            except Exception:
+                title = ""
+        cache[note_id] = title
+    return cache[note_id]
 
 
 class WikilinkExtension(Extension):
@@ -429,7 +451,10 @@ class CitekeyProcessor(InlineProcessor):
 def _cite_label(entry):
     """'Suchman 1987', 'Latour and Woolgar 1979' or 'Star et al. 1999'
     from a bib entry's author and year fields."""
-    authors = [a.strip() for a in (entry.get("author") or "").replace("\n", " ").split(" and ") if a.strip()]
+    # bib.py stores authors joined by "; " (5.2: this split on " and " only,
+    # so every multi-author work was labelled with its first author alone).
+    raw = (entry.get("author") or "").replace("\n", " ")
+    authors = [a.strip() for a in re.split(r";| and ", raw) if a.strip()]
 
     def surname(a):
         a = a.strip("{} ")
@@ -729,7 +754,7 @@ def search():
 def view(note_id):
     note = _find_note_by_id(note_id)
     if not note:
-        abort(404)
+        return _missing_note(note_id)
     rendered = None if note.unreadable else _render_note_html(note.body)
     backlinks = db.get_backlinks(note_id, with_context=True)
     mentions = [] if note.unreadable else db.unlinked_mentions(note_id, note.title)
@@ -1111,6 +1136,114 @@ def history_prune():
             history.delete_history(nid)
             n += 1
     return redirect(url_for("settings_page", hk_msg="Deleted the history of %s." % _plural(n, "deleted note")) + "#housekeeping")
+
+
+# --- 5.2: links to deleted notes -----------------------------------------
+# Clicking one used to show a bare "Not Found" page with no way back. Now it
+# opens a page that says what happened, offers to restore the note from the
+# trash, lists the notes still linking to it, and can turn those links into
+# plain text. Nothing is rewritten unless asked: a broken link also records
+# that a thought once pointed somewhere, and restoring the note mends it.
+
+_NOTE_ID_RE = re.compile(r"^\d{14}$")
+
+
+def _links_to(note_id, text):
+    return re.search(r"!?\[\[%s(?:\|[^\]\n]*)?\]\]" % re.escape(note_id), text or "") is not None
+
+
+def _notes_linking_to(note_id):
+    out = []
+    for nid in db.ids_mentioning(note_id):
+        n = _find_note_by_id(nid)
+        if n is not None and not n.unreadable and _links_to(note_id, n.body):
+            out.append(n)
+    return sorted(out, key=lambda n: n.title.lower())
+
+
+def _missing_note(note_id):
+    if not _NOTE_ID_RE.match(note_id or ""):
+        abort(404)
+    trashed = notes.find_trashed(note_id)
+    old_title, deleted_on = "", ""
+    if trashed is not None:
+        old_title = _trashed_title(note_id)
+        stamp = trashed.name.rsplit(".", 2)[-2]
+        try:
+            from datetime import datetime
+            deleted_on = datetime.strptime(stamp, "%Y%m%d%H%M%S").strftime("%-d %B %Y, %H:%M")
+        except ValueError:
+            deleted_on = ""
+    return render_template(
+        "missing_note.html", note_id=note_id, in_trash=trashed is not None,
+        old_title=old_title, deleted_on=deleted_on, linking=_notes_linking_to(note_id),
+        msg=request.args.get("msg", "")[:300],
+    ), 404
+
+
+@app.route("/note/<note_id>/restore", methods=["POST"])
+def note_restore(note_id):
+    if not _NOTE_ID_RE.match(note_id or ""):
+        abort(404)
+    try:
+        path = notes.restore_from_trash(note_id)
+    except FileNotFoundError:
+        return redirect(url_for("view", note_id=note_id, msg="It’s no longer in the trash."))
+    except FileExistsError as e:
+        return redirect(url_for("view", note_id=note_id,
+                                msg="A note with this ID is already in your notes folder (%s)." % e))
+    note = notes.parse_file(path)
+    db.upsert_note(note)
+    if not note.locked:
+        embed.embed_note_async(note)
+    return redirect(url_for("view", note_id=note_id))
+
+
+@app.route("/note/<note_id>/unlink", methods=["POST"])
+def note_unlink_everywhere(note_id):
+    """Turn every link to a missing note into plain text: [[id|words]] keeps
+    its words, [[id]] becomes the old title (or the ID), and embed lines
+    ![[id]] are removed. Each changed note is kept in its history first."""
+    if not _NOTE_ID_RE.match(note_id or "") or _find_note_by_id(note_id) is not None:
+        abort(404)
+    label = _trashed_title(note_id) or note_id
+    embed_re = re.compile(r"^[ \t]*!\[\[%s(?:\|[^\]\n]*)?\]\][ \t]*\n?" % note_id, re.M)
+    link_re = re.compile(r"\[\[%s(?:\|([^\]\n]*))?\]\]" % note_id)
+    changed = 0
+    for n in _notes_linking_to(note_id):
+        body = link_re.sub(lambda m: m.group(1) or label, embed_re.sub("", n.body))
+        if body == n.body:
+            continue
+        with _SAVE_LOCK:
+            history.snapshot(n.path, "link", force=True)
+            n.body = body
+            notes.write_note(n)
+            db.upsert_note(n)
+        changed += 1
+    msg = ("Links to it in %s are now plain text. Each note’s previous version is in its history."
+           % _plural(changed, "note")) if changed else "No links to it were left to change."
+    return redirect(url_for("view", note_id=note_id, msg=msg))
+
+
+@app.errorhandler(404)
+def _not_found(e):
+    """5.2: a page inside the app with a way back, not a bare error page."""
+    if request.path.startswith("/api/") or _wants_json():
+        return jsonify({"ok": False, "message": "Not found"}), 404
+    try:
+        return render_template("not_found.html"), 404
+    except Exception:
+        return e
+
+
+@app.errorhandler(500)
+def _server_error(e):
+    if request.path.startswith("/api/") or _wants_json():
+        return jsonify({"ok": False, "message": "Something went wrong"}), 500
+    try:
+        return render_template("server_error.html"), 500
+    except Exception:
+        return ("Something went wrong. Press esc or go back to your notes.", 500)
 
 
 @app.route("/journal/today")

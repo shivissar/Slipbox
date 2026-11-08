@@ -206,3 +206,64 @@ def test_logs_name_notes_by_id_only(client, capsys):
     out = capsys.readouterr().out
     assert "note 20260101000000" in out and "informant" not in out
     assert notes.log_name("notes/whatever.md") == "a note file"
+
+
+# Links to deleted notes ------------------------------------------------------
+
+def test_link_to_deleted_note_opens_a_page_with_restore_and_unlink(client):
+    gone = notes.create_note("Situated action", body="Suchman's point.")
+    db.upsert_note(gone)
+    a = notes.create_note("Draft", body=f"See [[{gone.id}]] and [[{gone.id}|her argument]].\n\n![[{gone.id}]]\n\nEnd.")
+    b = notes.create_note("Memo", body=f"Also [[{gone.id}]].")
+    for n in (a, b):
+        db.upsert_note(n)
+    client.post(f"/note/{gone.id}/delete")
+
+    html = client.get(f"/note/{a.id}").get_data(as_text=True)
+    assert 'class="wikilink broken"' in html and ">Situated action</a>" in html     # old title, not the ID
+    r = client.get(f"/note/{gone.id}")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 404 and "This note was deleted" in page and "Restore it" in page
+    assert "2 notes still link to it" in page and "Draft" in page and "Memo" in page
+    assert 'class="sidebar' in page or "side-link" in page                         # inside the app, not a bare page
+
+    r = client.post(f"/note/{gone.id}/unlink")
+    assert r.status_code == 302
+    body = notes.parse_file(a.path).body
+    assert "[[" not in body and "See Situated action and her argument." in body and "End." in body
+    assert notes.parse_file(b.path).body == "Also Situated action."
+    assert any(v["name"].endswith("-link.md") for v in history.list_versions(a.id))
+
+    r = client.post(f"/note/{gone.id}/restore")
+    assert r.status_code == 302 and client.get(f"/note/{gone.id}").status_code == 200
+    assert notes.trashed() == []
+    assert client.post(f"/note/{gone.id}/restore").status_code == 302                # nothing left: no error
+
+
+def test_unknown_note_and_unknown_page_stay_inside_the_app(client):
+    r = client.get("/note/20200101000000")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 404 and "Note not found" in page and "data-history-back" in page
+    r = client.get("/no/such/page")
+    assert r.status_code == 404 and "Nothing here" in r.get_data(as_text=True)
+    assert client.get("/api/nothing-here").get_json() == {"ok": False, "message": "Not found"}
+
+
+def test_server_error_page_has_a_way_back(client, monkeypatch):
+    def boom():
+        raise RuntimeError("x")
+    monkeypatch.setitem(app.view_functions, "stats_page", boom)
+    app.testing = False
+    try:
+        r = client.get("/stats")
+    finally:
+        app.testing = True
+    assert r.status_code == 500 and "Something went wrong" in r.get_data(as_text=True)
+
+
+def test_citation_labels_name_all_authors():
+    lab = flask_app._cite_label
+    assert lab({"author": "Suchman, Lucy", "year": "1987"}) == "Suchman 1987"
+    assert lab({"author": "Latour, Bruno; Woolgar, Steve", "year": "1979"}) == "Latour and Woolgar 1979"
+    assert lab({"author": "Star, Susan Leigh; Bowker, Geoffrey; Neumann, Laura", "year": "1999"}) == "Star et al. 1999"
+    assert lab({"author": "Bruno Latour and Steve Woolgar", "year": "1979"}) == "Latour and Woolgar 1979"

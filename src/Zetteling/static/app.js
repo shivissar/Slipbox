@@ -1368,7 +1368,7 @@
     if (msg && !window.confirm(msg)) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
   document.querySelectorAll("[data-history-back]").forEach(function (b) {
-    b.addEventListener("click", function () { window.history.back(); });
+    b.addEventListener("click", function (e) { e.preventDefault(); window.history.back(); });
   });
 
   // One-off notices from the server (5.2), shown a little longer than toasts.

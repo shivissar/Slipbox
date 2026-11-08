@@ -278,6 +278,26 @@ def trashed():
     return out
 
 
+def find_trashed(note_id):
+    """The most recently trashed file for this note ID, or None."""
+    hits = [p for p, nid in trashed() if nid == note_id]
+    return max(hits, key=lambda p: p.name.rsplit(".", 2)[-2]) if hits else None
+
+
+def restore_from_trash(note_id):
+    """Move the most recent trashed copy of a note back into the notes
+    folder under its old filename (5.2). Returns the restored path.
+    Raises FileNotFoundError, or FileExistsError if that name is taken."""
+    src = find_trashed(note_id)
+    if src is None:
+        raise FileNotFoundError(note_id)
+    dest = NOTES_DIR / src.name.rsplit(".", 2)[0]
+    if dest.exists() or any(NOTES_DIR.glob(f"{note_id}*.md")):
+        raise FileExistsError(dest.name)
+    src.rename(dest)
+    return dest
+
+
 def _unused_id(note_id):
     """Note IDs are 14-digit timestamps. Two notes made in the same second
     used to share one; move to the next free second instead (5.2)."""
