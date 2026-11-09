@@ -12,10 +12,12 @@ Slipbox was called Zetteling until version 5.2.
 Status
 ------
 
-No release has been published yet. Slipbox 5.2.0, the version being prepared
-for the first public release, is on the
-`v5.2 <https://github.com/shivissar/Slipbox/tree/v5.2>`_ branch. The ``main``
-branch still holds 5.0.1, from before the rename.
+Slipbox 5.2.0 released on Saturday, Nov 14, 2026: the first public release,
+signed and notarised by Apple. Downloads are on the
+`releases page <https://github.com/shivissar/Slipbox/releases>`_. Before that
+date, the code for 5.2.0 is on the
+`v5.2 <https://github.com/shivissar/Slipbox/tree/v5.2>`_ branch, and ``main``
+holds 5.0.1, from before the rename.
 
 What it does
 ------------
