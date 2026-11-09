@@ -130,10 +130,9 @@
           <li>Click <em>Download</em> on the update page. Your browser saves the new <code>.dmg</code>, usually in Downloads.</li>
           <li>Quit Slipbox (<kbd>⌘Q</kbd>). It saves what you were typing first.</li>
           <li>Open the <code>.dmg</code> and drag <strong>Slipbox</strong> onto <strong>Applications</strong>; choose <strong>Replace</strong>.</li>
-          <li>In Terminal, run <code>xattr -cr /Applications/Slipbox.app</code> again, so that exporting keeps working.</li>
-          <li>Open Slipbox. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>, as on the first install.</li>
+          <li>Open Slipbox. If macOS asks whether to open an app downloaded from the internet, click <strong>Open</strong>.</li>
         </ol>
-        <p>After an update, macOS may ask again whether Slipbox can use your Documents, Desktop or iCloud Drive folders: this version isn’t signed with an Apple Developer ID, so macOS treats each new version as a new app. Click <strong>Allow</strong>.</p>
+        <p>Every version is signed with the same Developer ID and notarised by Apple, so macOS recognises the new one as the same app.</p>
         <p>Your notes, settings, history and locked-notes key live outside the app, so they are untouched. <em>Skip this version</em> on the update page hides the notice until a later version appears. Pre-releases are never offered.</p>
         <p class="hint">The check sends GitHub your IP address and Slipbox’s version number, nothing from your notes (<a href="{{ url_for('privacy_page') }}#updates">Privacy</a>). Turn it off under <em>Check for new versions</em> in Settings → Updates; <em>Check now</em> still works.</p>
 
@@ -333,7 +332,7 @@
         <h2 id="troubleshooting">Troubleshooting</h2>
         <dl class="troubleshooting">
           <dt>Exports fail or produce nothing (perhaps <code>killed: 9</code>)</dt>
-          <dd>Run <code>xattr -cr /Applications/Slipbox.app</code> in Terminal once after installing, then try again.</dd>
+          <dd>Quit Slipbox and try again. If it keeps failing, run <code>xattr -cr /Applications/Slipbox.app</code> in Terminal, try once more, and please <a href="https://github.com/shivissar/Slipbox/issues">report it</a>.</dd>
 
           <dt>A change made in another app doesn’t show</dt>
           <dd>Reload the page. If it still doesn’t show, check the file is directly in the notes folder, not a subfolder.</dd>

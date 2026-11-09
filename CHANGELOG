@@ -7,6 +7,14 @@ are in DEVNOTES.md.
 
 ## 5.2.0 (November 2026)
 
+* Signed with a Developer ID (team 249567G756) and notarised by Apple:
+  `briefcase package macOS` with the Developer ID Application identity;
+  Briefcase signs every Mach-O in the bundle, pandoc included, with the
+  hardened runtime, submits the .dmg to notarytool (keychain profile
+  briefcase-macOS-249567G756) and staples the ticket. Install steps lose
+  Open Anyway and `xattr -cr` in INSTALL.md, Help → Updates, the update
+  page and the website; the xattr line stays only as a troubleshooting
+  fallback.
 * Renamed Zetteling to Slipbox, the English for Zettelkasten. Package
   src/Slipbox, app ID com.shivissar.slipbox, homepage
   https://shivissar.com/slipbox, repository shivissar/Slipbox. On first
@@ -17,7 +25,7 @@ are in DEVNOTES.md.
   (the old names are still read until then). The locked-note encryption
   labels (zetteling-vault-v1, zetteling-locked-v1, the BEGIN/END marker,
   HKDF info strings) keep the old name: changing them would make existing
-  locked notes unreadable. New "V" icon in the style of the old "Z".
+  locked notes unreadable. New "S" icon in the style of the old "Z".
 
 * Note history (history.py): a copy of the file before it is overwritten,
   at most every 10 minutes while editing and always before restore, lock,
@@ -58,7 +66,7 @@ are in DEVNOTES.md.
   the answer in settings; retries after 3 h on failure. Sidebar notice and
   /update page (notes as escaped text, Download / release page opened in
   the browser with `open`, only for this repo's GitHub URLs; Skip this
-  version; install steps including xattr). Check now in Settings and the
+  version; install steps). Check now in Settings and the
   palette. Nothing is downloaded or installed by the app. Privacy page,
   Help → Updates and INSTALL.md updated.
 * Outside links open in the browser: a capture-phase click handler sends

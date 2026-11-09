@@ -1,30 +1,40 @@
-Zetteling is a free Mac app for keeping a Zettelkasten: short, linked notes, each one a plain Markdown file in a folder you choose.
+Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own words, each one a plain Markdown file in a folder you choose, linked into a web of ideas that grows with your work. It was called Zetteling until this version.
 
 ## Download
 
-**Zetteling-5.0.1.dmg** (below, under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
+**Slipbox-5.2.0.dmg** (below, under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
 
 SHA-256: `CHECKSUM-TO-ADD`
 
-## Before you install
+To check your download, run `shasum -a 256 ~/Downloads/Slipbox-5.2.0.dmg` in Terminal and compare the result with the line above.
 
-The app isn't notarised by Apple, so your Mac blocks it the first time. After installing:
+## Installing
 
-1. Open Zetteling once and click **Done** on the warning.
-2. Go to **System Settings → Privacy & Security** and click **Open Anyway**.
-3. In Terminal, run `xattr -cr /Applications/Zetteling.app` so exports work.
+1. Open the `.dmg` and drag **Slipbox** onto **Applications**.
+2. Open Slipbox from Applications. macOS asks whether you want to open an app downloaded from the internet; click **Open**.
 
-Full instructions: [INSTALL.md](https://github.com/shivissar/Zetteling/blob/main/INSTALL.md).
+Slipbox is signed with a Developer ID and notarised by Apple, so there is no Open Anyway step and no Terminal command. Full guide: [INSTALL.md](https://github.com/shivissar/Slipbox/blob/main/INSTALL.md).
+
+## Coming from Zetteling
+
+Install Slipbox and open it. The first time, it moves your settings, search index, note history and locked-notes key across from Zetteling, and says so. Your notes folder stays where it is. Then drag the old Zetteling app to the Bin.
+
+If the same notes folder is also used on another Mac, install Slipbox there too before opening locked notes on it: Zetteling can't find the renamed locked-notes key.
 
 ## In this version
 
-- One window: sidebar, note list, the note, and a side panel with its thread, backlinks and related notes.
-- Autosave while you write (Settings → Writing to turn it off).
-- `[[` to link a note and `@` to cite from Zotero, at the cursor; ⌘K command palette.
-- Seven light and dark themes, fonts, text sizes and accent colour.
-- Export to Word, LaTeX, HTML and EPUB with the bundled pandoc.
-- Optional AI (Anthropic, OpenAI, Gemini or local Ollama), off until you set it up.
+This is the first public release, so it includes everything since Zetteling 5.0:
+
+- **One window:** sidebar, note list, the note, and a side panel with its thread, backlinks and related notes.
+- **Linking and citing:** `[[` to link a note and `@` to cite from Zotero, at the cursor; ⌘K finds any note or runs any command.
+- **Research tools:** note history with one-click restore; backlinks with the sentence around each link; unlinked mentions; templates for interview memos, fieldnotes, reading notes and lecture plans; qualitative coding with a Codebook and CSV export; manuscripts; search filters such as `kind:`, `tag:`, `code:` and `after:`.
+- **Locked notes:** encrypt a note, or every note of a kind, on your Mac with a password and a recovery key. Locked notes are never sent to an AI provider.
+- **Autosave** while you write, and on quit.
+- **Export** to Word, LaTeX, HTML, OpenDocument and EPUB with the bundled pandoc, with formatted citations.
+- **Your look:** seven light and dark themes, fonts, text sizes and accent colours.
+- **Optional AI** (Anthropic, OpenAI-compatible services, Google Gemini, Voyage AI or Ollama on your Mac), off until you set it up.
+- **Help, a short tour, and update notices.** Slipbox tells you when a new version is out but never downloads or installs anything by itself.
 
 ## Licences
 
-Zetteling: PolyForm Noncommercial 1.0.0 (free for personal, academic and non-profit use). The app bundles pandoc 3.1.13 (GPL-2.0-or-later); its source is attached below as `pandoc-3.1.13-source.tar.gz` and at https://github.com/jgm/pandoc/releases/tag/3.1.13. See THIRD-PARTY-NOTICES.md.
+Slipbox: PolyForm Noncommercial 1.0.0 (free for personal, academic and non-profit use). The app bundles pandoc 3.1.13 (GPL-2.0-or-later); its source is attached below as `pandoc-3.1.13-source.tar.gz` and is at https://github.com/jgm/pandoc/releases/tag/3.1.13. numpy's bundled libquadmath (LGPL-2.1-or-later) comes from GCC; its source is attached below as well. See [THIRD-PARTY-NOTICES.md](https://github.com/shivissar/Slipbox/blob/main/THIRD-PARTY-NOTICES.md).

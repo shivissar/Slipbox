@@ -6,7 +6,7 @@ without the app.
 
 This guide is in three parts:
 
-1. [Install the app](#1-install-the-app) (about five minutes, no Terminal needed in most cases)
+1. [Install the app](#1-install-the-app) (about a minute)
 2. [Set it up the way you like](#2-set-it-up) (notes folder, Zotero, optional AI)
 3. [For developers: build it from source](#3-for-developers-build-from-source)
 
@@ -25,41 +25,16 @@ tested on Apple-silicon Macs (M1 and later).
 2. Drag **Slipbox** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 
-### Step 2: Open it the first time
+### Step 2: Open it
 
-Slipbox is not yet registered with Apple (that costs a yearly fee), so the
-first time you open it your Mac asks you to confirm. You only do this once.
+Open **Applications** and double-click **Slipbox**. The first time, macOS
+asks whether you want to open an app downloaded from the internet. Click
+**Open**. You only do this once.
 
-**On macOS 15 (Sequoia) or later:**
-
-1. Open **Applications** and double-click **Slipbox**. A message says it
-   can't be opened. Click **Done** (or **OK**).
-2. Open **System Settings → Privacy & Security** and scroll to the bottom.
-3. Next to the message about Slipbox, click **Open Anyway**.
-4. Confirm with **Open Anyway** again, and enter your Mac password if asked.
-
-**On macOS 14 (Sonoma) or earlier:**
-
-1. In **Applications**, hold **Control** and click **Slipbox**, then
-   choose **Open**.
-2. Click **Open** in the message that appears.
-
-### Step 3: One Terminal command, so exporting works
-
-Slipbox includes pandoc, the tool it uses to export notes to Word, LaTeX and
-other formats. macOS marks that tool as "downloaded from the internet" too,
-and blocks it silently, so exports fail until you clear the mark. To do that:
-
-1. Open **Terminal** (press ⌘-Space, type *Terminal*, press Return).
-2. Copy this line, paste it into Terminal and press Return:
-
-   ```
-   xattr -cr /Applications/Slipbox.app
-   ```
-
-   Nothing is printed if it worked. You can close Terminal.
-
-You need to do this again after installing a new version.
+Slipbox is signed with a Developer ID and notarised by Apple: Apple's
+automated check found no known malware in it, and macOS confirms that
+nothing has changed since. The bundled export tool, pandoc, is signed and
+checked along with the rest of the app, so exporting works straight away.
 
 ---
 
@@ -201,16 +176,11 @@ each new version just as it did the first one:
 2. Quit Slipbox (⌘Q). It saves what you were typing first.
 3. Open the `.dmg` and drag **Slipbox** onto **Applications**. Choose
    **Replace** when asked.
-4. Run the Terminal command from Step 3 again, so exporting keeps working:
-   `xattr -cr /Applications/Slipbox.app`
-5. Open Slipbox. If macOS says it can't check the app, use **Open Anyway** as
-   in Step 2.
+4. Open Slipbox. If macOS asks whether to open an app downloaded from the
+   internet, click **Open**.
 
 Your notes, settings, note history and locked-notes key live outside the app,
-so they are not touched. macOS may ask again whether Slipbox can use your
-Documents, Desktop or iCloud Drive folders: this version isn't signed with an
-Apple Developer ID, so macOS treats each new version as a new app. Click
-**Allow**. **Skip this version** on the update page hides the
+so they are not touched. **Skip this version** on the update page hides the
 notice until a later version comes out. Pre-releases are never offered.
 
 **Turning the check off.** Switch off **Check for new versions** in
@@ -226,13 +196,19 @@ Your notes folder is left alone unless you delete it yourself.
 
 ## When things go wrong
 
-**"Slipbox can't be opened" and there is no Open Anyway button.**
-Try opening the app once more, then look in **System Settings → Privacy &
-Security** again; the button appears after a failed attempt. If it still isn't
-there, run the Terminal command from Step 3 and try again.
+**macOS won't open Slipbox, or says it is damaged.**
+Delete it and download it again from
+<https://github.com/shivissar/Slipbox/releases>, then check the download
+against the SHA-256 checksum on the release page. Copies passed on from
+another Mac or altered after download fail Apple's check. Macs managed by an
+IT department may be set to open only App Store apps; ask your IT team rather
+than working around their settings.
 
 **Exporting fails, or the log mentions `killed: 9`.**
-Run the Terminal command from Step 3 (`xattr -cr /Applications/Slipbox.app`).
+Make sure the pandoc inside the app is the real program and not a Git LFS
+pointer (see section 3), which only affects builds made from source. If an
+installed copy still fails, run `xattr -cr /Applications/Slipbox.app` in
+Terminal and try again, and please report it as an issue.
 
 **Exports go somewhere unexpected.**
 Check **Settings → Folders → Export folder**. The folder shown under *In use
@@ -279,7 +255,11 @@ briefcase build macOS
 briefcase package macOS --adhoc-sign
 ```
 
-The `.dmg` appears in `dist/`. Things that have bitten before:
+The `.dmg` appears in `dist/`. An ad-hoc-signed build runs on the Mac that
+built it; macOS blocks it on other Macs. Published releases are signed with
+the maintainer's Developer ID and notarised by Apple
+(`briefcase package macOS` without `--adhoc-sign`; see DEVNOTES.md).
+Things that have bitten before:
 
 - Run `git lfs pull` before every `briefcase create`. If pandoc reverts to a
   small LFS pointer file, the app builds and launches but every export fails.

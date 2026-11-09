@@ -185,7 +185,8 @@ v5.2.0 research tools (8 Nov 2026)
   on). Only URLs under https://github.com/shivissar/Slipbox/ are kept
   from GitHub's answer or opened (safe_url). The app never installs
   anything: open_external() hands the DMG link to the browser, so the new
-  app arrives quarantined and Gatekeeper checks it. Releases must be
+  app arrives quarantined and Gatekeeper checks it; the build is notarised,
+  so that check passes without Open Anyway. Releases must be
   published on GitHub (not drafts or pre-releases) with tag vX.Y.Z and a
   .dmg asset; the repo must be public for the unauthenticated request.
   Tests: tests/test_updates.py and update_test.py (outside the repo).
@@ -206,3 +207,34 @@ v5.2.0 research tools (8 Nov 2026)
   "Zetteling recovery key <date>.txt" to _recovery_save_dir() (Downloads,
   else home; never inside the notes folder), O_EXCL + 0600, open -R.
   window.print() does nothing in Toga's WebView, hence no Print button.
+
+## Signing and notarisation (from 5.2.0)
+
+- Release builds are signed with "Developer ID Application: Shiv Issar
+  (249567G756)", issued from Apple's G2 Developer ID authority. The
+  certificate and private key live in the maintainer's login keychain, with
+  a .p12 backup kept outside the repository. A Mac without Apple's
+  "Developer ID - G2" intermediate certificate lists the identity as not
+  valid (security find-identity shows it under "Matching identities" but
+  not "Valid identities only"); install DeveloperIDG2CA.cer from
+  apple.com/certificateauthority into the login keychain.
+- Build: `rm -rf build dist`, `briefcase create macOS`, `briefcase build
+  macOS`, `briefcase package macOS`, choosing the Developer ID identity
+  (not ad hoc). Briefcase signs every Mach-O under Contents/Resources and
+  Contents/Frameworks with the hardened runtime, then the bundle, builds
+  and signs the .dmg, submits it with notarytool (keychain profile
+  briefcase-macOS-249567G756, created on first run from the Apple Account
+  email and an app-specific password) and staples the ticket. Rerunning
+  `briefcase package macOS` resumes an interrupted notarisation.
+- macOS asks for the login keychain password the first time codesign uses
+  the key; "Always Allow" stops it asking for every file.
+- Check: `spctl -a -vvv -t install dist/Slipbox-X.Y.Z.dmg` (accepted,
+  source=Notarized Developer ID) and `xcrun stapler validate`. On
+  rejection: `xcrun notarytool log <submission-id> --keychain-profile
+  "briefcase-macOS-249567G756"`.
+- Any change to the app after notarisation, even a template, needs a new
+  build and a new notarisation.
+- Builds from source for development stay ad hoc
+  (`briefcase package macOS --adhoc-sign`); they run on the Mac that built
+  them.
+

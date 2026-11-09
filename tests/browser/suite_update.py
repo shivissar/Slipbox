@@ -65,7 +65,7 @@ with sync_playwright() as p:
     pg.click(".side-update"); pg.wait_for_timeout(400)
     check("update page", "Slipbox 5.3.0 is available" in pg.inner_text("h1") and "You have 5.2.0" in pg.inner_text(".lead"))
     check("release notes shown as text, not run", "<script>" in pg.inner_text(".release-notes") and not pg.evaluate("window.__pwned"))
-    check("install steps include the Terminal line", pg.locator("#xattr-line").inner_text() == "xattr -cr /Applications/Slipbox.app")
+    check("install steps no longer need Terminal or Open Anyway", pg.locator("#xattr-line").count() == 0 and "Open Anyway" not in pg.locator(".update-steps").inner_text() and "downloaded from the internet" in pg.locator(".update-steps").inner_text())
     pg.screenshot(path=f"{SH}/v52_update_page.png", full_page=True)
     pg.click("button:has-text('Download Slipbox 5.3.0')"); pg.wait_for_timeout(400)
     check("download opens the DMG link outside the app", opened[-1:] == [REL["dmg_url"]], opened)
@@ -113,7 +113,7 @@ with sync_playwright() as p:
 
     # Help and privacy
     pg.goto(f"{BASE}/help#updates"); pg.wait_for_timeout(400)
-    check("help has an Updates section in its contents", pg.locator('.help-toc a[href="#updates"]').count() == 1 and "xattr -cr" in pg.inner_text("#updates ~ ol"))
+    check("help has an Updates section in its contents", pg.locator('.help-toc a[href="#updates"]').count() == 1 and "downloaded from the internet" in pg.inner_text("#updates ~ ol") and "xattr" not in pg.inner_text("#updates ~ ol"))
     pg.goto(f"{BASE}/privacy"); pg.wait_for_timeout(200)
     txt = pg.inner_text("article")
     check("privacy page explains the check", "api.github.com" in txt and "no update check" not in txt)

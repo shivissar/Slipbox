@@ -14,7 +14,7 @@ Five bullets to add:
 
 3. **Before adding any Python dependency, verify it has a macOS arm64 wheel on PyPI.** Briefcase invokes pip with `--only-binary :all:` and `--platform macosx_11_0_arm64`, so source-only packages are invisible to the resolver. When pip can't satisfy a version constraint under these flags, Briefcase silently proceeds without the package, and the feature that depends on it quietly breaks. To check: `pip install --dry-run --only-binary :all: <package>` from the beeware-venv simulates Briefcase's resolver in ten seconds.
 
-4. **The `xattr -cr /Applications/Slipbox.app` quarantine strip is required after every fresh install, including on the developer's own machine.** Without it, the bundled pandoc binary keeps its own quarantine attribute (separate from the outer .app's) and exports fail silently. Strip the whole bundle recursively; don't just strip the outer .app. This requirement disappears when the app is notarized with a paid Apple Developer account.
+4. ~~**The `xattr -cr /Applications/Slipbox.app` quarantine strip is required after every fresh install.**~~ Done in 5.2.0: release builds are signed with a Developer ID and notarised, so the bundled pandoc runs without it. Ad-hoc builds made from source don't need it either, because they are never quarantined.
 
 5. **The Flask app inside the Toga shell binds to a random free port at launch.** See `_find_free_port()` in `app.py`. First-launch port collisions are rare but possible if another process happens to claim the same port between the probe and the bind. If the app ever fails to launch with a socket error, relaunching usually resolves it.
 
@@ -39,7 +39,7 @@ Three of the four markers in `UPGRADING.md` can now be answered directly from to
 
 The one remaining verify-marker — whether a v3.17.4 install on a separate Mac migrates cleanly to v4.0.0+ — still requires testing on an actual second machine with an existing v3.17.x install. Low priority unless someone specifically wants to upgrade rather than start fresh.
 
-## Notarize with an Apple Developer ID
+## ~~Notarize with an Apple Developer ID~~ (done in 5.2.0; see DEVNOTES.md, "Signing and notarisation")
 
 $99/year for an Apple Developer Program membership. After notarization, installs become "double-click the dmg, drag to Applications, double-click the app" with no Gatekeeper "Open Anyway" dialog, no `xattr -cr` command, no `killed: 9` export failures from pandoc quarantine. The install guide collapses from six steps to two.
 
