@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}{{ old_title or "Note not found" }}{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Note not found">
+  <div class="pane-bar">
+    <button type="button" class="btn" data-history-back>{{ icon("back") }}Back</button>
+    <span class="grow"></span>
+  </div>
+  <div class="pane-body">
+    <div class="measure missing-note">
+      {%- if msg %}<div class="flash {{ 'warn' if msg.startswith('A note') or msg.startswith('It’s no') else 'success' }}">{{ msg }}</div>{% endif %}
+      {%- if in_trash %}
+      <h1>{{ old_title or note_id }}</h1>
+      {{ squiggle() }}
+      <p><strong>This note was deleted</strong>{% if deleted_on %} on {{ deleted_on }}{% endif %}. It’s in the trash, so you can bring it back as it was.</p>
+      <form method="post" action="{{ url_for('note_restore', note_id=note_id) }}" class="inline">
+        <button type="submit" class="btn btn-primary">{{ icon("history") }}Restore it</button>
+      </form>
+      {%- else %}
+      <h1>Note not found</h1>
+      {{ squiggle() }}
+      <p>There’s no note with the ID <code>{{ note_id }}</code> in your notes folder or its trash. It may have been deleted in Finder, the trash may have been emptied, or the link was typed with a wrong ID.</p>
+      {%- endif %}
+
+      {%- if linking %}
+      <h2>{{ linking|length }} note{{ '' if linking|length == 1 else 's' }} still link{{ 's' if linking|length == 1 else '' }} to it</h2>
+      <ul class="missing-links">
+        {%- for n in linking %}
+        <li><a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a></li>
+        {%- endfor %}
+      </ul>
+      <p class="hint">Their links show in red. You can leave them{% if in_trash %} (restoring the note mends them){% endif %}, or turn them into plain text: a link keeps its own words, or becomes the note’s old title, and an embedded copy of the note is removed.</p>
+      <form method="post" action="{{ url_for('note_unlink_everywhere', note_id=note_id) }}" class="inline"
+            data-confirm="Turn the links to this note into plain text in {{ linking|length }} note{{ '' if linking|length == 1 else 's' }}?&#10;&#10;Each link keeps its wording (or becomes “{{ old_title or note_id }}”), and embeds of this note are removed. The previous version of each note is kept in its history.">
+        <button type="submit" class="btn">Turn links into plain text</button>
+      </form>
+      {%- endif %}
+      {%- if vault_state.set_up %}
+      <p class="hint">Links inside locked notes aren’t listed: their text isn’t indexed.</p>
+      {%- endif %}
+    </div>
+  </div>
+</main>
+{% endblock %}

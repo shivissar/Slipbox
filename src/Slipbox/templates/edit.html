@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
+{% block title %}{{ "Edit: " ~ note.title if note else "New note" }}{% endblock %}
+{% block layout %}layout-edit{% endblock %}
+{% block main %}
+{%- set current_kind = note.kind if note else (preselect_kind or 'research') -%}
+<form method="post" id="edit-form" class="edit-form" autocomplete="off"
+      data-autosave="{{ '1' if autosave else '0' }}"
+      data-save-url="{{ url_for('edit', note_id=note.id) if note else url_for('new') }}"
+      data-new="{{ '0' if note else '1' }}"
+      data-locked="{{ '1' if note and note.locked else '0' }}"
+      data-locked-kinds="{{ vault_state.locked_kinds|join(',') }}">
+  <main class="pane col card" aria-label="Editor">
+    <div class="pane-bar">
+      <strong>{{ "Editing" if note else "New note" }}</strong>
+      {%- if (note and note.locked) or (not note and preselect_kind in vault_state.locked_kinds) %}<span class="chip chip-lock" title="The text of this note is encrypted on disk">{{ icon("lock", "i sm") }}Locked</span>{% endif %}
+      <span class="chip chip-warn" id="dirty-chip" role="status" aria-live="polite" hidden>Not saved yet</span>
+      <span class="inline-unlock" id="inline-unlock" hidden>
+        <label class="sr-only" for="inline-unlock-pw">Password for locked notes</label>
+        <input type="password" id="inline-unlock-pw" placeholder="Password to save" autocomplete="current-password">
+        <button type="button" class="btn btn-primary" id="inline-unlock-btn">Unlock</button>
+      </span>
+      <span class="grow"></span>
+      <a class="btn btn-quiet" href="{{ url_for('view', note_id=note.id) if note else url_for('index') }}" data-cancel>{{ "Done" if autosave else "Cancel" }}</a>
+      <button type="submit" class="btn btn-primary" title="Save (⌘S)">Save <span class="kbd-hint">⌘S</span></button>
+      <button type="button" class="icon-btn" data-toggle-rail aria-label="Show or hide note details" title="Details">{{ icon("panel") }}</button>
+    </div>
+    <div class="pane-body">
+      <div class="measure">
+        {%- if not note and note_templates %}
+        <nav class="template-row" aria-label="Start from a template">
+          <span>Start from</span>
+          <a class="chip-link{% if not prefill or not prefill.slug %} active{% endif %}" href="{{ url_for('new', kind=preselect_kind) }}" data-template-link>Blank</a>
+          {%- for t in note_templates %}
+          <a class="chip-link{% if prefill and prefill.slug == t.slug %} active{% endif %}" href="{{ url_for('new', template=t.slug) }}" data-template-link title="{{ t.description }}">{{ t.name }}</a>
+          {%- endfor %}
+        </nav>
+        {%- endif %}
+        <label class="sr-only" for="title-input">Title</label>
+        <input type="text" id="title-input" name="title" class="editor-title" required
+               value="{{ note.title if note else (prefill.title if prefill else '') }}" placeholder="Title">
+        <svg class="squiggle" viewBox="0 0 132 14" aria-hidden="true"><path d="M2 8 C 12 1, 20 1, 30 8 S 48 15, 58 8 S 76 1, 86 8 S 104 15, 114 8 S 126 3, 130 6"></path></svg>
+        <div class="editor-hints" aria-hidden="true">
+          <span class="chip">Markdown</span>
+          <span class="chip chip-thread">type @ to cite</span>
+          <span class="chip chip-accent">type [[ to link a note</span>
+          <span class="chip chip-code">select text, ⌘⇧C to code it</span>
+        </div>
+        <div class="editor-wrap" id="editor-wrap">
+          <label class="sr-only" for="body">Body</label>
+          <textarea name="body" id="body" class="editor-body" spellcheck="true"{% if focus_body %} autofocus{% endif %}
+                    placeholder="Start writing. One idea per note works best.">{{ note.body if note else (prefill.body if prefill else '') }}</textarea>
+          <div class="picker" id="picker" hidden>
+            <div class="picker-head"><span id="picker-title">Link to a note</span><span id="picker-count"></span></div>
+            <ul class="picker-list" id="picker-list" role="listbox" aria-label="Suggestions"></ul>
+            <div class="picker-foot" id="picker-foot"></div>
+          </div>
+          <div class="picker code-picker" id="code-picker" hidden role="dialog" aria-label="Code this passage">
+            <div class="picker-head"><span>Code this passage</span><span id="code-picker-count"></span></div>
+            <input type="text" id="code-picker-input" autocomplete="off" spellcheck="false" placeholder="Type a code, or several separated by commas" aria-label="Codes">
+            <ul class="picker-list" id="code-picker-list" role="listbox" aria-label="Existing codes"></ul>
+            <div class="picker-foot"><span>↵ apply</span><span>⇥ complete</span><span>, another code</span><span>esc close</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rail col card" aria-label="Note details">
+    <div class="rail-head"><h2 style="margin: 0; font-size: 1.25em; font-weight: 900">Details</h2></div>
+    <div class="rail-body">
+      <fieldset class="rail-section" style="border: 0; margin: 0; padding: 0">
+        <legend class="field-label" style="padding: 0; margin-bottom: 10px">Kind</legend>
+        <div class="kind-grid">
+          {%- for k in kinds %}
+          <label class="kind-option"><input type="radio" name="kind" value="{{ k }}" {% if current_kind == k %}checked{% endif %}><span class="dot dot-{{ k }}" aria-hidden="true"></span>{{ k|capitalize }}</label>
+          {%- endfor %}
+        </div>
+      </fieldset>
+
+      <div class="rail-section">
+        <label class="field-label" for="tags-input">Tags <span class="muted" style="font-weight: 600">(comma-separated)</span></label>
+        <input type="text" name="tags" id="tags-input" value="{{ note.tags|join(', ') if note else (prefill.tags|join(', ') if prefill else '') }}" placeholder="e.g. situated-action, autonomy">
+        {%- if (note and note.locked) or (not note and current_kind in vault_state.locked_kinds) %}
+        <p class="hint">Tag suggestions are off for locked notes: their text is never sent to an AI provider.</p>
+        {%- else %}
+        <div class="suggest-row">
+          <button type="button" class="btn" id="suggest-tags-btn">Suggest tags</button>
+          <span id="suggest-tags-result" class="suggest-row"></span>
+        </div>
+        <p class="hint">Suggestions come from your existing tags, chosen by your AI provider from the title and the first 4,000 characters.</p>
+        {%- endif %}
+      </div>
+
+      {%- if not note %}
+      <fieldset class="rail-section" id="thread-fieldset" style="border: 0; margin: 0; padding: 0">
+        <legend class="field-label" style="padding: 0; margin-bottom: 10px">Thread <span class="muted" style="font-weight: 600">(optional)</span></legend>
+        <div class="seg full">
+          <label><input type="radio" name="thread_action" value="" checked>None</label>
+          <label><input type="radio" name="thread_action" value="new">New</label>
+          <label><input type="radio" name="thread_action" value="existing" {% if not all_threads %}disabled{% endif %}>Existing</label>
+        </div>
+        <div data-thread-when="new" hidden>
+          <label class="field-label" for="new-thread-name" style="display: block; margin: 8px 0 6px">New thread name</label>
+          <input type="text" id="new-thread-name" name="new_thread_name" placeholder="e.g. tethered-autonomy" style="width: 100%">
+        </div>
+        <div data-thread-when="existing" hidden>
+          <label class="field-label" for="existing-thread" style="display: block; margin: 8px 0 6px">Thread</label>
+          <select id="existing-thread" name="existing_thread_name" style="width: 100%">
+            <option value="">Choose a thread</option>
+            {%- for tname, count in all_threads %}
+            <option value="{{ tname }}">{{ tname }} ({{ count }} note{{ 's' if count != 1 else '' }})</option>
+            {%- endfor %}
+          </select>
+          <p class="hint">The new note goes at the end, and the current last note will point to it.</p>
+        </div>
+      </fieldset>
+      {%- endif %}
+
+      <section class="rail-section">
+        <h3><span>Coding</span></h3>
+        <p class="rail-note">Select a passage in the text, then press <kbd>⌘⇧C</kbd> or this button.</p>
+        <button type="button" class="btn btn-small" id="code-btn" style="margin: 8px 8px 0">{{ icon("code", "i sm") }}Code the selected passage</button>
+      </section>
+
+      <section class="rail-section">
+        <h3><span>Links in this note</span><span id="links-count"></span></h3>
+        <ul class="links-list" id="links-list"><li class="rail-empty">None yet. Type <kbd>[[</kbd> in the text to link a note.</li></ul>
+      </section>
+    </div>
+  </aside>
+</form>
+{% endblock %}

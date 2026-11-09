@@ -1,0 +1,93 @@
+{#- Shared template macros for v5: icons, the mascot, kind helpers. -#}
+
+{%- macro icon(name, cls="i") -%}
+<svg class="{{ cls }}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+{%- if name == "search" -%}<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path>
+{%- elif name == "plus" -%}<path d="M12 5v14M5 12h14"></path>
+{%- elif name == "tag" -%}<path d="M3 12V4h8l9 9-8 8z"></path><circle cx="7.5" cy="7.5" r="1.2"></circle>
+{%- elif name == "thread" -%}<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path>
+{%- elif name == "book" -%}<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"></path><path d="M5 17a3 3 0 0 1 3-3h11"></path>
+{%- elif name == "chart" -%}<path d="M5 20V11M12 20V4M19 20v-7"></path>
+{%- elif name == "sliders" -%}<path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle>
+{%- elif name == "help" -%}<circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5"></path><path d="M12 17.5h.01"></path>
+{%- elif name == "edit" -%}<path d="M4 20h4L19 9l-4-4L4 16z"></path>
+{%- elif name == "split" -%}<rect x="3" y="4" width="18" height="16" rx="4"></rect><path d="M12 4v16"></path>
+{%- elif name == "export" -%}<path d="M12 3v12M7 8l5-5 5 5"></path><path d="M5 14v6h14v-6"></path>
+{%- elif name == "trash" -%}<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13"></path>
+{%- elif name == "chat" -%}<path d="M4 5h16v11H9l-5 4z"></path>
+{%- elif name == "panel" -%}<rect x="3" y="4" width="18" height="16" rx="4"></rect><path d="M15 4v16"></path>
+{%- elif name == "list" -%}<rect x="3" y="4" width="18" height="16" rx="4"></rect><path d="M9 4v16"></path>
+{%- elif name == "moon" -%}<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>
+{%- elif name == "sun" -%}<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+{%- elif name == "send" -%}<path d="M4 12l16-8-6 16-3-7z"></path>
+{%- elif name == "check" -%}<path d="M5 12l5 5 9-10"></path>
+{%- elif name == "warn" -%}<path d="M12 4l9 16H3z"></path><path d="M12 10v4M12 17.5h.01"></path>
+{%- elif name == "sprout" -%}<path d="M12 21v-9"></path><path d="M12 12c0-4-3-6-7-6 0 4 3 6 7 6z"></path><path d="M12 14c0-4 3-7 7-7 0 4-3 7-7 7z"></path>
+{%- elif name == "back" -%}<path d="M15 6l-6 6 6 6"></path>
+{%- elif name == "arrow" -%}<path d="M5 12h14M13 6l6 6-6 6"></path>
+{%- elif name == "download" -%}<path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path>
+{%- elif name == "compass" -%}<circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5z"></path>
+{%- elif name == "manuscript" -%}<path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path><path d="M10 12h6"></path><path d="M10 16h6"></path><path d="M4 6v15h12"></path>
+{%- elif name == "code" -%}<path d="M4 6h10"></path><path d="M4 12h7"></path><path d="M4 18h10"></path><path d="M16 9.5l4 2.5-4 2.5z"></path>
+{%- elif name == "history" -%}<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"></path><path d="M3 4.5V9h4.5"></path><path d="M12 7.5V12l3 2"></path>
+{%- elif name == "unlock" -%}<rect x="5" y="11" width="14" height="9" rx="2.5"></rect><path d="M8 11V8a4 4 0 0 1 7.6-1.7"></path>
+{%- elif name == "lock" -%}<rect x="5" y="11" width="14" height="9" rx="2.5"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+{%- elif name == "palette" -%}<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-2 0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1.1.9-2 2-2h2.4A3.8 3.8 0 0 0 21 10.4C21 6.3 17 3 12 3z"></path><circle cx="7.5" cy="11" r="1"></circle><circle cx="10" cy="7" r="1"></circle><circle cx="14.5" cy="7" r="1"></circle>
+{%- elif name == "journal" -%}<path d="M6 4h11a1 1 0 0 1 1 1v15H7a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"></path><path d="M9 8h6M9 12h6"></path>
+{%- elif name == "more" -%}<circle cx="5" cy="12" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="19" cy="12" r="1.3"></circle>
+{%- endif -%}
+</svg>
+{%- endmacro -%}
+
+{#- The mascot: an original folded paper slip with a sprout. It has an
+    "awake" face for light themes and a "sleep" face for dark ones; CSS
+    shows the right one. Decorative, hidden from screen readers. -#}
+{%- macro mascot(w=32, h=38, wave=False) -%}
+<svg class="mascot" width="{{ w }}" height="{{ h }}" viewBox="0 0 120 140" aria-hidden="true" focusable="false">
+  <path d="M60 40 C 62 28, 58 20, 56 14" style="fill: none; stroke: #4E9E66; stroke-width: 5; stroke-linecap: round"></path>
+  <path d="M56 16 C 44 4, 28 10, 31 19 C 40 24, 52 24, 56 16 Z" style="fill: #7CC78F"></path>
+  <path d="M57 17 C 64 2, 82 4, 84 13 C 75 21, 63 23, 57 17 Z" style="fill: #5DBB7A"></path>
+  <ellipse cx="44" cy="133" rx="9" ry="5" style="fill: #2B2F45"></ellipse><ellipse cx="76" cy="133" rx="9" ry="5" style="fill: #2B2F45"></ellipse>
+  <path d="M30 40 H 82 L 96 54 V 118 A 10 10 0 0 1 86 128 H 30 A 10 10 0 0 1 20 118 V 50 A 10 10 0 0 1 30 40 Z" style="fill: #FFFFFF; stroke: #2B2F45; stroke-width: 5; stroke-linejoin: round"></path>
+  <path d="M82 40 V 50 A 4 4 0 0 0 86 54 H 96" style="fill: #E3EEF3; stroke: #2B2F45; stroke-width: 5; stroke-linejoin: round"></path>
+  {%- if wave %}
+  <path d="M20 84 C 8 78, 2 66, 4 54" style="fill: none; stroke: #2B2F45; stroke-width: 5; stroke-linecap: round"></path>
+  <circle cx="4" cy="50" r="7" style="fill: #FFFFFF; stroke: #2B2F45; stroke-width: 5"></circle>
+  {%- endif %}
+  <g class="awake">
+    <circle cx="46" cy="82" r="6" style="fill: #2B2F45"></circle><circle cx="72" cy="82" r="6" style="fill: #2B2F45"></circle>
+    <circle cx="48" cy="80" r="2" style="fill: #FFFFFF"></circle><circle cx="74" cy="80" r="2" style="fill: #FFFFFF"></circle>
+    <path d="M53 94 Q 59 101 65 94" style="fill: none; stroke: #2B2F45; stroke-width: 5; stroke-linecap: round"></path>
+  </g>
+  <g class="sleep">
+    <path d="M39 82 Q 46 88 53 82" style="fill: none; stroke: #2B2F45; stroke-width: 5; stroke-linecap: round"></path>
+    <path d="M65 82 Q 72 88 79 82" style="fill: none; stroke: #2B2F45; stroke-width: 5; stroke-linecap: round"></path>
+    <path d="M55 97 Q 59 100 63 97" style="fill: none; stroke: #2B2F45; stroke-width: 5; stroke-linecap: round"></path>
+  </g>
+  <ellipse cx="36" cy="95" rx="7" ry="4" style="fill: #F9A8C9"></ellipse><ellipse cx="82" cy="95" rx="7" ry="4" style="fill: #F9A8C9"></ellipse>
+</svg>
+{%- endmacro -%}
+
+{%- macro kind_chip(kind) -%}
+<span class="chip chip-{{ kind or 'research' }}"><span class="dot dot-{{ kind or 'research' }}"></span>{{ (kind or 'research')|capitalize }}</span>
+{%- endmacro -%}
+
+{%- macro kind_tile(kind) -%}
+<span class="kind-tile kind-tile-{{ kind or 'research' }}" aria-hidden="true"><span class="dot dot-{{ kind or 'research' }}"></span></span>
+{%- endmacro -%}
+
+{%- macro squiggle() -%}
+<svg class="squiggle" viewBox="0 0 132 14" aria-hidden="true"><path d="M2 8 C 12 1, 20 1, 30 8 S 48 15, 58 8 S 76 1, 86 8 S 104 15, 114 8 S 126 3, 130 6"></path></svg>
+{%- endmacro -%}
+
+{%- macro short_date(iso) -%}
+{%- if iso -%}{{ iso[:10] }}{%- endif -%}
+{%- endmacro -%}
+
+
+{#- 5.2: Back button on side pages (Help, Export, Open beside); esc does the same. -#}
+{% macro back_button(back, cls="") -%}
+{%- if back -%}
+<a class="btn btn-quiet back-btn {{ cls }}" href="{{ back.href }}" data-back{% if back.title %} title="{{ back.title }}"{% endif %}>{{ icon("back") }}{{ back.label }}<kbd class="back-key" aria-hidden="true">esc</kbd></a>
+{%- endif -%}
+{%- endmacro %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Manuscripts{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Manuscripts">
+  <div class="pane-bar">
+    <strong>Manuscripts</strong>
+    <span class="grow"></span>
+    <form method="post" action="{{ url_for('manuscript_new') }}" class="inline"><button type="submit" class="btn btn-primary">{{ icon("plus") }}New manuscript</button></form>
+  </div>
+  <div class="pane-body">
+    <div class="measure-wide">
+      <h1>Manuscripts</h1>
+      {{ squiggle() }}
+      {%- if not rows %}
+      <div class="empty-card">
+        <p><strong>Turn notes into a draft.</strong> A manuscript is a note that gathers other notes in the order you choose, under your own headings. It reads as one piece here, and exports as one Word, LaTeX or HTML document with your citations formatted.</p>
+        <p class="hint">Each note is pulled in with a line like <code>![[20261107184817]]</code>, so the manuscript always shows its notes’ latest text. <a href="{{ url_for('help_page') }}#manuscripts">More on manuscripts</a></p>
+      </div>
+      {%- else %}
+      <ul class="cards">
+        {%- for r in rows %}
+        <li><a class="nc" href="{{ url_for('view', note_id=r.id) }}">
+          <span class="nc-title">{{ r.title }}{% if r.locked %} {{ icon("lock", "i sm") }}{% endif %}</span>
+          <span class="nc-snip">{{ r.notes }} note{{ '' if r.notes == 1 else 's' }} · {{ r.words }} words</span>
+          <span class="nc-meta">{{ r.modified[:10] }}</span>
+        </a></li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+    </div>
+  </div>
+</main>
+{% endblock %}

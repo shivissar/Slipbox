@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, kind_chip, back_button -%}
+{% block title %}{{ left.title }} ↔ {{ right.title }}{% endblock %}
+{% block main %}
+<div class="split">
+  {%- for side, other, side_html, label in [(left, right, left_html, "left"), (right, left, right_html, "right")] %}
+  <main class="pane col card" aria-label="{{ label|capitalize }} note">
+    <div class="pane-bar">
+      {%- if loop.first %}{{ back_button(back_link) }}{% endif %}
+      {{ kind_chip(side.kind) }}
+      <span class="grow"></span>
+      <a class="btn btn-quiet" href="{{ url_for('split_picker', note_id=other.id) }}">Change {{ label }}</a>
+      <a class="btn" href="{{ url_for('view', note_id=side.id) }}">Open alone</a>
+    </div>
+    <div class="pane-body">
+      <article class="measure">
+        <p class="note-meta"><span class="chip chip-mono">{{ side.id }}</span></p>
+        <h1 class="note-title" style="font-size: calc(var(--read-size) * 1.6)">{{ side.title }}</h1>
+        {%- if side.tags %}
+        <p class="note-tags" style="margin-top: 14px">{% for t in side.tags %}<a class="chip tag-chip" href="{{ url_for('tag_view', tag_name=t) }}">#{{ t }}</a>{% endfor %}</p>
+        {%- endif %}
+        <div class="rendered">{{ side_html|safe }}</div>
+      </article>
+    </div>
+  </main>
+  {%- endfor %}
+</div>
+{% endblock %}

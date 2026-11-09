@@ -1,7 +1,207 @@
-# Zetteling Release Notes
+# Slipbox Release Notes
 
-The full, user-facing history is on the About page inside the app
-(src/Zetteling/templates/about.html). Engineering notes are in DEVNOTES.md.
+Slipbox was called Zetteling until 5.2.0; entries below that predate the
+rename keep the old name. The full, user-facing history is on the About
+page inside the app (src/Slipbox/templates/about.html). Engineering notes
+are in DEVNOTES.md.
+
+## 5.2.0 (November 2026)
+
+* Signed with a Developer ID (team 249567G756) and notarised by Apple:
+  `briefcase package macOS` with the Developer ID Application identity;
+  Briefcase signs every Mach-O in the bundle, pandoc included, with the
+  hardened runtime, submits the .dmg to notarytool (keychain profile
+  briefcase-macOS-249567G756) and staples the ticket. Install steps lose
+  Open Anyway and `xattr -cr` in INSTALL.md, Help → Updates, the update
+  page and the website; the xattr line stays only as a troubleshooting
+  fallback.
+* Renamed Zetteling to Slipbox, the English for Zettelkasten. Package
+  src/Slipbox, app ID com.shivissar.slipbox, homepage
+  https://shivissar.com/slipbox, repository shivissar/Slipbox. On first
+  launch, migrate.py moves the old app-data folder
+  (com.shivissar.zetteling) into the new one and repoints settings that
+  named places inside it; the hidden .zetteling-vault.json and
+  .zetteling-codebook.json in the notes folder are renamed to .slipbox-*
+  (the old names are still read until then). The locked-note encryption
+  labels (zetteling-vault-v1, zetteling-locked-v1, the BEGIN/END marker,
+  HKDF info strings) keep the old name: changing them would make existing
+  locked notes unreadable. New app icon: the mascot waving, on light blue
+  (src/Slipbox/resources/Slipbox.icns, sources in artwork/); the mounted
+  disk image shows the mascot in its slip box (installer_icon,
+  artwork/Slipbox-installer.icns).
+
+* Note history (history.py): a copy of the file before it is overwritten,
+  at most every 10 minutes while editing and always before restore, lock,
+  link-mention, code rename/merge/removal and outline changes; up to 200
+  per note in <app data>/history/<id>/. History page with line diff and
+  restore (which saves the current version first). Locking a note encrypts
+  its plain-text versions.
+* Backlinks show the sentence around the link. Unlinked mentions (title or
+  its main part before " — " / ": ") with one-click linking that keeps the
+  source wording as [[id|text]].
+* Templates (note_templates.py): .templates/ in the notes folder, seeded
+  with interview memo, fieldnote, reading note, lecture plan; picker on new
+  notes, palette commands, Settings → Templates (edit, new, delete,
+  restore built-ins); {{date}} {{time}} {{weekday}}.
+* Qualitative coding (codebook.py): [passage]{.code .code2} spans
+  (pandoc bracketed spans), rendered highlighted with code chips; ⇧⌘C code
+  picker; `codes` index table (unlocked notes only; locked notes read live
+  while open); Codebook and code pages with definitions, categories,
+  co-occurrence, rename/merge, remove, CSV export.
+* Manuscripts: notes of type manuscript; ![[id]] embed lines render the
+  embedded note (two levels) in any note; outline panel (move, remove, add
+  note, add heading, add thread); export expands embeds.
+* Search filters: kind:, tag:/-tag:, thread:, code:/-code:, after:,
+  before:, is:locked/unlocked, "phrase", -word, in the search page, palette
+  and link picker.
+* Welcome tour: three cards on the method first (the slip-box idea,
+  four habits, how Zetteling supports them; "Go straight to the app"
+  skips them), then a short spotlight tour of the window (library, new
+  note and templates, search, note list, edit, lock, history, export,
+  side panel, writing shortcuts, browse, settings). Starts by itself once
+  (settings.tour_seen, saved when it opens), again from the compass button
+  in the sidebar, /tour or the palette. Skips parts not on the page;
+  arrow keys, Esc, focus kept in the card; respects reduced motion.
+* Update check (updates.py): once a day, if on (settings.update_check,
+  default on; a tickbox on the welcome screen; Settings → Updates), an
+  unauthenticated GET to api.github.com/repos/shivissar/Slipbox/releases/
+  latest on a background thread started by the first main page. Remembers
+  the answer in settings; retries after 3 h on failure. Sidebar notice and
+  /update page (notes as escaped text, Download / release page opened in
+  the browser with `open`, only for this repo's GitHub URLs; Skip this
+  version; install steps). Check now in Settings and the
+  palette. Nothing is downloaded or installed by the app. Privacy page,
+  Help → Updates and INSTALL.md updated.
+* Outside links open in the browser: a capture-phase click handler sends
+  http(s) and mailto links to other sites (in notes, Privacy, Settings →
+  AI, credits) to POST /open-link, which runs `open` after checking the
+  scheme (updates.outside_link). Before, Toga's WebView loaded them in
+  the app window with no way back. Zetteling's own links are unchanged.
+* Back button on Help, Export (and the exported page) and Open beside
+  (picker and side-by-side view): returns to the note the page is about
+  or the note you came from (else the page you came from); esc does the
+  same, after closing any open palette or picker, and in a form field the
+  first esc only leaves the field. Exports of a thread or tag go back to it.
+* Recovery key: Print (which does nothing in the app window) replaced by
+  Save as text file (Downloads, never the notes folder; mode 600; Finder
+  shows it) and Copy.
+* Credits: Niklas Luhmann and Aneesh Aneesh link to their Wikipedia
+  pages, and Shiv Issar to www.shivissar.com (Settings → About, About,
+  Help, Licence).
+* settings.save is serialised and writes the file atomically (temp file
+  + replace), since the update check saves from a background thread.
+* Help page rewritten: grouped sections, sticky contents sidebar that
+  follows your place, shorter text, new features documented.
+* Fixes: exports no longer pass [[id]] links to pandoc as raw brackets;
+  single-note exports no longer repeat the title; notes created in the same
+  second get distinct IDs.
+
+### Audit fixes (8 November)
+
+* Search results escape note text, keeping only the <mark> highlights
+  (a note's HTML used to run from the search page).
+* Note HTML is sanitised by default with nh3 (ammonia), replacing bleach;
+  footnotes, table alignment, coded passages and wikilinks survive. Turned
+  on once for existing installs (settings.html_safety_applied).
+* Content-Security-Policy with a per-request nonce on every page; inline
+  event handlers moved to app.js (data-confirm, data-history-back);
+  X-Content-Type-Options: nosniff.
+* TRUSTED_HOSTS = 127.0.0.1, localhost (ZETTEL_TRUSTED_HOSTS to change);
+  ProxyFix only with ZETTEL_BEHIND_PROXY=1; random SECRET_KEY.
+* Notes are written atomically (temp file, fsync, replace; permissions
+  kept).
+* Recovery-key file: falls back from Downloads to the home folder and
+  reports a failure instead of a server error.
+* Locked notes: the chip reads "Locked · open" (a button that closes them)
+  or "Locked · closed"; a sidebar button while open; a notice after
+  locking. Plain-text notes of always-locked kinds are locked while the
+  vault is open (on unlock, then at most once a minute on page loads),
+  except ones whose lock was removed on purpose (settings.lock_exempt).
+* Argon2id: RFC 9106's second recommended setting (64 MiB, t=3, p=4) for
+  new vaults; vaults made with the 2 GiB setting are re-wrapped on the next
+  unlock, and the header copy in each locked note is refreshed.
+* Export warning counts locked notes embedded in exported ones.
+* Interrogate writes out embedded notes (three levels) and turns links
+  into titles; embedded locked notes are replaced by a placeholder.
+* Quitting: App.on_exit asks the page (window.__zettelQuit, a synchronous
+  save) and shows a dialog if anything couldn't be saved.
+* Start-up: the window opens at once with a loading page; the Flask app is
+  imported and served from a background thread on a port bound by
+  make_server; an error page replaces the 10 s timeout crash. The start-up
+  resync skips files whose mtime matches the index (index_version guards
+  upgrades).
+* Embedding after a save runs on one background worker that re-reads the
+  note and drops the vector if it was locked meanwhile.
+* Codebook CSV: POST /codes/export writes to the export folder and reveals
+  it (the window can't download); cells starting with = + - @ get a
+  leading apostrophe.
+* net.ssl_context(): certifi for Voyage, Ollama over https and the update
+  check.
+* tests/browser: the Playwright suites, fixture, run_all.py and README.
+* ⇧⌘N (GET /journal/new) no longer creates a file: it opens a new-note
+  form titled with the date and time, kind journal, body focused; the
+  first save creates the entry. New notes of a locked kind hide tag
+  suggestions, as locked notes do.
+* Note files whose front matter can't be parsed are listed
+  (watcher.PROBLEMS): a sidebar notice and Settings → Folders, with a
+  plain-English reason; Help → Troubleshooting.
+* settings.json: every save also writes settings.json.bak; an unreadable
+  file is read from the backup (else defaults), kept as
+  settings.json.unreadable-<stamp> on the next save, and reported in the
+  sidebar and Settings.
+* Settings → Trash and history: Empty trash (deletes .trash notes and
+  their history unless the ID is back in the folder) and Delete their
+  history (history of notes neither in the folder nor the trash). Nothing
+  is deleted automatically.
+* One Markdown converter per request thread (footnotes and other
+  per-document state could mix between two pages rendered at once).
+* A note changed outside Zetteling since the editor opened it (or since
+  Zetteling last wrote it) is kept in its history, reason "external",
+  before an in-app save overwrites it, whatever the 10-minute spacing;
+  the editor says so.
+* Templates: a notes folder where .templates can't be created no longer
+  breaks pages; the built-in templates are used, and saving, deleting or
+  restoring templates reports the problem.
+* Logs: no request log in the Mac app (it recorded search words and note
+  IDs in the system log); console messages name notes by ID, never by
+  filename, and search errors don't quote the search.
+* Help and INSTALL: macOS asks again for folder access after each update
+  of an ad-hoc-signed build; iCloud Drive's Optimise Mac Storage (Keep
+  Downloaded on macOS 15+). pyproject icon path uses the package's case.
+* Licence page: the plain-English summary now matches PolyForm
+  Noncommercial's permitted purposes (personal use without anticipated
+  commercial application; non-commercial organisations).
+* Links to deleted notes: clicking one showed the server's bare "Not
+  Found" page with no way back. It now opens a page in the app: the note's
+  old title and deletion date, Restore it (from .trash), the notes still
+  linking to it, and an explicit "Turn links into plain text" (history
+  kept first). Red links show the deleted note's title. 404 and 500 pages
+  are rendered inside the app with Back.
+* Citation labels name all authors (bib.py joins authors with "; ", and
+  the label split only on " and ", so "Latour and Woolgar 1979" showed as
+  "Latour 1979").
+
+## 5.1.0 (November 2026)
+
+* Locked notes. Per-note lock (padlock button, palette) and per-kind lock
+  (Settings → Locked notes → Always lock these kinds; existing notes of the
+  kind are locked when it's ticked). Body encrypted with AES-256-GCM under a
+  one-use key from HKDF-SHA-256 per save; random 256-bit data key wrapped
+  under Argon2id(password) (RFC 9106 first recommended setting, falling back
+  to the second) and under a 256-bit recovery key. Title, tags, kind,
+  threads and dates stay plain.
+* Open until quit or an idle time (5/15/30/60 min or never); "Lock now";
+  inline unlock in the editor; change password; reset with recovery key;
+  remove one lock or all.
+* Locked text never enters the search index, links table or embeddings and
+  is never sent to AI; index uses SQLite secure_delete and is optimised and
+  checkpointed after locking. Export warns that output is unencrypted.
+* Wrapped keys in .zetteling-vault.json in the notes folder and a copy in
+  every locked note.
+* Pages and API replies are sent with Cache-Control: no-store, so decrypted
+  text isn't kept in the web view's disk cache.
+* POSTs from other websites are refused (Origin/Referer must match), so a
+  page in a browser can't drive the local server, e.g. to remove locks.
 
 ## 5.0.1 (November 2026)
 

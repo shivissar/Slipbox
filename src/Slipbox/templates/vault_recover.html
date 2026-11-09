@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle -%}
+{% block title %}Reset your password{% endblock %}
+{% block main %}
+<main class="pane col card">
+  <div class="pane-body vault-page">
+    <div class="vault-card">
+      <div class="locked-icon" aria-hidden="true">{{ icon("unlock") }}</div>
+      <h1>Reset your password</h1>
+      {{ squiggle() }}
+      <p>Enter the recovery key you saved when you set up locked notes, then choose a new password. Your locked notes don’t change, and the same recovery key keeps working.</p>
+      {%- if error %}<div class="flash error">{{ error }}</div>{% endif %}
+      <form method="post" class="vault-form" data-unlock-form>
+        <label class="field-label" for="recovery">Recovery key</label>
+        <input type="text" id="recovery" name="recovery" autocomplete="off" spellcheck="false" placeholder="ABCD-EFGH-…" required>
+        <label class="field-label" for="rec-new">New password</label>
+        <input type="password" id="rec-new" name="new_password" autocomplete="new-password" minlength="10" required>
+        <label class="field-label" for="rec-confirm">New password again</label>
+        <input type="password" id="rec-confirm" name="confirm" autocomplete="new-password" minlength="10" required>
+        <button type="submit" class="btn btn-primary">Set new password</button>
+      </form>
+    </div>
+  </div>
+</main>
+{% endblock %}

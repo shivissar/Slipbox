@@ -76,3 +76,9 @@ logs/
 .backups/
 *.backup
 *.backup-*
+
+# browser test screenshots
+tests/browser/screenshots/
+
+# settings written when running from source (may hold API keys)
+src/Slipbox/settings.json*

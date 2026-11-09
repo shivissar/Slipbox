@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, kind_tile, squiggle -%}
+{% block title %}Code: {{ code }}{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Code">
+  <div class="pane-bar">
+    <a class="btn" href="{{ url_for('codebook_page') }}">← Codebook</a>
+    <strong>Code</strong>
+    <span class="grow"></span>
+    {%- if n_passages %}<form method="post" action="{{ url_for('codes_export') }}" class="inline"><input type="hidden" name="code" value="{{ code }}"><button type="submit" class="btn" title="Saved in your export folder">{{ icon("export") }}Export (CSV)</button></form>{% endif %}
+  </div>
+  <div class="pane-body">
+    <div class="measure-wide">
+      <h1><span class="qcode-tag huge">{{ code }}</span></h1>
+      <p class="hint">{{ n_passages }} passage{{ '' if n_passages == 1 else 's' }} in {{ groups|length }} note{{ '' if groups|length == 1 else 's' }}{% if definition.category %} · {{ definition.category }}{% endif %}</p>
+      {%- if msg %}<div class="flash success">{{ msg }}</div>{% endif %}
+      {%- if closed %}<div class="flash warn">{{ icon("lock", "i sm") }} {{ closed }} locked note{{ '' if closed == 1 else 's' }} not included. <a href="{{ url_for('unlock_page', next=request.path) }}">Unlock</a> to include them.</div>{% endif %}
+
+      <form method="post" action="{{ url_for('code_define', code=code) }}" class="code-def">
+        <label class="field-label" for="def">Definition <span class="hint">(what counts as this code, and what doesn’t)</span></label>
+        <textarea id="def" name="description" rows="3" placeholder="e.g. Moments where a participant relies on the system without checking it.">{{ definition.description or '' }}</textarea>
+        <div class="vault-inline">
+          <label class="field-label" for="cat">Category</label>
+          <input type="text" id="cat" name="category" value="{{ definition.category or '' }}" list="cats" placeholder="e.g. Relations to automation">
+          <datalist id="cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+          <button type="submit" class="btn">Save</button>
+        </div>
+      </form>
+
+      {%- if together or same_notes %}
+      <div class="cooc">
+        {%- if together %}
+        <div><h2 class="h-sub">Coded together with</h2>
+          <p class="cooc-list">{% for c, n in together %}<a class="qcode-tag" href="{{ url_for('code_page', code=c) }}">{{ c }}</a><span class="hint">{{ n }}</span>{% endfor %}</p></div>
+        {%- endif %}
+        {%- if same_notes %}
+        <div><h2 class="h-sub">In the same notes as</h2>
+          <p class="cooc-list">{% for c, n in same_notes %}<a class="qcode-tag" href="{{ url_for('code_page', code=c) }}">{{ c }}</a><span class="hint">{{ n }}</span>{% endfor %}</p></div>
+        {%- endif %}
+      </div>
+      {%- endif %}
+
+      <h2 class="h-sub">Passages</h2>
+      {%- for g in groups %}
+      <section class="code-group">
+        <a class="rail-link" href="{{ url_for('view', note_id=g.id) }}">{{ kind_tile(g.kind) }}<span>{{ g.title }}</span>{% if g.locked %}<span class="chip chip-lock">{{ icon("lock", "i sm") }}Locked</span>{% endif %}</a>
+        {%- for p in g.passages %}
+        <blockquote class="passage">{{ p.text }}
+          {%- if p.codes|length > 1 %}<span class="passage-codes">{% for c in p.codes if c != code %}<a class="qcode-tag" href="{{ url_for('code_page', code=c) }}">{{ c }}</a>{% endfor %}</span>{% endif %}
+        </blockquote>
+        {%- endfor %}
+      </section>
+      {%- else %}
+      <p class="hint">No passages have this code yet.</p>
+      {%- endfor %}
+
+      <h2 class="h-sub">Manage</h2>
+      <div class="set-group">
+        <form method="post" action="{{ url_for('code_rename', code=code) }}" class="set-row">
+          <div class="set-text"><strong>Rename or merge</strong><span>Type an existing code’s name to merge this one into it. Every note is changed, and a version of each is saved first.</span></div>
+          <div class="vault-inline"><input type="text" name="new_name" required placeholder="New name" aria-label="New name"><button type="submit" class="btn">Rename</button></div>
+        </form>
+        <form method="post" action="{{ url_for('code_remove', code=code) }}" class="set-row" data-confirm="Remove the code “{{ code }}” from every passage?&#10;&#10;The text stays; only the code goes. A version of each note is saved first.">
+          <div class="set-text"><strong>Remove this code everywhere</strong><span>Keeps the passages’ text and any other codes.</span></div>
+          <button type="submit" class="btn btn-danger">Remove code</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Export{% endblock %}
+{% block content %}
+  {%- from "_ui.html" import back_button %}
+  {%- if back_link %}<p class="back-row">{{ back_button(back_link) }}</p>{% endif %}
+  <h1>Export</h1>
+
+  {% if not pandoc_available %}
+    <div class="flash error">
+      <strong>pandoc is not installed.</strong> Export requires pandoc on the system PATH. Install with:
+      <pre><code>brew install pandoc        # macOS
+sudo apt install pandoc    # Ubuntu/Debian</code></pre>
+      Then restart the zettel server.
+    </div>
+  {% else %}
+
+    <p class="meta">
+      Exporting <strong>{{ title }}</strong> — {{ notes_list|length }} note{{ 's' if notes_list|length != 1 else '' }}.
+    </p>
+    {%- set n_locked = (locked_titles or [])|length %}
+    {%- if n_locked %}
+    <div class="flash warn">
+      This export includes {{ n_locked }} locked note{{ "" if n_locked == 1 else "s" }} ({% for t in locked_titles[:5] %}“{{ t }}”{% if not loop.last %}, {% endif %}{% endfor %}{% if n_locked > 5 %} and {{ n_locked - 5 }} more{% endif %}), counting notes embedded in others. The exported file is <strong>not</strong> encrypted: anyone who can open it can read {{ "it" if n_locked == 1 else "them" }}.
+    </div>
+    {%- endif %}
+
+    {% if error %}
+      <div class="flash error">
+        <strong>Pandoc error:</strong>
+        <pre><code>{{ error }}</code></pre>
+      </div>
+    {% endif %}
+
+    <form method="post" class="export-form">
+      <h2>Format</h2>
+      <div class="format-grid">
+        {% for key, info in formats.items() %}
+          <label>
+            <input type="radio" name="format" value="{{ key }}" {% if key == 'docx' %}checked{% endif %}>
+            {{ info.label }}
+          </label>
+        {% endfor %}
+      </div>
+
+      <h2>Options</h2>
+      <label style="margin-top: 0.5rem;">
+        <input type="checkbox" name="citeproc" checked>
+        Process citations through pandoc-citeproc using the configured BibTeX file
+      </label>
+      {%- if notes_list|length == 1 and '![[' in (notes_list[0].body or '') %}
+      <label style="margin-top: 0.5rem;">
+        <input type="checkbox" name="embed_titles">
+        Start each included note with its title as a heading (leave off if your manuscript has its own headings)
+      </label>
+      {%- endif %}
+
+      <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">Export to file</button>
+      <p class="meta" style="font-size: 0.78rem; margin-top: 0.6rem;">
+        Will save to <code>{{ export_dir }}</code>. Configure this in <a href="{{ url_for('settings_page') }}">settings</a>.
+      </p>
+    </form>
+
+    <h2>Notes that will be included, in order</h2>
+    <ol class="note-list">
+      {% for n in notes_list %}
+        <li>
+          <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+          <span class="meta">{{ n.id }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+
+    <h2>Notes on PDF export</h2>
+    <p class="meta">
+      Pandoc requires a LaTeX engine (XeLaTeX, pdfLaTeX, etc.) to produce PDFs directly.
+      For PDF, the easiest workflow is to export to <strong>HTML</strong> or
+      <strong>Word</strong> first, then print-to-PDF from your browser or word processor.
+      Or install MacTeX (<code>brew install --cask mactex-no-gui</code>) and pandoc will
+      gain a <code>pdf</code> format option.
+    </p>
+
+  {% endif %}
+{% endblock %}
