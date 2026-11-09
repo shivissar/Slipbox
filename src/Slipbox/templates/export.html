@@ -70,14 +70,5 @@ sudo apt install pandoc    # Ubuntu/Debian</code></pre>
       {% endfor %}
     </ol>
 
-    <h2>Notes on PDF export</h2>
-    <p class="meta">
-      Pandoc requires a LaTeX engine (XeLaTeX, pdfLaTeX, etc.) to produce PDFs directly.
-      For PDF, the easiest workflow is to export to <strong>HTML</strong> or
-      <strong>Word</strong> first, then print-to-PDF from your browser or word processor.
-      Or install MacTeX (<code>brew install --cask mactex-no-gui</code>) and pandoc will
-      gain a <code>pdf</code> format option.
-    </p>
-
   {% endif %}
 {% endblock %}
