@@ -14,10 +14,7 @@ Status
 
 Slipbox 5.2.0 released on Saturday, Nov 14, 2026: the first public release,
 signed and notarised by Apple. Downloads are on the
-`releases page <https://github.com/shivissar/Slipbox/releases>`_. Before that
-date, the code for 5.2.0 is on the
-`v5.2 <https://github.com/shivissar/Slipbox/tree/v5.2>`_ branch, and ``main``
-holds 5.0.1, from before the rename.
+`releases page <https://github.com/shivissar/Slipbox/releases>`_.
 
 What it does
 ------------
@@ -62,9 +59,9 @@ More
 ----
 
 * **Install, set up, or build from source:**
-  `INSTALL.md <https://github.com/shivissar/Slipbox/blob/v5.2/INSTALL.md>`_.
+  `INSTALL.md <https://github.com/shivissar/Slipbox/blob/main/INSTALL.md>`_.
 * **What changed:**
-  `CHANGELOG <https://github.com/shivissar/Slipbox/blob/v5.2/CHANGELOG>`_ and
+  `CHANGELOG <https://github.com/shivissar/Slipbox/blob/main/CHANGELOG>`_ and
   the About page inside the app.
 * **Homepage:** https://shivissar.com/slipbox
 * **Problems and suggestions:**
