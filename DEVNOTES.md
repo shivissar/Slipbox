@@ -182,7 +182,7 @@ v5.2.0 research tools (8 Nov 2026)
   tour_test.py (outside the repo).
 - Update check (updates.py): fetch_latest() → settings.update_latest;
   status() decides the notice (newer than __version__, not skipped, checks
-  on). Only URLs under https://github.com/shivissar/Zetteling/ are kept
+  on). Only URLs under https://github.com/shivissar/Slipbox/ are kept
   from GitHub's answer or opened (safe_url). The app never installs
   anything: open_external() hands the DMG link to the browser, so the new
   app arrives quarantined and Gatekeeper checks it. Releases must be

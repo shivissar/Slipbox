@@ -53,7 +53,7 @@ are in DEVNOTES.md.
   arrow keys, Esc, focus kept in the card; respects reduced motion.
 * Update check (updates.py): once a day, if on (settings.update_check,
   default on; a tickbox on the welcome screen; Settings → Updates), an
-  unauthenticated GET to api.github.com/repos/shivissar/Zetteling/releases/
+  unauthenticated GET to api.github.com/repos/shivissar/Slipbox/releases/
   latest on a background thread started by the first main page. Remembers
   the answer in settings; retries after 3 h on failure. Sidebar notice and
   /update page (notes as escaped text, Download / release page opened in
