@@ -25,7 +25,10 @@ are in DEVNOTES.md.
   (the old names are still read until then). The locked-note encryption
   labels (zetteling-vault-v1, zetteling-locked-v1, the BEGIN/END marker,
   HKDF info strings) keep the old name: changing them would make existing
-  locked notes unreadable. New "S" icon in the style of the old "Z".
+  locked notes unreadable. New app icon: the mascot waving, on light blue
+  (src/Slipbox/resources/Slipbox.icns, sources in artwork/); the mounted
+  disk image shows the mascot in its slip box (installer_icon,
+  artwork/Slipbox-installer.icns).
 
 * Note history (history.py): a copy of the file before it is overwritten,
   at most every 10 minutes while editing and always before restore, lock,

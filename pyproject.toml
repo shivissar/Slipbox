@@ -12,6 +12,8 @@ author_email = "shiv.issar@protonmail.com"
 formal_name = "Slipbox"
 description = "A local-first, plain-text Zettelkasten note-taking app with AI-assisted interrogation, embeddings-based related notes, and bibliography integration."
 icon = "src/Slipbox/resources/Slipbox"
+# The mounted disk image shows the mascot in its slip box; kept outside the app bundle.
+installer_icon = "artwork/Slipbox-installer"
 long_description = """Slipbox keeps each note as a plain Markdown file in a folder you
 choose, and connects notes with links, tags and threads. Optional AI features
 (note interrogation, tag suggestions, related notes) work with Anthropic,

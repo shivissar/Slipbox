@@ -238,3 +238,21 @@ v5.2.0 research tools (8 Nov 2026)
   (`briefcase package macOS --adhoc-sign`); they run on the Mac that built
   them.
 
+## Icons (from 5.2.0)
+
+- App icon: src/Slipbox/resources/Slipbox.icns, the mascot waving on light
+  blue. Disk-image (mounted volume) icon: artwork/Slipbox-installer.icns, the
+  mascot in its slip box, set with installer_icon in pyproject.toml and kept
+  outside src/ so it is not bundled into the app. The .dmg file itself keeps
+  macOS's standard disk-image icon.
+- Sources in artwork/: slipbox-icon.svg and slipbox-disk-icon.svg (full-bleed
+  1024 vector drawings of the same mascot as templates/_ui.html), the
+  -1024.png renders on Apple's grid (an 824-px square centred on a 1024
+  canvas with a soft shadow) and -1024-full-bleed.png versions for other uses.
+- Each .icns holds PNGs drawn from the vector at every size (icp4 16, icp5 32,
+  ic11 16@2x, ic12 32@2x, ic07 128, ic13 128@2x, ic08 256, ic14 256@2x,
+  ic09 512, ic10 512@2x). To rebuild on a Mac from new 1024 artwork: make an
+  .iconset folder with icon_16x16.png … icon_512x512@2x.png and run
+  `iconutil -c icns Slipbox.iconset`.
+- Changing the app icon changes the app: rebuild and notarise again.
+
