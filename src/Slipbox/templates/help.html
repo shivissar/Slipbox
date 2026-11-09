@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon, squiggle, back_button -%}
+{% block title %}Help{% endblock %}
+{% block main %}
+<main class="pane col card" aria-label="Help">
+  <div class="pane-bar">
+    {{ back_button(back_link) }}
+    <strong>Help</strong>
+    <span class="grow"></span>
+    <span class="hint">Press <kbd>⌘K</kbd> and type “help” to come back here.</span>
+  </div>
+  <div class="pane-body help-body">
+    <div class="help-layout">
+
+      <nav class="help-toc" aria-label="Contents">
+        <details open class="toc-details">
+          <summary>Contents</summary>
+          <ol>
+            <li><a href="#start">Getting started</a>
+              <ol class="toc-sub">
+                <li><a href="#zettelkasten">What a Zettelkasten is</a></li>
+                <li><a href="#getting-around">Getting around</a></li>
+                <li><a href="#basics">Creating and saving notes</a></li>
+                <li><a href="#where-notes-live">Where your notes live</a></li>
+                <li><a href="#updates">Updates</a></li>
+              </ol></li>
+            <li><a href="#writing">Writing notes</a>
+              <ol class="toc-sub">
+                <li><a href="#kinds">Kinds of note</a></li>
+                <li><a href="#templates">Templates</a></li>
+                <li><a href="#connecting">Links and backlinks</a></li>
+                <li><a href="#mentions">Unlinked mentions</a></li>
+                <li><a href="#tags-threads">Tags and threads</a></li>
+                <li><a href="#embedding">Embedding notes</a></li>
+                <li><a href="#citations">Citations and Zotero</a></li>
+                <li><a href="#history">Note history</a></li>
+              </ol></li>
+            <li><a href="#finding">Finding things</a>
+              <ol class="toc-sub">
+                <li><a href="#search">Search</a></li>
+                <li><a href="#search-filters">Search filters</a></li>
+              </ol></li>
+            <li><a href="#research-tools">Research tools</a>
+              <ol class="toc-sub">
+                <li><a href="#coding">Qualitative coding</a></li>
+                <li><a href="#manuscripts">Manuscripts</a></li>
+                <li><a href="#exporting">Exporting</a></li>
+                <li><a href="#stats">Writing stats</a></li>
+              </ol></li>
+            <li><a href="#ai-features">AI features</a>
+              <ol class="toc-sub">
+                <li><a href="#ai-setup">Setting up a provider</a></li>
+                <li><a href="#related">Related notes</a></li>
+                <li><a href="#interrogate">Interrogate</a></li>
+                <li><a href="#tag-suggestions">Tag suggestions</a></li>
+                <li><a href="#choosing-providers">Choosing providers</a></li>
+              </ol></li>
+            <li><a href="#privacy-security">Privacy and security</a>
+              <ol class="toc-sub">
+                <li><a href="#locked-notes">Locked notes</a></li>
+                <li><a href="#encryption-details">The encryption, in detail</a></li>
+                <li><a href="#trust-model">Trust model</a></li>
+              </ol></li>
+            <li><a href="#your-files">Your files</a>
+              <ol class="toc-sub">
+                <li><a href="#external-editing">Editing in other apps</a></li>
+                <li><a href="#deleting">Deleting and the trash</a></li>
+                <li><a href="#sync-and-backup">Sync and backup</a></li>
+              </ol></li>
+            <li><a href="#settings">Settings and appearance</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <article class="help">
+        <h1>Help and reference</h1>
+        {{ squiggle() }}
+        <p class="lead">The three questions people ask most: <a href="#where-notes-live">where are my notes?</a> (the folder shown under <em>Folders</em> in Settings), <a href="#citations">how do I connect Zotero?</a> (export a Better BibTeX file and give Settings its path), and <a href="#sync-and-backup">how do I back up?</a> (your notes are plain files; any backup tool works).</p>
+
+        <!-- ============================================================ -->
+        <h2 id="start">Getting started</h2>
+
+        <h3 id="zettelkasten">What a Zettelkasten is</h3>
+        <p>Slipbox is a Zettelkasten. A Zettelkasten (“slip box”, hence the name) is the note-taking method of the sociologist <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Niklas Luhmann</a>, who kept around 90,000 paper slips over four decades and credited them with his output. Four principles shape it, and this app:</p>
+        <ol>
+          <li><strong>One idea per note.</strong> “Algorithmic governance erodes accountability” is a note; “Notes on chapter 3” is not. Small ideas recombine in ways large ones can’t.</li>
+          <li><strong>Links are the structure.</strong> No folders: notes point to each other, and the web of links grows out of your thinking rather than a scheme decided in advance.</li>
+          <li><strong>Your own words.</strong> Rewriting an idea is where understanding happens. Ahrens (2017) argues that shortcuts around that friction, AI summaries included, defeat the method.</li>
+          <li><strong>Written for future writing.</strong> You write today’s note because some later project will draw on it, so consistency matters more than volume.</li>
+        </ol>
+        <p>Further reading: Sönke Ahrens, <em>How to Take Smart Notes</em> (2nd ed., 2022); <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Luhmann</a>, “Communicating with Slip Boxes” (1981, trans. Manfred Kuehn); Andy Matuschak’s notes on evergreen notes (<code>notes.andymatuschak.org</code>).</p>
+
+        <h3 id="getting-around">Getting around</h3>
+        <p>Slipbox is one window: the <strong>sidebar</strong> (your four kinds of note, plus tags, threads, citations, manuscripts, the codebook and stats), the <strong>note list</strong>, the <strong>note</strong>, and a <strong>side panel</strong> with the note’s thread, backlinks, mentions, related notes and the Interrogate tab. The panel button at the top right hides or shows the side panel.</p>
+        <p>Links to websites, in your notes or elsewhere in the app, open in your web browser; email addresses open in your mail app.</p>
+        <p><strong>Back</strong> at the top of Help, Export and <em>Open beside</em> returns to the note you came from; <kbd>esc</kbd> does the same.</p>
+        <p><strong>The tour</strong> first explains the idea behind a Zettelkasten in three short cards (skip them with <em>Go straight to the app</em>), then shows each part of the window in turn. It opens by itself the first time you use Slipbox; to see it again, click the compass at the bottom of the sidebar or choose <em>Take the tour</em> in the palette. Arrow keys move through it and <kbd>esc</kbd> leaves.</p>
+        <p><strong>The command palette</strong> (<kbd>⌘K</kbd>, or Search in the sidebar) finds notes by title and text and runs commands: new note or template, edit, export, lock, go to any page, switch light and dark. Arrows move, <kbd>↵</kbd> opens, <kbd>esc</kbd> closes.</p>
+        <table class="spec-table keys">
+          <thead><tr><th>Keys</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>⌘K</kbd></td><td>Command palette and search</td></tr>
+            <tr><td><kbd>⌘N</kbd> / <kbd>⇧⌘N</kbd></td><td>New note / new journal entry</td></tr>
+            <tr><td><kbd>⌘E</kbd></td><td>Edit this note</td></tr>
+            <tr><td><kbd>⌘S</kbd></td><td>Save and close the editor</td></tr>
+            <tr><td><kbd>⇧⌘C</kbd></td><td>Code the selected passage (while editing)</td></tr>
+            <tr><td><kbd>⌘I</kbd></td><td>Interrogate this note</td></tr>
+            <tr><td><kbd>⌘,</kbd></td><td>Settings</td></tr>
+          </tbody>
+        </table>
+        <p class="hint">If a shortcut does nothing on your Mac, a menu item may be using the same keys; the palette always works.</p>
+
+        <h3 id="basics">Creating and saving notes</h3>
+        <ul>
+          <li><strong>Create:</strong> <em>New note</em> at the top of the sidebar, or <kbd>⌘N</kbd>. Start blank or from a <a href="#templates">template</a>.</li>
+          <li><strong>Edit:</strong> <em>Edit</em> above the note, or <kbd>⌘E</kbd>. Kind, tags and thread are in the <em>Details</em> panel on the right.</li>
+          <li id="saving"><strong>Saving happens by itself:</strong> a moment after you stop typing, again when you click <em>Done</em> or leave the note, and when you quit. The label beside <em>Editing</em> shows “Saving…” and “Saved”. A new note is first saved once it has a title and you’ve moved on from the title field, so its filename uses the whole title. Prefer to save only when you press <em>Save</em>? Turn off <em>Save automatically</em> in <a href="{{ url_for('settings_page') }}#writing">Settings → Writing</a>. If you quit with something that can’t be saved (a new note without a title, changes with autosave off, or a save that failed), Slipbox asks before it closes.</li>
+          <li><strong>Delete:</strong> the bin icon above the note. See <a href="#deleting">Deleting and the trash</a>.</li>
+        </ul>
+        <p>Every note is one Markdown file named with a 14-digit ID (like <code>20260407164313</code>) and the title. The ID never changes, so titles can change without breaking links.</p>
+
+        <h3 id="where-notes-live">Where your notes live</h3>
+        <p>In the folder shown under <em>Folders</em> in <a href="{{ url_for('settings_page') }}#general">Settings</a>, labelled <em>In use now</em>. You choose it on first launch; to move it later, see <a href="#sync-and-backup">Sync and backup</a>. Settings, the search index and <a href="#history">note history</a> live separately, in <code>~/Library/Application Support/com.shivissar.slipbox/</code>.</p>
+
+        <h3 id="updates">Updates</h3>
+        <p>Once a day Slipbox asks GitHub whether a newer version has been published. When there is one, a notice appears at the foot of the sidebar; click it for what’s new and a <em>Download</em> button. You can also look at any time: <em>Check now</em> in <a href="{{ url_for('settings_page') }}#updates">Settings → Updates</a>, or <em>Check for updates</em> in the palette.</p>
+        <p>Slipbox never downloads or installs anything by itself. To update:</p>
+        <ol>
+          <li>Click <em>Download</em> on the update page. Your browser saves the new <code>.dmg</code>, usually in Downloads.</li>
+          <li>Quit Slipbox (<kbd>⌘Q</kbd>). It saves what you were typing first.</li>
+          <li>Open the <code>.dmg</code> and drag <strong>Slipbox</strong> onto <strong>Applications</strong>; choose <strong>Replace</strong>.</li>
+          <li>In Terminal, run <code>xattr -cr /Applications/Slipbox.app</code> again, so that exporting keeps working.</li>
+          <li>Open Slipbox. If macOS says it can’t check the app, go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>, as on the first install.</li>
+        </ol>
+        <p>After an update, macOS may ask again whether Slipbox can use your Documents, Desktop or iCloud Drive folders: this version isn’t signed with an Apple Developer ID, so macOS treats each new version as a new app. Click <strong>Allow</strong>.</p>
+        <p>Your notes, settings, history and locked-notes key live outside the app, so they are untouched. <em>Skip this version</em> on the update page hides the notice until a later version appears. Pre-releases are never offered.</p>
+        <p class="hint">The check sends GitHub your IP address and Slipbox’s version number, nothing from your notes (<a href="{{ url_for('privacy_page') }}#updates">Privacy</a>). Turn it off under <em>Check for new versions</em> in Settings → Updates; <em>Check now</em> still works.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="writing">Writing notes</h2>
+
+        <h3 id="kinds">Kinds of note</h3>
+        <p>Every note is one of four kinds, each with its own list in the sidebar: <strong>research</strong> (the default, with the full Zettelkasten machinery), <strong>journal</strong> (date-stamped entries; <kbd>⇧⌘N</kbd> starts a new one, saved once you type), <strong>teaching</strong> (syllabi, lecture plans, reflections) and <strong>life</strong> (everything else). Kinds keep streams apart in lists; links, backlinks, search and related notes all work across them. Change a note’s kind in the editor’s <em>Details</em> panel.</p>
+
+        <h3 id="templates">Templates</h3>
+        <p>A new note can start from a template: pick one in the row at the top of a new note, or <kbd>⌘K</kbd> → “New interview memo”. Four come built in:</p>
+        <ul>
+          <li><strong>Interview memo</strong>: context and consent, a summary in your words, moments that stood out, first codes, follow-ups, a reflexive note.</li>
+          <li><strong>Fieldnote</strong>: setting, who was there, what happened, talk, your reactions, analytic asides.</li>
+          <li><strong>Reading note</strong>: the source, its argument in one sentence, claims with pages, concepts, method, links to your work, disagreements.</li>
+          <li><strong>Lecture plan</strong>: goals, readings, a timed plan, discussion questions, and what to change next time.</li>
+        </ul>
+        <p>Edit them or make your own in <a href="{{ url_for('settings_page') }}#templates">Settings → Templates</a>. A template sets the new note’s kind, tags, title and text; <code>{{ "{{date}}" }}</code>, <code>{{ "{{time}}" }}</code> and <code>{{ "{{weekday}}" }}</code> are filled in. Templates are Markdown files in <code>.templates</code> inside your notes folder, so they travel with your notes.</p>
+
+        <h3 id="connecting">Links and backlinks</h3>
+        <p>While editing, type <code>[[</code>: a picker lists matching notes. <kbd>↵</kbd> inserts a link; <kbd>⇧↵</kbd> inserts it with the note’s title as the text. In the file a link looks like <code>[[20260407164313]]</code>, or <code>[[20260407164313|your own words]]</code> with custom text. A link to an ID that doesn’t exist yet shows dashed, a reminder of a note to write.</p>
+        <p><strong>Backlinks</strong> appear on every note without any work: the side panel lists each note that links here, with the sentence the link sits in, so you can see why it links without opening it.</p>
+
+        <h3 id="mentions">Unlinked mentions</h3>
+        <p>Under the backlinks, <em>Unlinked mentions</em> lists notes that use this note’s title, or its main part before a subtitle (“Tethered autonomy” for “Tethered autonomy — working definition”), without linking to it. <strong>Link</strong> turns the first mention into a link, keeping that note’s wording as the link text; a version of that note is saved first. Locked notes aren’t searched for mentions.</p>
+
+        <h3 id="tags-threads">Tags and threads</h3>
+        <p><strong>Tags</strong> are comma-separated in the editor’s <em>Details</em> panel; keep them lowercase and hyphenated (<code>sts-theory</code>). <strong>Threads</strong> are <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Luhmann</a>’s <em>Folgezettel</em>: named sequences of notes in argumentative order. When you create a note, the <em>Thread</em> section can start a new thread with it, or add it to the end of an existing one. A note can belong to several threads; the side panel shows its neighbours in each. Thread data lives in the note’s frontmatter.</p>
+
+        <h3 id="embedding">Embedding notes</h3>
+        <p>A line containing only <code>![[note-id]]</code> shows that note’s whole text in place, in a frame with a link to it (type <code>![[</code> to get the picker). Embeds always show the note’s latest text. They nest two levels deep. They’re how <a href="#manuscripts">manuscripts</a> work, and useful anywhere you want to read several notes as one.</p>
+
+        <h3 id="citations">Citations and Zotero</h3>
+        <p>Type <code>@</code> at the start of a word to search your bibliography and insert a citekey such as <code>@suchman1987</code>. In the note it shows as “Suchman 1987”, with the full reference on hover; the file keeps the citekey, so exports format citations properly.</p>
+        <p><strong>Setting up:</strong></p>
+        <ol>
+          <li>In Zotero, install the Better BibTeX extension.</li>
+          <li><em>File → Export Library</em>, choose the <strong>Better BibTeX</strong> format (not the built-in <em>BibTeX</em>, which can leave out citekeys), and <strong>tick “Keep updated”</strong> so the file stays current.</li>
+          <li>Save it somewhere stable, such as <code>~/Documents/Zotero/library.bib</code>, and paste its path into Settings → Bibliography.</li>
+        </ol>
+        <p>Slipbox watches the file and picks up new references within seconds. To check auto-export is really on, look under Zotero’s Settings → Better BibTeX → Auto-export.</p>
+
+        <h3 id="history">Note history</h3>
+        <p>Slipbox keeps earlier versions of each note: one at most every 10 minutes while you edit, and always one before a restore, a lock, a link added from <em>Unlinked mentions</em>, a code rename or a manuscript reorder. The clock button above a note opens its history. Pick a version to see its text and what has changed since (− lines are only in that version, + lines only in the note now), then <strong>Restore</strong> it if you want. Restoring brings back the title, tags, kind and text, and saves the current version first, so you can undo it.</p>
+        <p>Versions are kept in the app-data folder (up to 200 per note). A locked note’s versions are encrypted, and locking a note encrypts its earlier versions too.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="finding">Finding things</h2>
+
+        <h3 id="search">Search</h3>
+        <p>The search box above the note list, and <kbd>⌘K</kbd>, search titles, text and tags of every note, with matches highlighted. Search ignores case and word endings, so <em>orient</em> finds <em>orienting</em> and <em>orientation</em>. Plain searches also accept <code>OR</code> (<code>drone OR uav</code>) and a trailing <code>*</code> (<code>drone*</code>).</p>
+
+        <h3 id="search-filters">Search filters</h3>
+        <p>Add filters to any search, in the search box or the palette. They combine: <code>kind:research tag:drones code:trust after:2025</code>.</p>
+        <table class="spec-table">
+          <thead><tr><th>Type</th><th>Finds notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>kind:journal</code></td><td>of that kind (repeat for either: <code>kind:teaching kind:life</code>)</td></tr>
+            <tr><td><code>tag:drones</code> / <code>-tag:drones</code></td><td>with / without that tag</td></tr>
+            <tr><td><code>thread:"tethered autonomy"</code></td><td>in that thread (quotes for names with spaces)</td></tr>
+            <tr><td><code>code:trust</code> / <code>-code:trust</code></td><td>with / without a passage coded <em>trust</em></td></tr>
+            <tr><td><code>after:2025-06</code></td><td>written in June 2025 or later (<code>2025</code>, <code>2025-06</code> or <code>2025-06-30</code>)</td></tr>
+            <tr><td><code>before:2025-06</code></td><td>written before June 2025</td></tr>
+            <tr><td><code>is:locked</code> / <code>is:unlocked</code></td><td>locked / not locked</td></tr>
+            <tr><td><code>"exact phrase"</code></td><td>containing those words together</td></tr>
+            <tr><td><code>-word</code></td><td>not containing that word</td></tr>
+          </tbody>
+        </table>
+        <p class="hint">Dates are when a note was written. Locked notes match on title, tags and other filters, never on their text.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="research-tools">Research tools</h2>
+
+        <h3 id="coding">Qualitative coding</h3>
+        <p>Code passages in your interview memos, fieldnotes or any note, then see each code’s passages gathered in the <strong>Codebook</strong>.</p>
+        <ol>
+          <li>While editing, select a passage (within one paragraph) and press <kbd>⇧⌘C</kbd>, or <em>Code the selected passage</em> in the <em>Details</em> panel.</li>
+          <li>Type a code, or several separated by commas. Existing codes are suggested as you type; <kbd>⇥</kbd> completes, <kbd>↵</kbd> applies. Select an already-coded passage to add another code.</li>
+        </ol>
+        <p>In the file, a coded passage is written <code>[the passage]{.trust .automation}</code>, pandoc’s own notation for a labelled span. It reads clearly in any editor, and exports as ordinary text. In the note, coded passages are highlighted with their codes after them; click a code to open it.</p>
+        <p><strong>The Codebook</strong> (sidebar) lists every code with its definition and how many passages and notes use it, grouped by category. A code’s page shows all its passages by note, codes applied to the same passages, and codes found in the same notes. There you can:</p>
+        <ul>
+          <li>write a <strong>definition</strong> (what counts, what doesn’t) and a <strong>category</strong>;</li>
+          <li><strong>rename</strong> a code, or <strong>merge</strong> it by giving an existing code’s name: every note is updated, with a version of each saved first;</li>
+          <li><strong>remove</strong> a code everywhere, keeping the passages’ text;</li>
+          <li><strong>export</strong> its passages, or every code’s, as a CSV for a spreadsheet or analysis software. The file is saved in your export folder and shown in Finder. A cell that would start with <code>=</code>, <code>+</code>, <code>-</code> or <code>@</code> (an excerpt quoting <code>@smith2020</code>, say) begins with an apostrophe, so spreadsheets read it as text rather than a formula. Passages from locked notes are included while they’re open, unencrypted, and the page says how many.</li>
+        </ul>
+        <p>Codes can contain letters, numbers and hyphens (spaces become hyphens). Definitions are kept in <code>.slipbox-codebook.json</code> in your notes folder. <strong>Locked notes:</strong> their coded passages appear in the Codebook only while locked notes are open, read on the spot and never stored in the index; the <code>code:</code> search filter doesn’t see them.</p>
+
+        <h3 id="manuscripts">Manuscripts</h3>
+        <p>A manuscript gathers notes into one draft, in the order you choose, under your own headings. Create one from <em>Manuscripts</em> in the sidebar or <kbd>⌘K</kbd> → “New manuscript”. It’s an ordinary note whose lines <code>![[note-id]]</code> <a href="#embedding">embed</a> other notes, so it always shows their current text.</p>
+        <ul>
+          <li>The <strong>Manuscript</strong> panel beside it lists sections and notes with word counts. Move items up or down, remove a note from the manuscript (the note itself stays), add a note, add a section heading, or add a whole <a href="#tags-threads">thread</a> in its order.</li>
+          <li>You can also edit it like any note: write introductions and transitions between the embeds, add headings with <code>##</code>.</li>
+          <li><strong>Export manuscript</strong> produces one document with every embedded note’s text in place, links turned into plain text and, if you choose, citations formatted. Tick <em>Start each included note with its title as a heading</em> if the manuscript has no headings of its own.</li>
+        </ul>
+
+        <h3 id="exporting">Exporting</h3>
+        <p>Export a note (the export icon above it), a thread (<em>export this thread</em> on its page) or a tag (<em>export all</em>) to Word, LaTeX, HTML, EPUB, ODT, plain text or Markdown. Pandoc is built in. With <em>Process citations</em> ticked, <code>@citekeys</code> become formatted citations and a reference list from your Zotero file. Links between notes become plain text (their titles, or the link’s own words); embedded notes are included in full.</p>
+        <p>For PDF, export to Word or HTML and print to PDF; direct PDF needs a separate LaTeX installation. Files go to the export folder set in Settings. Exports of locked notes are not encrypted, and the export page says so, naming them, including locked notes embedded in the ones you export.</p>
+
+        <h3 id="stats">Writing stats</h3>
+        <p>Totals, words per note, a 30-day sparkline, when in the day you write, your most-linked notes and top tags. Observation only: no streaks or targets.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="ai-features">AI features</h2>
+        <p>Every AI feature is optional and off until you set up a provider; Slipbox works fully without them. The <a href="{{ url_for('privacy_page') }}">Privacy page</a> lists exactly what each one sends where. Locked notes are never sent to any provider.</p>
+
+        <h3 id="ai-setup">Setting up a provider</h3>
+        <p>Settings → AI has two separate slots: <strong>chat</strong> (Interrogate and tag suggestions) and <strong>embeddings</strong> (related notes). Chat: Anthropic, any OpenAI-compatible service, Google Gemini, or Ollama on your own Mac. Embeddings: OpenAI-compatible, Gemini, Ollama or Voyage AI. Defaults are filled in (<code>claude-haiku-5-5</code>, <code>gpt-5.4-mini</code>, <code>gemini-flash-latest</code> and <code>gemini-embedding-2</code>, <code>qwen2.5:14b</code> and <code>nomic-embed-text</code> for Ollama, <code>voyage-3.5</code>). Then click <em>Test connection</em>.</p>
+        <p>Two common mistakes: a chat model in the embeddings slot (or the reverse) fails quietly on every save; and Ollama models must be downloaded first with <code>ollama pull &lt;name&gt;</code>.</p>
+
+        <h3 id="related">Related notes</h3>
+        <p>With an embeddings provider, the side panel lists the notes most similar to the one you’re reading. It is the only AI feature that runs by itself: each note is sent for embedding when you leave the editor or press <kbd>⌘S</kbd>, not while you type. This happens in the background, so saving never waits for the provider. Read the list as prompts for rediscovery, not a measure of closeness: quality depends on the model, the surprising results are usually the useful ones, and cosine similarity over learned embeddings is less principled than it looks (Steck, Ekanadham and Kallus 2024, “Is Cosine-Similarity of Embeddings Really About Similarity?”, <em>Companion Proceedings of the ACM Web Conference 2024</em>, doi:10.1145/3589335.3651526). After switching models, use <em>Reindex all notes</em> in Settings.</p>
+
+        <h3 id="interrogate">Interrogate</h3>
+        <p>The <em>Interrogate</em> tab (<kbd>⌘I</kbd>) is a conversation about one note: each message sends the note and the conversation so far. Notes it <a href="#embedding">embeds</a> are written out in full, so a manuscript is read as a whole, except locked ones, which are never sent; links become the linked notes’ titles. Use it for questions that make you think (“what does this assume?”, “what would refute it?”), and put anything worth keeping into a note in your own words. Conversations are held in memory only and disappear when you quit. For sensitive material, use Ollama, which never leaves your Mac.</p>
+
+        <h3 id="tag-suggestions">Tag suggestions</h3>
+        <p><em>Suggest tags</em> in the editor sends the title, the first 4,000 characters and your existing tag list, and keeps only suggestions that are already among your tags, so your vocabulary stays consistent. It runs only when you click it.</p>
+
+        <h3 id="choosing-providers">Choosing providers</h3>
+        <p>For privacy above all, use Ollama for both slots; nothing leaves your Mac, at some cost in speed and quality. For the best chat, a cloud provider such as Anthropic; check its current data policy. For cloud embeddings, OpenAI’s <code>text-embedding-3-small</code> is good value. Read the data-retention policies of aggregators (OpenRouter, Together, Groq, DeepSeek) before sending them anything sensitive.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="privacy-security">Privacy and security</h2>
+        <p>Your notes stay on your Mac unless you turn on an AI provider. Apart from AI, the only request Slipbox makes on its own is the daily <a href="#updates">update check</a>, which carries nothing from your notes. The full account is on the <a href="{{ url_for('privacy_page') }}">Privacy</a> page.</p>
+
+        <h3 id="locked-notes">Locked notes</h3>
+        <p>A locked note’s text is encrypted on disk: in Finder, other apps, backups or sync services it reads as random characters. Without your password or recovery key, nobody can read it, including you.</p>
+        <ul>
+          <li><strong>Set up once</strong> in <a href="{{ url_for('settings_page') }}#locked">Settings → Locked notes</a>: a password of at least 10 characters (four or five unrelated words work well). You then get a <strong>recovery key</strong>, shown once. Save it as a text file or copy it into a password manager, and keep it away from your notes.</li>
+          <li><strong>Lock a note</strong> with the padlock above it, or <kbd>⌘K</kbd> → “Lock this note”. <strong>Lock a kind</strong> (your journal, say) under <em>Always lock these kinds</em>: its notes are locked now, and new ones are created locked. A note of that kind that turns up unlocked (synced from another Mac, written in another app, restored from a backup) is locked the next time locked notes are open, and Slipbox tells you. A note whose lock you removed yourself is left alone.</li>
+          <li><strong>Opening:</strong> the first locked note you open asks for the password. They stay open until you quit, or until Slipbox has been idle for the time you choose. If they close while you’re editing, your text is saved first; if it can’t be, the editor asks for the password.</li>
+          <li><strong>Open or closed:</strong> locking a note encrypts it on disk at once, but while locked notes are open you can still read it in Slipbox. The label above a locked note says which: <em>Locked · open</em> (click it to close them all) or <em>Locked · closed</em>. While they’re open, the sidebar also shows <em>Locked notes are open</em>; click it, or <kbd>⌘K</kbd> → “Lock notes now”, to close them at once.</li>
+          <li><strong>Remove a lock</strong> with the open padlock on a locked note, or <em>Remove all locks</em> in Settings. <strong>Change your password</strong> in Settings (the recovery key keeps working); <strong>forgot it?</strong> Use the recovery key.</li>
+        </ul>
+        <p><strong>What stays readable:</strong> the title, tags, kind, threads, dates, ID and filename (which includes the title), so lists and threads keep working. The size of the encrypted block hints at the note’s length.</p>
+        <p><strong>What locked notes don’t do:</strong></p>
+        <ul>
+          <li>No AI: never sent to a provider; any related-notes data from before locking is deleted.</li>
+          <li>Search finds their titles and tags, not their text; the text indexed before locking is erased from the index. Links inside them don’t appear as backlinks, and they aren’t searched for unlinked mentions.</li>
+          <li>Exports are not encrypted.</li>
+          <li>Copies made before locking (Time Machine, iCloud or Dropbox version history, Git, earlier exports) stay as they were; the disk may keep old blocks until they’re reused, which FileVault covers.</li>
+          <li>While open, the text is in Slipbox’s memory; quitting is the surest way to close it.</li>
+        </ul>
+
+        <h3 id="encryption-details">The encryption, in detail</h3>
+        <p>Standard, widely reviewed building blocks, the current recommendation for each job:</p>
+        <table class="spec-table">
+          <thead><tr><th>Part</th><th>What it uses</th><th>Settings</th></tr></thead>
+          <tbody>
+            <tr><td>Note text</td><td>AES-256 (FIPS 197) in Galois/Counter Mode, GCM (NIST SP 800-38D)</td><td>256-bit key, random 96-bit nonce, 128-bit authentication tag. The vault ID and note ID are bound in as associated data, so encrypted text can’t be swapped between notes unnoticed.</td></tr>
+            <tr><td>A new key for every save</td><td>HKDF with SHA-256 (RFC 5869; SHA-256 is FIPS 180-4)</td><td>A fresh random 256-bit salt each save derives a one-use AES key from the data key, so no key encrypts twice and SP 800-38D’s limits on random nonces never come into play.</td></tr>
+            <tr><td>Data key</td><td>256 random bits from the operating system’s secure random generator</td><td>Made once, at set-up. It never touches the disk unencrypted.</td></tr>
+            <tr><td>Password to key</td><td>Argon2id (RFC 9106)</td><td>RFC 9106’s second recommended setting, which the RFC rates safe for all environments: 64 MiB memory, 3 passes, 4 lanes, 128-bit salt, 256-bit output.{% if vault_kdf %} <strong>Your notes use: {{ vault_kdf }}.</strong>{% endif %} The deliberate slowness is why unlocking takes a moment. (Before 5.2 the first recommended setting, 2 GiB, was used; such notes move to this one the next time you unlock them.)</td></tr>
+            <tr><td>Storing the data key</td><td>AES-256-GCM key wrapping</td><td>Kept encrypted twice: under the key from your password, and under the key from your recovery key.</td></tr>
+            <tr><td>Recovery key</td><td>256 random bits, written as 52 base32 characters (RFC 4648)</td><td>Turned into a key with HKDF-SHA-256. Shown once, never stored.</td></tr>
+            <tr><td>Library</td><td>pyca/cryptography{% if crypto_versions.cryptography %} {{ crypto_versions.cryptography }}{% endif %}{% if crypto_versions.openssl %}, using {{ crypto_versions.openssl }}{% endif %}</td><td>Slipbox implements no cryptographic primitives of its own.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Tampering:</strong> GCM detects any change; an altered locked note won’t open, and Slipbox says so. <strong>Where the keys are:</strong> the wrapped keys and Argon2id settings (never the password or data key) are in <code>.slipbox-vault.json</code> in your notes folder, and a copy travels inside every locked note, so a note still opens with your password if that file goes missing. Back up the whole notes folder, hidden files included (<kbd>⇧⌘.</kbd> shows them in Finder). <strong>The file:</strong> normal frontmatter with <code>locked: true</code>, then a block between <code>-----BEGIN SLIPBOX LOCKED NOTE-----</code> and <code>-----END SLIPBOX LOCKED NOTE-----</code>.</p>
+        <p><strong>Limits:</strong> standard parts combined in a standard way, but not independently audited. If your work needs certified encryption (some ethics protocols and data-protection rules do), check with your institution, and consider an encrypted disk image or FileVault as well.</p>
+
+        <h3 id="trust-model">Trust model</h3>
+        <p>Notes don’t always come from you: imported Markdown, a folder shared with a collaborator, a file from the web. Such a note could contain HTML or script meant to run when it’s shown. Since 5.2, <em>Sanitise note HTML</em> (Settings → Writing) is on by default: scripts, event handlers and other active HTML are removed when a note is shown, while Markdown formatting, images, tables, footnotes and coded passages keep working. The app’s pages also refuse to run any script that isn’t Slipbox’s own, and Slipbox refuses changes requested by other web pages or addressed to it under another name. Turn sanitising off only if you rely on raw HTML in notes you wrote yourself. What these don’t cover (exporting untrusted notes through pandoc, sending them to Interrogate, running Slipbox on a server) is on the <a href="{{ url_for('privacy_page') }}#trust-model">Privacy page</a>.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="your-files">Your files</h2>
+
+        <h3 id="external-editing">Editing in other apps</h3>
+        <p>Nothing locks you in: edit any note in Obsidian, VS Code, vim or TextEdit, and Slipbox picks up the change within a second or two (reload the page to see it). Keep notes at the top level of the notes folder, not in subfolders, and never change the 14-digit ID at the start of a filename: that makes a new note and breaks links to the old one.</p>
+
+        <h3 id="deleting">Deleting and the trash</h3>
+        <p>Deleting moves the file into <code>.trash</code> inside your notes folder, with a timestamp added (<code>…-mynote.md.20260407164314.deleted</code>). To restore it, move it back and remove the <code>.2026….deleted</code> ending. Slipbox never empties the trash by itself. When you’re sure, use <em>Empty trash</em> in <a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a>, which also deletes those notes’ <a href="#history">history</a>; the same place can delete the history of notes you removed in Finder.</p>
+
+        <h3 id="sync-and-backup">Sync and backup</h3>
+        <p>Your notes are plain files, so any backup works: Time Machine, iCloud Drive, Dropbox, Git, <code>rsync</code>. Back up the whole notes folder, hidden files included (templates, the codebook and the locked-notes key file live there).</p>
+        <p id="icloud"><strong>iCloud Drive:</strong> with <em>Optimise Mac Storage</em> on, macOS removes older files from your Mac when space runs low and keeps them only in iCloud. Slipbox can’t show a note that isn’t on the Mac, or has to wait while it downloads. On macOS 15 (Sequoia) or later, Control-click the notes folder in Finder and choose <strong>Keep Downloaded</strong>. On macOS 14 (Sonoma), turn off Optimise Mac Storage (System Settings → your name → iCloud). On earlier versions macOS can remove files whatever that setting says, so a notes folder outside iCloud Drive, backed up with Time Machine, is safer.</p>
+        <p><strong>Moving the notes folder:</strong> Slipbox doesn’t move notes for you.</p>
+        <ol>
+          <li>Quit Slipbox.</li>
+          <li><em>Copy</em> (not move) the notes folder to its new place, such as <code>~/Documents/Slipbox</code>.</li>
+          <li>Open Slipbox, set the new path under Settings → Folders, save, and relaunch.</li>
+          <li>Check your note count matches, then delete the old copy a week later.</li>
+        </ol>
+        <p><strong>Version history with Git:</strong> in the notes folder, run <code>git init</code>, <code>git add .</code>, <code>git commit -m "start"</code>, then commit as often as you like; <code>git log -p &lt;file&gt;</code> shows one note’s history. (Slipbox’s own <a href="#history">note history</a> covers recent changes without any setup.)</p>
+        <p><strong>Several Macs with Syncthing:</strong> each Mac runs its own Slipbox on its own copy of the notes folder, and Syncthing keeps the folders in step. Install it (<code>brew install syncthing</code>, then <code>brew services start syncthing</code>), open <code>http://127.0.0.1:8384</code>, pair the devices with <em>Actions → Show ID</em> and <em>Add Remote Device</em>, then share the notes folder (with <em>Staggered File Versioning</em>). <strong>Sync only the notes folder</strong>, never the app-data folder: its database is per-Mac, and <code>settings.json</code> holds API keys. Simultaneous edits produce <code>.sync-conflict-…</code> files rather than losing anything. Put your <code>.bib</code> file in the same folder to sync it too.</p>
+
+        <!-- ============================================================ -->
+        <h2 id="settings">Settings and appearance</h2>
+        <p><a href="{{ url_for('settings_page') }}">Settings</a> (bottom of the sidebar, or <kbd>⌘,</kbd>) holds everything: appearance, folders, writing (autosave, HTML sanitising), templates, locked notes, AI providers and the bibliography. Changes apply at once, except a new notes folder, which needs a relaunch. Settings are stored in <code>settings.json</code> in the app-data folder, with a backup copy, <code>settings.json.bak</code>, written at every save. If the file is ever damaged, Slipbox reads the backup instead, keeps the damaged file beside it (renamed), and says so in the sidebar.</p>
+        <p><strong>Appearance:</strong> a light theme (Meadow, Lagoon, Blossom, Paper) and a dark one (Starlit, Forest, Midnight), whether to follow your Mac, an accent colour, interface and reading fonts, text size, and the background illustrations. The moon or sun button in the sidebar cycles between following your Mac, always light and always dark.</p>
+        <p>The last section links to <em>What’s new</em>, <em>Privacy</em> and the <em>Licence</em> (PolyForm Noncommercial 1.0.0, with a list of the third-party software inside the app).</p>
+
+        <!-- ============================================================ -->
+        <h2 id="troubleshooting">Troubleshooting</h2>
+        <dl class="troubleshooting">
+          <dt>Exports fail or produce nothing (perhaps <code>killed: 9</code>)</dt>
+          <dd>Run <code>xattr -cr /Applications/Slipbox.app</code> in Terminal once after installing, then try again.</dd>
+
+          <dt>A change made in another app doesn’t show</dt>
+          <dd>Reload the page. If it still doesn’t show, check the file is directly in the notes folder, not a subfolder.</dd>
+
+          <dt>The bibliography shows no entries</dt>
+          <dd>The file was probably exported with Zotero’s built-in <em>BibTeX</em> format. Export again with <em>Better BibTeX</em> and point Settings at the new file.</dd>
+
+          <dt>A new Zotero reference doesn’t appear</dt>
+          <dd>The export isn’t set to keep updated. Check Zotero’s Settings → Better BibTeX → Auto-export; if the file isn’t listed, export again with “Keep updated” ticked.</dd>
+
+          <dt>The <code>@</code> picker doesn’t appear</dt>
+          <dd>No bibliography is set. Add the path in Settings → Bibliography.</dd>
+
+          <dt>Search misses words that are in my notes</dt>
+          <dd>The index may be out of step. Quit, delete <code>zettel.db</code> from the app-data folder, and relaunch: it rebuilds from your notes. This is always safe. (Locked notes’ text is never searchable.)</dd>
+
+          <dt>Notes go missing from the lists now and then (notes folder in iCloud Drive)</dt>
+          <dd>macOS has probably removed them from your Mac to save space. See <a href="#icloud">iCloud Drive</a> under Sync and backup.</dd>
+
+          <dt>A note is missing from the lists</dt>
+          <dd>If the sidebar says a note can’t be read, its front matter (the lines between <code>---</code> at the top of the file) has an error, usually an unclosed bracket or quotation mark, or a colon in the title without quotation marks around it. <a href="{{ url_for('settings_page') }}#unreadable">Settings → Folders</a> lists the files and the problem. Fix it in a text editor and the note comes back as soon as you save. Otherwise, check the file is directly in the notes folder, not a subfolder.</dd>
+
+          <dt>A link shows in red</dt>
+          <dd>The note it points to was deleted. Click the link: if the note is in the trash you can restore it, and you can turn the remaining links to it into plain text. Nothing changes unless you choose to.</dd>
+
+          <dt>A link shows as broken</dt>
+          <dd>Links use the note’s 14-digit ID, not its title. Use the <code>[[</code> picker to insert it.</dd>
+
+          <dt>⇧⌘C doesn’t code anything</dt>
+          <dd>Select some text first, within a single paragraph. If the shortcut is taken on your Mac, use <em>Code the selected passage</em> in the editor’s <em>Details</em> panel.</dd>
+
+          <dt>Locked notes won’t open with my password</dt>
+          <dd>Check Caps Lock and your keyboard layout. If you’ve forgotten it, use <em>Use recovery key</em> in Settings → Locked notes. Without the password or recovery key, locked notes can’t be opened.</dd>
+
+          <dt>AI features don’t appear</dt>
+          <dd>No provider is set. Choose one in Settings → AI and click <em>Test connection</em>.</dd>
+
+          <dt>Ollama: “connection refused” or “model not found”</dt>
+          <dd>Start it with <code>ollama serve</code> (base URL <code>http://127.0.0.1:11434</code>), and check <code>ollama list</code> against the model names in Settings; download missing ones with <code>ollama pull</code>. Remember embeddings need an embedding model such as <code>nomic-embed-text</code>.</dd>
+
+          <dt>Something else</dt>
+          <dd>Quit and relaunch first. Logs can be read in Console.app, or with <code>log stream --predicate 'process == "Slipbox"'</code> in Terminal.</dd>
+        </dl>
+      </article>
+    </div>
+  </div>
+</main>
+<script nonce="{{ csp_nonce }}">
+  /* Highlight the section you're reading in the contents, and show only
+     its sub-sections there. */
+  (function () {
+    var toc = document.querySelector(".help-toc");
+    if (!toc || !("IntersectionObserver" in window)) return;
+    toc.classList.add("js");
+    var links = {};
+    toc.querySelectorAll("a[href^='#']").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+    var heads = Array.prototype.slice.call(document.querySelectorAll(".help h2[id], .help h3[id]"));
+    var current = null;
+    var mark = function (id) {
+      if (id === current || !links[id]) return;
+      current = id;
+      toc.querySelectorAll(".on, .open").forEach(function (el) { el.classList.remove("on", "open"); });
+      var a = links[id];
+      a.classList.add("on");
+      var top = a.closest(".help-toc > details > ol > li");
+      if (top) { top.classList.add("open"); top.querySelector("a").classList.add("on"); }
+      // keep the current entry in view inside the contents list
+      var r = a.getBoundingClientRect(), tr = toc.getBoundingClientRect();
+      if (r.top < tr.top || r.bottom > tr.bottom) toc.scrollTop += r.top - tr.top - tr.height / 3;
+    };
+    var obs = new IntersectionObserver(function (entries) {
+      var visible = heads.filter(function (h) { return h.getBoundingClientRect().top < window.innerHeight * 0.35; });
+      if (visible.length) mark(visible[visible.length - 1].id);
+    }, { root: null, threshold: [0, 1] });
+    heads.forEach(function (h) { obs.observe(h); });
+    var scroller = document.querySelector(".help-body");
+    var onScroll = function () {
+      var visible = heads.filter(function (h) { return h.getBoundingClientRect().top < window.innerHeight * 0.35; });
+      mark(visible.length ? visible[visible.length - 1].id : heads[0].id);
+    };
+    (scroller || window).addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    if (window.matchMedia("(max-width: 980px)").matches) toc.querySelector("details").open = false;
+  })();
+</script>
+{% endblock %}

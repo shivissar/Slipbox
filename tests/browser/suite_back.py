@@ -11,7 +11,7 @@ os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
 from pathlib import Path
-from Verweis import flask_app, embed, watcher, export
+from Slipbox import flask_app, embed, watcher, export
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 export.PANDOC_PATH, export.PANDOC_AVAILABLE = H.PANDOC, bool(H.PANDOC)
@@ -101,7 +101,7 @@ with sync_playwright() as p:
     code = pg.inner_text("#recovery-key").strip()
     check("recovery page has no Print button", pg.locator("button:has-text('Print')").count() == 0)
     pg.click("button:has-text('Save as text file')"); pg.wait_for_timeout(600)
-    files = sorted(Path(KEYDIR).glob("Verweis recovery key *.txt"))
+    files = sorted(Path(KEYDIR).glob("Slipbox recovery key *.txt"))
     check("Save as text file writes the key", len(files) == 1 and code in files[0].read_text(), files)
     check("readable only by you", files and stat.S_IMODE(files[0].stat().st_mode) == 0o600)
     check("and says where it went, without leaving the page", "Downloads" not in "" and "Saved to your Downloads folder" in pg.inner_text("#key-saved")
@@ -118,7 +118,7 @@ with sync_playwright() as p:
     check("Copy button responds", pg.locator("button:has-text('Copied'), button:has-text('Copy')").count() >= 1)
 
     # 5.2: a link to a deleted note opens a page inside the app, with Back
-    from Verweis import notes as N, db as DB
+    from Slipbox import notes as N, db as DB
     gone = N.create_note("Soon deleted", body="x"); DB.upsert_note(gone)
     src = N.create_note("Points at it", body=f"See [[{gone.id}]] here."); DB.upsert_note(src)
     pg.on("dialog", lambda d: d.accept())

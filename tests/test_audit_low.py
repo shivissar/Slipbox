@@ -17,7 +17,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Verweis import db, embed, flask_app, history, notes, settings, watcher  # noqa: E402
+from Slipbox import db, embed, flask_app, history, notes, settings, watcher  # noqa: E402
 
 app = flask_app.app
 
@@ -179,7 +179,7 @@ def test_outside_edit_kept_in_history_before_in_app_save(client):
 # 26 ------------------------------------------------------------------------
 
 def test_templates_work_in_a_read_only_notes_folder(client, monkeypatch):
-    from Verweis import note_templates
+    from Slipbox import note_templates
     real_mkdir = Path.mkdir
 
     def refuse(self, *a, **k):

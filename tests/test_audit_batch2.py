@@ -17,7 +17,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Verweis import chat, db, embed, export, flask_app, notes, settings, vault  # noqa: E402
+from Slipbox import chat, db, embed, export, flask_app, notes, settings, vault  # noqa: E402
 
 app = flask_app.app
 _REAL_EMBED_ASYNC = embed.embed_note_async

@@ -8,7 +8,7 @@ D = H.prepare("ztour")
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
-from Verweis import flask_app, embed, settings, watcher
+from Slipbox import flask_app, embed, settings, watcher
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 settings.save({"tour_seen": False})
@@ -54,7 +54,7 @@ with sync_playwright() as p:
     for _ in range(3):
         pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(350)
         intro.append(pg.inner_text("#tour-title"))
-    check("the method before the app, on the same page", intro == ["The idea: a slip-box", "Four habits", "How Verweis helps"]
+    check("the method before the app, on the same page", intro == ["The idea: a slip-box", "Four habits", "How Slipbox helps"]
           and "/note/" not in pg.url, (intro, pg.url))
     pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300); pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300)
     check("slip-box picture shown", pg.locator(".tour-art svg.tour-slips").count() == 1)
@@ -78,10 +78,10 @@ with sync_playwright() as p:
           or card["x"] + card["width"] <= lib["x"] or card["y"] + card["height"] <= lib["y"], (card, lib))
     pg.screenshot(path=f"{SH}/v52_tour_library.png")
     pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(300)
-    check("arrow key goes back", pg.inner_text("#tour-title") == "How Verweis helps")
+    check("arrow key goes back", pg.inner_text("#tour-title") == "How Slipbox helps")
     for _ in range(3):
         pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(200)
-    check("back to the welcome", pg.inner_text("#tour-title") == "Welcome to Verweis")
+    check("back to the welcome", pg.inner_text("#tour-title") == "Welcome to Slipbox")
     pg.click(".tour-jump"); pg.wait_for_timeout(500)
     check("Go straight to the app skips the method", pg.inner_text("#tour-title") == "Four kinds of note")
     pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(200)

@@ -9,23 +9,23 @@ D = H.prepare("zupd")
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
-from Verweis import flask_app, embed, settings, watcher, updates
+from Slipbox import flask_app, embed, settings, watcher, updates
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 settings.save({"tour_seen": True, "update_check": True, "update_next_check": 0, "update_latest": {},
                "update_skip": "", "update_error": ""})
 watcher.full_resync()
 
-REL = {"version": "5.3.0", "tag": "v5.3.0", "name": "Verweis 5.3.0", "published": "2026-12-01",
+REL = {"version": "5.3.0", "tag": "v5.3.0", "name": "Slipbox 5.3.0", "published": "2026-12-01",
        "notes": "Faster search.\n\n<script>window.__pwned = 1</script> **Bold?**",
-       "url": "https://github.com/shivissar/Verweis/releases/tag/v5.3.0",
-       "dmg_url": "https://github.com/shivissar/Verweis/releases/download/v5.3.0/Verweis-5.3.0.dmg"}
+       "url": "https://github.com/shivissar/Slipbox/releases/tag/v5.3.0",
+       "dmg_url": "https://github.com/shivissar/Slipbox/releases/download/v5.3.0/Slipbox-5.3.0.dmg"}
 state = {"mode": "ok", "calls": 0}
 def fake_fetch(current):
     state["calls"] += 1
     time.sleep(1.5)  # a slow network must not hold up the page
     if state["mode"] == "offline":
-        raise updates.UpdateError("Couldn’t reach GitHub. Check that you’re online; Verweis will try again later.")
+        raise updates.UpdateError("Couldn’t reach GitHub. Check that you’re online; Slipbox will try again later.")
     return dict(REL)
 updates.fetch_latest = fake_fetch
 opened = []
@@ -63,13 +63,13 @@ with sync_playwright() as p:
     check("not checked again the same day", state["calls"] == 1, state)
 
     pg.click(".side-update"); pg.wait_for_timeout(400)
-    check("update page", "Verweis 5.3.0 is available" in pg.inner_text("h1") and "You have 5.2.0" in pg.inner_text(".lead"))
+    check("update page", "Slipbox 5.3.0 is available" in pg.inner_text("h1") and "You have 5.2.0" in pg.inner_text(".lead"))
     check("release notes shown as text, not run", "<script>" in pg.inner_text(".release-notes") and not pg.evaluate("window.__pwned"))
-    check("install steps include the Terminal line", pg.locator("#xattr-line").inner_text() == "xattr -cr /Applications/Verweis.app")
+    check("install steps include the Terminal line", pg.locator("#xattr-line").inner_text() == "xattr -cr /Applications/Slipbox.app")
     pg.screenshot(path=f"{SH}/v52_update_page.png", full_page=True)
-    pg.click("button:has-text('Download Verweis 5.3.0')"); pg.wait_for_timeout(400)
+    pg.click("button:has-text('Download Slipbox 5.3.0')"); pg.wait_for_timeout(400)
     check("download opens the DMG link outside the app", opened[-1:] == [REL["dmg_url"]], opened)
-    check("and says what happens next", "downloading Verweis 5.3.0" in pg.inner_text(".flash.success"))
+    check("and says what happens next", "downloading Slipbox 5.3.0" in pg.inner_text(".flash.success"))
     pg.click("button:has-text('Open the release page')"); pg.wait_for_timeout(300)
     check("release page opens outside the app", opened[-1] == REL["url"])
 

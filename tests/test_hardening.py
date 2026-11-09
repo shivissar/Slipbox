@@ -16,7 +16,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Verweis import db, flask_app, notes, settings  # noqa: E402
+from Slipbox import db, flask_app, notes, settings  # noqa: E402
 
 app = flask_app.app
 

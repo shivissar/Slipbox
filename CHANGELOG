@@ -1,19 +1,19 @@
-# Verweis Release Notes
+# Slipbox Release Notes
 
-Verweis was called Zetteling until 5.2.0; entries below that predate the
+Slipbox was called Zetteling until 5.2.0; entries below that predate the
 rename keep the old name. The full, user-facing history is on the About
-page inside the app (src/Verweis/templates/about.html). Engineering notes
+page inside the app (src/Slipbox/templates/about.html). Engineering notes
 are in DEVNOTES.md.
 
 ## 5.2.0 (November 2026)
 
-* Renamed Zetteling to Verweis (German for a cross-reference). Package
-  src/Verweis, app ID com.shivissar.verweis, homepage
-  https://shivissar.com/verweis, repository shivissar/Verweis. On first
+* Renamed Zetteling to Slipbox, the English for Zettelkasten. Package
+  src/Slipbox, app ID com.shivissar.slipbox, homepage
+  https://shivissar.com/slipbox, repository shivissar/Slipbox. On first
   launch, migrate.py moves the old app-data folder
   (com.shivissar.zetteling) into the new one and repoints settings that
   named places inside it; the hidden .zetteling-vault.json and
-  .zetteling-codebook.json in the notes folder are renamed to .verweis-*
+  .zetteling-codebook.json in the notes folder are renamed to .slipbox-*
   (the old names are still read until then). The locked-note encryption
   labels (zetteling-vault-v1, zetteling-locked-v1, the BEGIN/END marker,
   HKDF info strings) keep the old name: changing them would make existing

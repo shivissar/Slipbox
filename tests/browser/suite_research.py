@@ -8,7 +8,7 @@ D = H.prepare("z52ui")
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
-from Verweis import flask_app, embed, settings, watcher, history, export, notes as N
+from Slipbox import flask_app, embed, settings, watcher, history, export, notes as N
 export.PANDOC_PATH, export.PANDOC_AVAILABLE = H.PANDOC, bool(H.PANDOC)  # the repo's pandoc is the macOS binary
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
@@ -85,7 +85,7 @@ with sync_playwright() as p:
     # 5.2 audit: the CSV is saved to the export folder (the app window can't download)
     flask_app._reveal = lambda path: (True, "ok")
     pg.click('button:has-text("Export passages (CSV)")'); pg.wait_for_timeout(500)
-    csvs = glob.glob(f"{D}/exports/*-verweis-codebook.csv")
+    csvs = glob.glob(f"{D}/exports/*-slipbox-codebook.csv")
     check("codebook CSV saved to export folder", len(csvs) == 1 and "/codes" in pg.url
           and os.path.basename(csvs[0]) in pg.inner_text(".flash.success"), (csvs, pg.url))
 

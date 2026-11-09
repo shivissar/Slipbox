@@ -1,5 +1,5 @@
 """5.2 outside links: links to other websites open in the browser (via
-/open-link), not in the app window; Verweis's own links behave as before;
+/open-link), not in the app window; Slipbox's own links behave as before;
 the credits link to Wikipedia and shivissar.com."""
 import os, sys, threading, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,7 @@ open(f"{D}/notes/20261108100000-links-to-elsewhere.md", "w").write(NOTE)
 os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D}/zettel.db",
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
-from Verweis import flask_app, embed, watcher, updates
+from Slipbox import flask_app, embed, watcher, updates
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 watcher.full_resync()
@@ -61,7 +61,7 @@ with sync_playwright() as p:
     pg.click("article a:has-text('run this')", no_wait_after=True); pg.wait_for_timeout(400)
     check("script links are never sent out", len(opened) == n)
     pg.click("article a:has-text('Help')"); pg.wait_for_timeout(500)
-    check("Verweis's own links still work in the window", pg.url.endswith("/help") and len(opened) == n, pg.url)
+    check("Slipbox's own links still work in the window", pg.url.endswith("/help") and len(opened) == n, pg.url)
 
     # Middle-click, and links with target=_blank (Settings → AI)
     pg.goto(f"{BASE}/settings#ai"); pg.wait_for_timeout(400)

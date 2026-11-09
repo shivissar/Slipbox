@@ -1,13 +1,15 @@
-# Verweis DEVNOTES
+# Slipbox DEVNOTES
 
 (Called Zetteling until 5.2.0; older entries keep that name.)
 
-## Rename to Verweis (9 November 2026)
+## Rename to Slipbox (9 November 2026)
 
-- Everything visible says Verweis; package src/Verweis; Briefcase app key
-  Verweis, so the bundle ID is com.shivissar.verweis and the app-data folder
+- Everything visible says Slipbox; package src/Slipbox; Briefcase app key
+  Slipbox, so the bundle ID is com.shivissar.slipbox and the app-data folder
   moves. migrate.move_old_app_data() runs in App.startup before anything
   opens the database; vault.rename_legacy_files() runs in create_app().
+- Development builds were briefly called Verweis (9 Nov, never released);
+  migrate.OLD_APP_IDS and the legacy file names include its names too.
 - Deliberately unchanged: vault.VAULT_FORMAT, NOTE_FORMAT, BEGIN/END and the
   HKDF info strings (all "zetteling…"), which are bound into the ciphertext;
   ZETTEL_* environment variables; zettel.db; the "zettel-rail-hidden"

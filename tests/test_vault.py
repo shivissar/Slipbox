@@ -15,7 +15,7 @@ os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 os.environ["ZETTEL_VAULT_KDF"] = "light"  # RFC 9106 second recommended, for speed
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Verweis import notes, vault  # noqa: E402
+from Slipbox import notes, vault  # noqa: E402
 
 PW = "correct horse battery staple"
 
@@ -102,7 +102,7 @@ def test_recovery_and_password_change(fresh):
 
 
 def test_keyfile_lost_header_recovered_from_notes(fresh):
-    from Verweis import db
+    from Slipbox import db
     db.init_db()
     vault.setup(PW, kdf=vault.ARGON2_LIGHT)
     (fresh / "20260101000000-x.md").write_text("---\nlocked: true\n---\n" + vault.encrypt_body("20260101000000", "survives"))

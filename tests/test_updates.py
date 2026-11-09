@@ -17,17 +17,17 @@ os.environ.setdefault("ZETTEL_NOTES_DIR", str(_tmp / "notes"))
 os.environ.setdefault("ZETTEL_DB_PATH", str(_tmp / "zettel.db"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from Verweis import settings, updates  # noqa: E402
+from Slipbox import settings, updates  # noqa: E402
 
 RELEASE = {
     "tag_name": "v5.3.0",
-    "name": "Verweis 5.3.0",
+    "name": "Slipbox 5.3.0",
     "published_at": "2026-12-01T10:00:00Z",
     "body": "Fixes.\r\n\r\n<script>alert(1)</script>",
-    "html_url": "https://github.com/shivissar/Verweis/releases/tag/v5.3.0",
+    "html_url": "https://github.com/shivissar/Slipbox/releases/tag/v5.3.0",
     "assets": [
-        {"name": "pandoc-3.1.13.tar.gz", "browser_download_url": "https://github.com/shivissar/Verweis/releases/download/v5.3.0/pandoc-3.1.13.tar.gz"},
-        {"name": "Verweis-5.3.0.dmg", "browser_download_url": "https://github.com/shivissar/Verweis/releases/download/v5.3.0/Verweis-5.3.0.dmg"},
+        {"name": "pandoc-3.1.13.tar.gz", "browser_download_url": "https://github.com/shivissar/Slipbox/releases/download/v5.3.0/pandoc-3.1.13.tar.gz"},
+        {"name": "Slipbox-5.3.0.dmg", "browser_download_url": "https://github.com/shivissar/Slipbox/releases/download/v5.3.0/Slipbox-5.3.0.dmg"},
     ],
 }
 
@@ -66,12 +66,12 @@ def test_parse_version():
 
 
 def test_only_this_projects_github_urls_are_trusted():
-    ok = "https://github.com/shivissar/Verweis/releases/tag/v5.3.0"
+    ok = "https://github.com/shivissar/Slipbox/releases/tag/v5.3.0"
     assert updates.safe_url(ok) == ok
-    assert updates.safe_url("https://github.com/someone/Verweis/releases") is None
-    assert updates.safe_url("https://github.com.evil.example/shivissar/Verweis/") is None
-    assert updates.safe_url("http://github.com/shivissar/Verweis/releases") is None
-    assert updates.safe_url("https://github.com/shivissar/Verweis/x\" onclick=") is None
+    assert updates.safe_url("https://github.com/someone/Slipbox/releases") is None
+    assert updates.safe_url("https://github.com.evil.example/shivissar/Slipbox/") is None
+    assert updates.safe_url("http://github.com/shivissar/Slipbox/releases") is None
+    assert updates.safe_url("https://github.com/shivissar/Slipbox/x\" onclick=") is None
     assert updates.safe_url(None) is None
 
 
@@ -80,11 +80,11 @@ def test_check_finds_newer_release(fresh):
     st = updates.check("5.2.0", force=True)
     assert st["newer"] and st["notice"] and not st["error"]
     assert st["latest"]["version"] == "5.3.0"
-    assert st["latest"]["dmg_url"].endswith("Verweis-5.3.0.dmg")
+    assert st["latest"]["dmg_url"].endswith("Slipbox-5.3.0.dmg")
     assert st["latest"]["notes"].startswith("Fixes.\n\n")  # stored as text; the page escapes it
     req = calls[0]
     assert req.full_url == updates.API_URL
-    assert req.get_header("User-agent") == "Verweis/5.2.0"
+    assert req.get_header("User-agent") == "Slipbox/5.2.0"
     assert not req.get_header("Authorization")
 
 
@@ -95,8 +95,8 @@ def test_same_or_older_release_is_not_offered(fresh):
 
 def test_untrusted_links_in_the_answer_are_dropped(fresh):
     answer, _ = fresh
-    bad = dict(RELEASE, html_url="https://evil.example/verweis",
-               assets=[{"name": "Verweis-5.3.0.dmg", "browser_download_url": "https://evil.example/z.dmg"}])
+    bad = dict(RELEASE, html_url="https://evil.example/slipbox",
+               assets=[{"name": "Slipbox-5.3.0.dmg", "browser_download_url": "https://evil.example/z.dmg"}])
     answer(bad)
     st = updates.check("5.2.0", force=True)
     assert st["latest"]["url"] == updates.RELEASES_PAGE
@@ -144,10 +144,10 @@ def test_open_external_refuses_other_sites(monkeypatch):
     opened = []
     monkeypatch.setattr(updates.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(updates.subprocess, "run", lambda args, check=False: opened.append(args))
-    assert updates.open_external("https://github.com/shivissar/Verweis/releases")
+    assert updates.open_external("https://github.com/shivissar/Slipbox/releases")
     assert not updates.open_external("https://evil.example/")
     assert not updates.open_external("file:///etc/passwd")
-    assert opened == [["open", "https://github.com/shivissar/Verweis/releases"]]
+    assert opened == [["open", "https://github.com/shivissar/Slipbox/releases"]]
 
 
 def test_settings_writes_are_whole(tmp_path, monkeypatch):

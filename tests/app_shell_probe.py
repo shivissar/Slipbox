@@ -19,9 +19,9 @@ if mode == "broken":
         raise OSError("no ports for you")
     werkzeug.serving.make_server = _refuse
 
-from Verweis import app as shell  # noqa: E402
+from Slipbox import app as shell  # noqa: E402
 
-a = shell.Verweis(formal_name="Verweis", app_id="org.example.verweis")
+a = shell.Slipbox(formal_name="Slipbox", app_id="org.example.slipbox")
 pages = []
 a.webview.set_content = lambda root, content: pages.append(content)
 assert not a.ready

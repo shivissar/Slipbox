@@ -1,8 +1,8 @@
-# Third-party components in Verweis
+# Third-party components in Slipbox
 
-Verweis's own code is under the PolyForm Noncommercial License 1.0.0
+Slipbox's own code is under the PolyForm Noncommercial License 1.0.0
 (see LICENSE). The macOS app also ships the following, each under its own
-licence. Those licences apply to those components, not to Verweis.
+licence. Those licences apply to those components, not to Slipbox.
 
 ## Programs, fonts and scripts
 
@@ -24,7 +24,7 @@ licence. Those licences apply to those components, not to Verweis.
 ## Other Python packages
 
 Each ships with its own licence file in its `*.dist-info` folder inside
-`app_packages/`. Versions are those resolved for Verweis 5.2.0 on macOS;
+`app_packages/`. Versions are those resolved for Slipbox 5.2.0 on macOS;
 a given build may differ slightly (the exact set is in `app_packages/`).
 
 | Package | Version | Licence |

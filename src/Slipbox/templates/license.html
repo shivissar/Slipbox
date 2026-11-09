@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}License{% endblock %}
+{% block content %}
+  <article class="help">
+    <h1>License</h1>
+
+    <p>Slipbox is released under the <strong>PolyForm Noncommercial
+    License 1.0.0</strong>, a source-available license. It lets you use,
+    change and share Slipbox free of charge for the purposes it
+    permits: personal use without any anticipated commercial
+    application, and use by charitable, educational, public-research,
+    public-safety or health, environmental and government organisations.
+    Other uses, including commercial use, are not covered.</p>
+
+    <h2>In plain English</h2>
+
+    <p>You may use Slipbox for these purposes without asking
+    permission, for example:</p>
+    <ul>
+      <li>Running it on your own machine to take notes for personal
+        study, hobby projects, or research for the benefit of public
+        knowledge, without any anticipated commercial application</li>
+      <li>Modifying the source code to suit your workflow</li>
+      <li>Sharing modified versions with colleagues, students, or
+        collaborators under the same license</li>
+      <li>Using it at, or for the work of, a charitable organisation,
+        educational institution (a university, say), public research
+        organisation, public safety or health organisation, environmental
+        protection organisation, or government institution</li>
+      <li>Building on it for your own research, including academic
+        publications about how you extended or used the tool</li>
+    </ul>
+
+    <p>You may <strong>not</strong>:</p>
+    <ul>
+      <li>Sell Slipbox or a derivative work of it</li>
+      <li>Offer Slipbox as a paid hosted service</li>
+      <li>Incorporate Slipbox into a commercial product or service
+        that generates revenue</li>
+      <li>Use Slipbox for the work of a for-profit company, including
+        research or notes with a commercial application in view. Someone
+        who works at a company may still use it personally (personal
+        study, or research for public knowledge with no commercial
+        application), just not for the company’s business.</li>
+    </ul>
+
+    <h2>A note on terminology</h2>
+
+    <p>The PolyForm Noncommercial license is <em>source-available</em>
+    rather than "open source" in the strict technical sense. The
+    <a href="https://opensource.org/osd">Open Source Definition</a>
+    maintained by the Open Source Initiative prohibits any restriction
+    on field of endeavor, including restrictions on commercial use,
+    so licenses like this one are not OSI-approved open source.
+    They are better described as "source-available" or "freely
+    available for non-commercial use." The distinction matters mostly
+    for people who are careful about licensing terminology. For most
+    users, the practical question is what the use is for: personal use
+    with no commercial aim, or use by a non-profit, educational, public
+    or government body, is allowed; use that serves a business is
+    not.</p>
+
+    <p>The PolyForm project is a working group of experienced
+    open-source lawyers who drafted this license specifically to
+    fill the gap between permissive open-source licenses and commercial
+    terms. It has been adopted by a growing number of academic and
+    small-author projects for exactly the reasons Slipbox uses it.
+    The canonical text and FAQ live at
+    <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/">
+    polyformproject.org/licenses/noncommercial/1.0.0</a>.</p>
+
+    <h2 id="third-party">Third-party components</h2>
+
+    <p>The app also ships software and fonts written by others. Each keeps
+    its own licence; the PolyForm licence above does not apply to them.</p>
+    <ul>
+      <li><strong>Pandoc 3.1.13</strong> (used for exports), by John
+        MacFarlane and contributors, under the GNU General Public License,
+        version 2 or later. The licence text is inside the app at
+        <code>resources/licenses/pandoc/</code>; the complete source for this
+        version is at
+        <a href="https://github.com/jgm/pandoc/releases/tag/3.1.13">github.com/jgm/pandoc/releases/tag/3.1.13</a>.
+        Slipbox runs pandoc as a separate program.</li>
+      <li><strong>HTMX 1.9.12</strong>, under the Zero-Clause BSD licence.</li>
+      <li><strong>Nunito, Zen Maru Gothic, Atkinson Hyperlegible and
+        Literata</strong> fonts, under the SIL Open Font License 1.1.</li>
+      <li><strong>Python 3.13</strong> (Python Software Foundation licence) and
+        about fifty Python packages, among them Flask, Toga, Markdown, bleach
+        and the AI providers’ libraries. Most are under permissive licences
+        (MIT, BSD or Apache 2.0). Three need a word more:
+        <ul>
+          <li><strong>certifi</strong> (the certificates used for secure
+            connections) is under the Mozilla Public License 2.0. It ships
+            unmodified, as source code.</li>
+          <li><strong>numpy</strong> (used to find related notes) is under a BSD
+            licence and bundles OpenBLAS and LAPACK (BSD), the GCC runtime
+            library (GPL 3 with the GCC Runtime Library Exception) and
+            libquadmath (GNU Lesser General Public License 2.1 or later; source at
+            <a href="https://gcc.gnu.org/git/?p=gcc.git;a=tree;f=libquadmath">gcc.gnu.org</a>).</li>
+          <li><strong>cryptography</strong> (used for locked notes) is under the
+            Apache 2.0 or BSD licence and includes OpenSSL (Apache 2.0).</li>
+        </ul>
+        Each package’s licence text is inside the app with the package. The
+        full list, with versions, is in <code>THIRD-PARTY-NOTICES.md</code>
+        in the source code on GitHub.</li>
+    </ul>
+
+    <h2>Full license text</h2>
+
+    <p class="meta">The exact text below is what governs your use of
+    Slipbox. If there is ever a conflict between the plain-English
+    summary above and the text below, the text below wins.</p>
+
+    <pre style="white-space: pre-wrap; border: 1px solid var(--border); padding: 1rem; background: var(--bg-alt); font-size: 0.85rem; line-height: 1.5;">{{ license_text }}</pre>
+
+    <p style="margin-top: 2rem;" class="meta">Slipbox is authored by
+    <a href="https://www.shivissar.com">Shiv Issar, Ph.D.</a> If you are uncertain whether your intended use is
+    permitted by this license, read the “Personal Uses” and
+    “Noncommercial Organizations” sections of the text above, which
+    define what is permitted, and ask if you are still unsure. Use for
+    a university’s teaching and research is permitted; use for a
+    company’s business is not.</p>
+
+  </article>
+{% endblock %}
