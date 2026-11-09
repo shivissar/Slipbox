@@ -2,9 +2,9 @@ Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own wo
 
 ## Download
 
-**Slipbox-5.2.0.dmg** (below, under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
+**Slipbox-5.2.0.dmg** (111 MB, below under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
 
-SHA-256: `CHECKSUM-TO-ADD`
+SHA-256: `bca33d03102f7c3e9321c11f9b4211b7c60c2f705dd1cc2fdd15ce2f3a0a654a`
 
 To check your download, run `shasum -a 256 ~/Downloads/Slipbox-5.2.0.dmg` in Terminal and compare the result with the line above.
 
