@@ -7,6 +7,10 @@ are in DEVNOTES.md.
 
 ## 5.2.0 (November 2026)
 
+* The logo is a trademark: the About panel shows it with a small ™ just
+  outside its top-right corner (Slipbox.about() in app.py, with
+  resources/about-logo.png), as do the README, the release notes and the
+  website header. The app icon itself is unchanged.
 * Signed with a Developer ID (team 249567G756) and notarised by Apple:
   `briefcase package macOS` with the Developer ID Application identity;
   Briefcase signs every Mach-O in the bundle, pandoc included, with the

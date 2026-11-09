@@ -255,4 +255,14 @@ v5.2.0 research tools (8 Nov 2026)
   .iconset folder with icon_16x16.png … icon_512x512@2x.png and run
   `iconutil -c icns Slipbox.iconset`.
 - Changing the app icon changes the app: rebuild and notarise again.
+- The logo is a trademark (application filed), so wherever it
+  stands as the brand it carries a small ™ just outside its top-right corner:
+  the website header, the README, the release notes and the About panel.
+  artwork/slipbox-logo-tm.png (1024) and resources/about-logo.png (512) are
+  the Apple-grid icon scaled to 88 % with the ™ beside it: Inter SemiBold,
+  #777C85 (legible on white and near-black), 64 px tall on the 1024 canvas,
+  top-aligned with the icon body, 20 px from its right edge. Slipbox.about()
+  in app.py is Toga's cocoa show_about_dialog with this logo in place of the
+  app icon, falling back to Toga's own About; tests/app_shell_probe.py
+  (mode about) checks both. The app and disk-image icons carry no ™.
 

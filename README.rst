@@ -1,6 +1,10 @@
 Slipbox
 =======
 
+.. raw:: html
+
+   <img src="artwork/slipbox-logo-tm.png" width="128" alt="The Slipbox logo">
+
 Slipbox is a local-first Zettelkasten for macOS: a slip box of short notes in
 your own words, linked into a web of ideas that grows with your work. Its name
 is the English for Zettelkasten, the method Niklas Luhmann made famous. Every

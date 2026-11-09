@@ -26,6 +26,54 @@ pages = []
 a.webview.set_content = lambda root, content: pages.append(content)
 assert not a.ready
 
+if mode == "about":
+    # Not a Mac: Toga's own About. On a Mac: the panel shows the logo with its
+    # ™ sign and Toga's other lines; if it can't be built, Toga's own again.
+    import types
+    import toga
+    calls = []
+    a._impl.show_about_dialog = lambda: calls.append("toga")
+    a.about()
+    assert calls == ["toga"], calls
+
+    class Options(dict):
+        @classmethod
+        def alloc(cls):
+            return cls()
+
+        def init(self):
+            return self
+    keys = ("NSAboutPanelOptionApplicationIcon", "NSAboutPanelOptionApplicationName",
+            "NSAboutPanelOptionApplicationVersion", "NSAboutPanelOptionVersion")
+    libs = types.ModuleType("toga_cocoa.libs")
+    for k in keys:
+        setattr(libs, k, k)
+    libs.NSMutableDictionary = Options
+    sys.modules["toga_cocoa"] = types.ModuleType("toga_cocoa")
+    sys.modules["toga_cocoa.libs"] = libs
+    shown = []
+    a._impl.native = types.SimpleNamespace(orderFrontStandardAboutPanelWithOptions=shown.append)
+    toga.platform.current_platform = "macOS"
+    a.about()
+    assert calls == ["toga"] and len(shown) == 1, (calls, shown)
+    opts = shown[0]
+    assert opts["NSAboutPanelOptionApplicationName"] == "Slipbox"
+    assert opts["NSAboutPanelOptionApplicationVersion"] == (a.version or "0.0")
+    assert opts["NSAboutPanelOptionVersion"] == "1" and "Copyright" in opts
+    logo = opts["NSAboutPanelOptionApplicationIcon"].raw.convert("RGBA")
+    assert logo.size == (512, 512), logo.size
+    # The ™: grey ink just outside the top-right corner of the icon body.
+    corner = [logo.getpixel((x, y)) for y in range(60, 120) for x in range(400, 512)]
+    tm = [px for px in corner
+          if px[3] > 200 and all(abs(c - g) < 30 for c, g in zip(px, (0x77, 0x7C, 0x85)))]
+    assert len(tm) > 100, len(tm)
+
+    del sys.modules["toga_cocoa.libs"]
+    a.about()
+    assert calls == ["toga", "toga"] and len(shown) == 1, (calls, shown)
+    print("OK about")
+    sys.exit(0)
+
 
 async def wait(cond, secs=30):
     for _ in range(int(secs / 0.05)):

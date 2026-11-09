@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/shivissar/Slipbox/main/artwork/slipbox-logo-tm.png" width="128" alt="The Slipbox logo">
+
 Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own words, each one a plain Markdown file in a folder you choose, linked into a web of ideas that grows with your work. It was called Zetteling until this version.
 
 ## Download

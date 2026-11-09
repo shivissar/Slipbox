@@ -127,6 +127,37 @@ class Slipbox(toga.App):
         self.ready = True
         self.webview.url = url
 
+    def about(self):
+        # The logo is a trademark, so the Mac's About panel shows it with a
+        # small ™ just outside its top-right corner (resources/about-logo.png).
+        # Elsewhere, or if that panel can't be built, Toga's own About is used.
+        if toga.platform.current_platform == "macOS":
+            try:
+                return self._about_with_mark()
+            except Exception as e:
+                print("[about] %s" % e)
+        return super().about()
+
+    def _about_with_mark(self):
+        # Toga's cocoa show_about_dialog (0.5.7), with the logo in place of
+        # the app icon; every other line of the panel is unchanged.
+        from toga_cocoa.libs import (
+            NSAboutPanelOptionApplicationIcon,
+            NSAboutPanelOptionApplicationName,
+            NSAboutPanelOptionApplicationVersion,
+            NSAboutPanelOptionVersion,
+            NSMutableDictionary,
+        )
+        here = os.path.dirname(os.path.abspath(__file__))
+        self._about_logo = toga.Image(os.path.join(here, "resources", "about-logo.png"))
+        options = NSMutableDictionary.alloc().init()
+        options[NSAboutPanelOptionApplicationIcon] = self._about_logo._impl.native
+        options[NSAboutPanelOptionApplicationName] = self.formal_name
+        options[NSAboutPanelOptionApplicationVersion] = self.version or "0.0"
+        options[NSAboutPanelOptionVersion] = "1"
+        options["Copyright"] = f"Copyright © {self.author}" if self.author else ""
+        self._impl.native.orderFrontStandardAboutPanelWithOptions(options)
+
     async def on_exit(self):
         """Save what's typed in the open note before quitting (5.2: ⌘Q
         could lose the last second or two of typing, because the page's
