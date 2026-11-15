@@ -58,6 +58,10 @@ DEFAULTS = {
     "update_error": "",
     "update_skip": "",
     "lock_after_minutes": 15,
+    # 5.3: earlier versions kept per note (history.py; the choices are
+    # history.CHOICES). New installs start at 50; installs from before 5.3
+    # were given 200, the old fixed number, once (flask_app).
+    "history_max": 50,
     # v5.0: appearance. Allowed values live in themes.py.
     "theme_mode": "auto",
     "theme_light": "meadow",
@@ -106,6 +110,12 @@ def _read(path):
     if not isinstance(stored, dict):
         raise ValueError("it doesn’t hold a set of settings")
     return stored
+
+
+def stored():
+    """The settings file's own contents (no defaults): a dict, or None if
+    there is no file yet. Raises ValueError if it can't be read."""
+    return _read(SETTINGS_PATH)
 
 
 def load():

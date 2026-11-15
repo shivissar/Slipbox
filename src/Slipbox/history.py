@@ -21,7 +21,26 @@ from pathlib import Path
 import frontmatter
 
 INTERVAL = 600        # seconds between automatic versions while editing
-MAX_VERSIONS = 200    # per note; the oldest go first
+
+# 5.3: how many versions are kept per note is a setting (Settings → Trash
+# and history); the oldest go first. Before 5.3 it was a fixed 200.
+CHOICES = (10, 25, 50, 100, 200)
+OLD_FIXED = 200
+
+
+def max_versions():
+    """Versions kept per note, from Settings. While the settings file can't
+    be read, or holds something else, keep the old 200 so nothing is
+    deleted by mistake."""
+    from . import settings
+    s = settings.load()
+    if settings.PROBLEM:
+        return OLD_FIXED
+    try:
+        n = int(s.get("history_max"))
+    except (TypeError, ValueError):
+        return OLD_FIXED
+    return n if n in CHOICES else OLD_FIXED
 
 REASONS = {
     "edit": "Saved while editing",
@@ -84,7 +103,7 @@ def snapshot(path, reason="edit", force=False):
     tmp = dest.with_suffix(".tmp")
     tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, dest)
-    for old in _versions(note_id)[:-MAX_VERSIONS]:
+    for old in _versions(note_id)[:-max_versions()]:
         try:
             old.unlink()
         except OSError:
@@ -210,3 +229,49 @@ def delete_history(note_id):
     d = _note_dir(note_id)
     if d.is_dir() and re.fullmatch(r"\d{14}", note_id):
         shutil.rmtree(d, ignore_errors=True)
+
+
+# ---------- How much history there is (5.3) ---------- #
+
+def usage_all(limit):
+    """What the whole history holds, and how much of it is beyond `limit`
+    versions per note: a dict of notes, versions and bytes, and the
+    versions, bytes and notes over the limit."""
+    out = {"notes": 0, "versions": 0, "bytes": 0,
+           "excess_versions": 0, "excess_bytes": 0, "excess_notes": 0}
+    for nid in ids_with_history():
+        vs = _versions(nid)
+        if not vs:
+            continue
+        out["notes"] += 1
+        out["versions"] += len(vs)
+        over = vs[:-limit] if len(vs) > limit else []
+        if over:
+            out["excess_notes"] += 1
+            out["excess_versions"] += len(over)
+        for i, p in enumerate(vs):
+            try:
+                size = p.stat().st_size
+            except OSError:
+                continue
+            out["bytes"] += size
+            if i < len(over):
+                out["excess_bytes"] += size
+    return out
+
+
+def trim(limit):
+    """Delete, for every note, the oldest versions beyond `limit`.
+    Returns (versions deleted, bytes freed)."""
+    count = freed = 0
+    for nid in ids_with_history():
+        vs = _versions(nid)
+        for p in vs[:-limit] if len(vs) > limit else []:
+            try:
+                size = p.stat().st_size
+                p.unlink()
+            except OSError:
+                continue
+            count += 1
+            freed += size
+    return count, freed

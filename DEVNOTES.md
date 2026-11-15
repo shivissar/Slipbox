@@ -2,6 +2,53 @@
 
 (Called Zetteling until 5.2.0; older entries keep that name.)
 
+## 5.3 (November 2026)
+
+- Import (importer.py). scan() reads and plans without writing: files
+  (os.walk, no symlinked folders, hidden folders and the notes folder's
+  own top level skipped, at most MAX_FILES), then Items, then IDs, then
+  links. The run request scans again before writing, since the folder may
+  have changed since the preview, and keeps the report in
+  _IMPORT_REPORTS for a GET page (reloading can't import twice). Notes
+  are written with notes._write_atomically, not write_note, so their
+  modified date stays the file's and no history version is made.
+- Import IDs: a free 14-digit ID at the start of a file name is kept, so
+  [[ID]] links among Zettlr or Slipbox files survive; otherwise the note's
+  own date (front matter created/date/created_at, else st_birthtime, else
+  st_mtime; future dates become now), moved on a second at a time past
+  _taken_ids() (index, folder, .trash, history: a deleted note's history
+  must not be inherited) and the batch itself.
+- Import links (_Links.find): anchors (#heading, ^block) and .md removed;
+  12-14 digits are matched against file-name numbers first, then an
+  existing Slipbox note (left as it is); a path is tried from the
+  folder's root, then from the linking file's folder; then file name,
+  title, aliases. Two or more hits count as unmatched. [[ID]] is written
+  when the words shown equal the title, else [[ID|words]]. Code spans and
+  fenced blocks (``` and ~~~) are split out first and left alone.
+- Threads (threads.py): every change computes the new order and calls
+  _write(), which gives each member the right prev/next and removes the
+  entry from notes taken out, writing only notes whose entry changed.
+  order() leaves out members whose file is gone, so the next change mends
+  the chain. The route holds _SAVE_LOCK. write_note keeps a closed locked
+  note's cipher, so only its front matter changes.
+- History limit: history.max_versions() reads settings on every snapshot.
+  _history_limit_once() must run first in create_app: the 5.2 migration
+  after it writes the settings file, after which a new install would look
+  like an old one.
+- Note.extra holds front-matter fields not in notes.OWN_FIELDS and
+  write_note writes them back, set through post.metadata (not Post(**kw),
+  where a field called "content" or "handler" would clash). python-
+  frontmatter itself still fails to load a file with those two fields.
+- updates.clean_notes() leaves out lines that are only tags, comments or a
+  Markdown picture. RELEASE-NOTES.md now puts the logo line last, because
+  5.2 shows notes as plain text and only 5.3 cleans them.
+- bib.BibHandler.on_moved reloads when something is renamed onto the
+  .bib path (atomic save). A rename away from it is not followed: editors
+  that keep a backup rename the original the same way. Settings shows
+  whether the file is found (_bib_status).
+- tests/Zetteling.py is tests/Slipbox.py, the module name Briefcase's
+  test mode runs for the app Slipbox.
+
 ## Rename to Slipbox (9 November 2026)
 
 - Everything visible says Slipbox; package src/Slipbox; Briefcase app key

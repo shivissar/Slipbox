@@ -205,6 +205,7 @@
         <a class="btn btn-primary" style="margin: 10px 8px 0" href="{{ url_for('export_view', source_type='note', source_id=note.id) }}">{{ icon("export") }}Export manuscript</a>
       </section>
       {%- endif %}
+      <div id="threads" class="rail-threads">
       {%- for tc in thread_contexts %}
       <section class="rail-section">
         <h3><span>Thread</span><span>{% if tc.position %}{{ tc.position }} of {{ tc.length }}{% endif %}</span></h3>
@@ -222,8 +223,46 @@
           <a class="thread-step next" href="{{ url_for('view', note_id=tc.next.id) }}"><small>Next →</small><span>{{ tc.next.title or tc.next.id }}</span></a>
           {%- else %}<span class="thread-step next none"><small>End of thread</small></span>{% endif %}
         </div>
+        <form method="post" action="{{ url_for('thread_change') }}" class="thread-out"
+              data-confirm="Take this note out of “{{ tc.name }}”?&#10;&#10;The note itself stays. {% if tc.prev and tc.next %}“{{ tc.prev.title or tc.prev.id }}” will lead straight on to “{{ tc.next.title or tc.next.id }}”.{% elif tc.length == 1 %}It’s the only note in the thread, so the thread will go.{% else %}The rest of the thread stays in order.{% endif %}">
+          <input type="hidden" name="action" value="remove">
+          <input type="hidden" name="note" value="{{ note.id }}">
+          <input type="hidden" name="thread" value="{{ tc.name }}">
+          <button type="submit" class="btn btn-small btn-quiet">Take out of this thread</button>
+        </form>
       </section>
       {%- endfor %}
+
+      {#- 5.3: put this note into a thread, choosing where it goes. #}
+      <section class="rail-section thread-add">
+        <details>
+          <summary><span>{{ "Add to another thread" if thread_contexts else "Add to a thread" }}</span></summary>
+          <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-form" data-thread-add>
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="note" value="{{ note.id }}">
+            <label class="field-label" for="ta-thread">Thread</label>
+            <select id="ta-thread" name="thread" data-thread-pick>
+              {%- for tname, count in add_threads %}
+              <option value="{{ tname }}">{{ tname }} ({{ count }} note{{ 's' if count != 1 else '' }})</option>
+              {%- endfor %}
+              <option value=""{% if not add_threads %} selected{% endif %}>New thread…</option>
+            </select>
+            <div class="ta-new" data-thread-new{% if add_threads %} hidden{% endif %}>
+              <label class="field-label" for="ta-new-name">Name of the new thread</label>
+              <input type="text" id="ta-new-name" name="new_thread" maxlength="80" placeholder="e.g. tethered-autonomy">
+            </div>
+            <div class="ta-after" data-thread-after-row{% if not add_threads %} hidden{% endif %}>
+              <label class="field-label" for="ta-after">Place it</label>
+              <select id="ta-after" name="after" data-thread-after>
+                <option value="">At the end</option>
+                <option value="start">At the start</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-small btn-primary">{{ icon("thread", "i sm") }}Add to thread</button>
+          </form>
+        </details>
+      </section>
+      </div>
 
       <section class="rail-section">
         <h3><span>Backlinks</span><span>{{ backlinks|length }}</span></h3>

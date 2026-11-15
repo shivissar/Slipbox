@@ -954,16 +954,15 @@
       });
     }
 
-    // Threads (new notes only): show for research notes, reveal the right input.
+    // Threads (new notes): reveal the input for the choice made. Since 5.3
+    // a note of any kind can be in a thread (before, research notes only).
     var threadFs = $("#thread-fieldset");
     if (threadFs) {
       var syncThread = function () {
-        var kind = ($("input[name=kind]:checked") || {}).value || "research";
-        threadFs.hidden = kind !== "research";
         var action = ($("input[name=thread_action]:checked") || {}).value || "";
         $$("[data-thread-when]", threadFs).forEach(function (el) { el.hidden = el.getAttribute("data-thread-when") !== action; });
       };
-      $$("input[name=kind], input[name=thread_action]").forEach(function (r) { r.addEventListener("change", syncThread); });
+      $$("input[name=thread_action]").forEach(function (r) { r.addEventListener("change", syncThread); });
       syncThread();
     }
   }
@@ -1085,6 +1084,39 @@
     }, 120);
     inp.addEventListener("input", fill);
     inp.addEventListener("focus", fill);
+  });
+
+  /* 5.3: "Add to a thread" in a note's side panel. Choosing a thread lists
+   * its notes under "Place it"; "New thread…" asks for a name instead. */
+  document.querySelectorAll("form[data-thread-add]").forEach(function (f) {
+    var pick = f.querySelector("[data-thread-pick]");
+    var after = f.querySelector("[data-thread-after]");
+    var afterRow = f.querySelector("[data-thread-after-row]");
+    var newRow = f.querySelector("[data-thread-new]");
+    var newName = newRow && newRow.querySelector("input");
+    if (!pick || !after) return;
+    var sync = function () {
+      var name = pick.value;
+      var isNew = !name;
+      if (newRow) newRow.hidden = !isNew;
+      if (newName) newName.required = isNew;
+      if (afterRow) afterRow.hidden = isNew;
+      after.innerHTML = '<option value="">At the end</option><option value="start">At the start</option>';
+      if (isNew) return;
+      fetch("/api/thread?name=" + encodeURIComponent(name))
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          if (pick.value !== name) return;  // changed again meanwhile
+          (list || []).forEach(function (n) {
+            var o = document.createElement("option");
+            o.value = n.id;
+            o.textContent = "After “" + (n.title.length > 48 ? n.title.slice(0, 47) + "…" : n.title) + "”";
+            after.appendChild(o);
+          });
+        }).catch(function () {});
+    };
+    pick.addEventListener("change", sync);
+    sync();
   });
 
   /* ------------------------------------------------------------------ *

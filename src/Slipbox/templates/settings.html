@@ -11,6 +11,7 @@
         <a href="#general">Folders</a>
         <a href="#writing">Writing</a>
         <a href="#templates">Templates</a>
+        <a href="#import">Import notes</a>
         <a href="#locked">Locked notes</a>
         <a href="#ai">AI {% if retired_warnings %}<span class="chip chip-warn">1 to fix</span>{% endif %}</a>
         <a href="#bibliography">Bibliography</a>
@@ -298,6 +299,13 @@
                   <label class="field-label" for="bib-path">BibTeX file</label>
                   <span>Export your Zotero library with Better BibTeX and tick <strong>Keep updated</strong>, so new references appear on their own. Leave blank to turn citations off.</span>
                   {%- if env_override %}<span>An environment variable also sets <code>ZETTEL_BIB_PATH</code>; the path here takes priority when filled in.</span>{% endif %}
+                  {%- if bib_status %}
+                  {%- if bib_status.found %}
+                  <span>In use now: {{ bib_status.count }} reference{{ '' if bib_status.count == 1 else 's' }} from <span class="path-pill">{{ bib_status.path }}</span></span>
+                  {%- else %}
+                  <span class="bib-missing"><strong>Slipbox can’t find this file.</strong> If you renamed or moved it, enter its new path and save.{% if bib_status.count %} Meanwhile the {{ bib_status.count }} reference{{ '' if bib_status.count == 1 else 's' }} it last read {{ 'is' if bib_status.count == 1 else 'are' }} still used.{% endif %}</span>
+                  {%- endif %}
+                  {%- endif %}
                 </div>
                 <div class="set-control"><input type="text" id="bib-path" name="bib_path" value="{{ current.bib_path }}" placeholder="~/Zotero/My Library.bib"></div>
               </div>
@@ -339,6 +347,35 @@
               <button type="submit" class="btn">Restore built-ins</button>
             </form>
           </div>
+        </section>
+
+        {# ---------------- Import notes (5.3; own form) ---------------- #}
+        <section class="set-section" id="import">
+          <h2>Import notes</h2>
+          {%- if import_msg %}<div class="flash warn">{{ import_msg }}</div>{% endif %}
+          <form method="post" action="{{ url_for('import_preview') }}" class="set-group">
+            <div class="set-row">
+              <div class="set-text">
+                <label class="field-label" for="import-folder">Folder to import from</label>
+                <span>Brings Markdown files from another app or folder into Slipbox: an Obsidian vault, Zettlr or Bear notes, a Notion export, or plain <code>.md</code> files, subfolders included. Each file is copied into a new note with its title, tags and dates, tagged <code>imported</code>, and links between the files become Slipbox links. The original files aren’t changed, and pictures and other attachments aren’t copied. You’ll see what will happen before anything is imported.</span>
+                <span>To get a folder’s path, select it in Finder, press <kbd>⌥⌘C</kbd>, then paste it here.</span>
+              </div>
+              <div class="set-control"><input type="text" id="import-folder" name="folder" value="{{ import_folder }}" placeholder="~/Documents/Obsidian Vault" required></div>
+            </div>
+            <div class="set-row">
+              <label class="set-text" for="import-kind"><strong>Kind for the imported notes</strong>
+                <span>Every note in one import gets this kind; change any of them afterwards in the editor.</span>
+              </label>
+              <div class="set-control">
+                <select id="import-kind" name="kind">
+                  {%- for k in kinds %}
+                  <option value="{{ k }}"{% if k == "research" %} selected{% endif %}>{{ k|capitalize }}</option>
+                  {%- endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Check the folder</button>
+              </div>
+            </div>
+          </form>
         </section>
 
         {# ---------------- Locked notes (own forms, outside the main form) ---------------- #}
@@ -435,6 +472,30 @@
               </form>
               {%- endif %}
             </div>
+            {%- set hu = history_usage %}
+            <form method="post" action="{{ url_for('history_settings') }}" class="set-row" data-autosubmit>
+              <label class="set-text" for="history-max"><strong>Versions kept per note</strong>
+                <span>Slipbox keeps earlier versions of each note, so you can compare and restore them (the clock button above a note). When a note has more than this, the oldest go first. <strong>More versions use more disk space.</strong>
+                {%- if hu.versions %} The history now holds {{ hu.versions }} version{{ '' if hu.versions == 1 else 's' }} of {{ hu.notes }} note{{ '' if hu.notes == 1 else 's' }}, {{ hu.bytes|filesize }} in all.{% else %} There are no earlier versions yet.{% endif %}</span>
+              </label>
+              <div class="set-control">
+                <select id="history-max" name="history_max">
+                  {%- for n in history_choices %}
+                  <option value="{{ n }}"{% if n == history_max %} selected{% endif %}>{{ n }}</option>
+                  {%- endfor %}
+                </select>
+                <noscript><button type="submit" class="btn">Save</button></noscript>
+              </div>
+            </form>
+            {%- if hu.excess_versions %}
+            <form method="post" action="{{ url_for('history_trim') }}" class="set-row"
+                  data-confirm="Delete the {{ hu.excess_versions }} oldest version{{ '' if hu.excess_versions == 1 else 's' }} beyond {{ history_max }} per note ({{ hu.excess_bytes|filesize }})?&#10;&#10;This can’t be undone. Each note keeps its {{ history_max }} most recent versions.">
+              <div class="set-text"><strong>Apply the limit now</strong>
+                <span>{{ hu.excess_versions }} older version{{ '' if hu.excess_versions == 1 else 's' }} of {{ hu.excess_notes }} note{{ '' if hu.excess_notes == 1 else 's' }} {{ 'is' if hu.excess_versions == 1 else 'are' }} beyond the limit ({{ hu.excess_bytes|filesize }}). If you leave them, they go one note at a time, as Slipbox keeps a new version of each.</span>
+              </div>
+              <button type="submit" class="btn">{{ icon("trash") }}Trim now</button>
+            </form>
+            {%- endif %}
             <div class="set-row">
               <div class="set-text"><strong>History of deleted notes</strong>
                 <span>Earlier versions are kept in the app-data folder, up to {{ history_max }} per note.

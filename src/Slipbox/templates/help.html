@@ -64,6 +64,7 @@
             <li><a href="#your-files">Your files</a>
               <ol class="toc-sub">
                 <li><a href="#external-editing">Editing in other apps</a></li>
+                <li><a href="#importing">Importing notes</a></li>
                 <li><a href="#deleting">Deleting and the trash</a></li>
                 <li><a href="#sync-and-backup">Sync and backup</a></li>
               </ol></li>
@@ -114,7 +115,7 @@
         <h3 id="basics">Creating and saving notes</h3>
         <ul>
           <li><strong>Create:</strong> <em>New note</em> at the top of the sidebar, or <kbd>⌘N</kbd>. Start blank or from a <a href="#templates">template</a>.</li>
-          <li><strong>Edit:</strong> <em>Edit</em> above the note, or <kbd>⌘E</kbd>. Kind, tags and thread are in the <em>Details</em> panel on the right.</li>
+          <li><strong>Edit:</strong> <em>Edit</em> above the note, or <kbd>⌘E</kbd>. Kind and tags are in the <em>Details</em> panel on the right. To put a note in a thread, see <a href="#tags-threads">Tags and threads</a>.</li>
           <li id="saving"><strong>Saving happens by itself:</strong> a moment after you stop typing, again when you click <em>Done</em> or leave the note, and when you quit. The label beside <em>Editing</em> shows “Saving…” and “Saved”. A new note is first saved once it has a title and you’ve moved on from the title field, so its filename uses the whole title. Prefer to save only when you press <em>Save</em>? Turn off <em>Save automatically</em> in <a href="{{ url_for('settings_page') }}#writing">Settings → Writing</a>. If you quit with something that can’t be saved (a new note without a title, changes with autosave off, or a save that failed), Slipbox asks before it closes.</li>
           <li><strong>Delete:</strong> the bin icon above the note. See <a href="#deleting">Deleting and the trash</a>.</li>
         </ul>
@@ -160,7 +161,13 @@
         <p>Under the backlinks, <em>Unlinked mentions</em> lists notes that use this note’s title, or its main part before a subtitle (“Tethered autonomy” for “Tethered autonomy — working definition”), without linking to it. <strong>Link</strong> turns the first mention into a link, keeping that note’s wording as the link text; a version of that note is saved first. Locked notes aren’t searched for mentions.</p>
 
         <h3 id="tags-threads">Tags and threads</h3>
-        <p><strong>Tags</strong> are comma-separated in the editor’s <em>Details</em> panel; keep them lowercase and hyphenated (<code>sts-theory</code>). <strong>Threads</strong> are <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Luhmann</a>’s <em>Folgezettel</em>: named sequences of notes in argumentative order. When you create a note, the <em>Thread</em> section can start a new thread with it, or add it to the end of an existing one. A note can belong to several threads; the side panel shows its neighbours in each. Thread data lives in the note’s frontmatter.</p>
+        <p><strong>Tags</strong> are comma-separated in the editor’s <em>Details</em> panel; keep them lowercase and hyphenated (<code>sts-theory</code>). <strong>Threads</strong> are <a href="https://en.wikipedia.org/wiki/Niklas_Luhmann">Luhmann</a>’s <em>Folgezettel</em>: named sequences of notes in argumentative order. Any kind of note can be in a thread, and a note can be in several; the side panel shows its neighbours in each.</p>
+        <ul>
+          <li><strong>A new note:</strong> in the <em>Details</em> panel while you write it, <em>Thread</em> → <em>New</em> starts a thread with it, and <em>Existing</em> adds it to the end of one.</li>
+          <li><strong>A note you’ve already written:</strong> open it and choose <em>Add to a thread</em> in the side panel. Pick the thread (or <em>New thread…</em>) and, under <em>Place it</em>, the note it should follow; it goes at the end unless you choose.</li>
+          <li><strong>On a thread’s page</strong> (Threads in the sidebar): <em>Add a note</em> finds any note by its title and puts it where you choose; ↑ and ↓ move a note along; × takes one out. The note itself stays, and the notes either side are joined up. <em>Take out of this thread</em> in a note’s side panel does the same.</li>
+        </ul>
+        <p>Thread data lives in each note’s front matter: every note records the notes before and after it.</p>
 
         <h3 id="embedding">Embedding notes</h3>
         <p>A line containing only <code>![[note-id]]</code> shows that note’s whole text in place, in a frame with a link to it (type <code>![[</code> to get the picker). Embeds always show the note’s latest text. They nest two levels deep. They’re how <a href="#manuscripts">manuscripts</a> work, and useful anywhere you want to read several notes as one.</p>
@@ -173,11 +180,11 @@
           <li><em>File → Export Library</em>, choose the <strong>Better BibTeX</strong> format (not the built-in <em>BibTeX</em>, which can leave out citekeys), and <strong>tick “Keep updated”</strong> so the file stays current.</li>
           <li>Save it somewhere stable, such as <code>~/Documents/Zotero/library.bib</code>, and paste its path into Settings → Bibliography.</li>
         </ol>
-        <p>Slipbox watches the file and picks up new references within seconds. To check auto-export is really on, look under Zotero’s Settings → Better BibTeX → Auto-export.</p>
+        <p>Slipbox watches the file and picks up new references within seconds, including when a program saves it by replacing the whole file. To check auto-export is really on, look under Zotero’s Settings → Better BibTeX → Auto-export. Settings → Bibliography shows how many references are in use; if you rename or move the file, it says the file can’t be found, so you can enter the new path (the references already read keep working meanwhile).</p>
 
         <h3 id="history">Note history</h3>
         <p>Slipbox keeps earlier versions of each note: one at most every 10 minutes while you edit, and always one before a restore, a lock, a link added from <em>Unlinked mentions</em>, a code rename or a manuscript reorder. The clock button above a note opens its history. Pick a version to see its text and what has changed since (− lines are only in that version, + lines only in the note now), then <strong>Restore</strong> it if you want. Restoring brings back the title, tags, kind and text, and saves the current version first, so you can undo it.</p>
-        <p>Versions are kept in the app-data folder (up to 200 per note). A locked note’s versions are encrypted, and locking a note encrypts its earlier versions too.</p>
+        <p>Versions are kept in the app-data folder. <a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a> sets how many are kept per note (10 to 200; 50 for a new install, 200 for one from before 5.3); when a note has more, the oldest go first. More versions take more disk space, and that section shows how much the history uses. Lowering the number takes effect for each note the next time a version of it is kept; <em>Trim now</em> applies it to every note at once. A locked note’s versions are encrypted, and locking a note encrypts its earlier versions too.</p>
 
         <!-- ============================================================ -->
         <h2 id="finding">Finding things</h2>
@@ -270,7 +277,7 @@
           <li><strong>Open or closed:</strong> locking a note encrypts it on disk at once, but while locked notes are open you can still read it in Slipbox. The label above a locked note says which: <em>Locked · open</em> (click it to close them all) or <em>Locked · closed</em>. While they’re open, the sidebar also shows <em>Locked notes are open</em>; click it, or <kbd>⌘K</kbd> → “Lock notes now”, to close them at once.</li>
           <li><strong>Remove a lock</strong> with the open padlock on a locked note, or <em>Remove all locks</em> in Settings. <strong>Change your password</strong> in Settings (the recovery key keeps working); <strong>forgot it?</strong> Use the recovery key.</li>
         </ul>
-        <p><strong>What stays readable:</strong> the title, tags, kind, threads, dates, ID and filename (which includes the title), so lists and threads keep working. The size of the encrypted block hints at the note’s length.</p>
+        <p><strong>What stays readable:</strong> the title, tags, kind, threads, dates, ID and filename (which includes the title), so lists and threads keep working, and any other front-matter fields a note has (from another app, say). The size of the encrypted block hints at the note’s length.</p>
         <p><strong>What locked notes don’t do:</strong></p>
         <ul>
           <li>No AI: never sent to a provider; any related-notes data from before locking is deleted.</li>
@@ -304,7 +311,17 @@
         <h2 id="your-files">Your files</h2>
 
         <h3 id="external-editing">Editing in other apps</h3>
-        <p>Nothing locks you in: edit any note in Obsidian, VS Code, vim or TextEdit, and Slipbox picks up the change within a second or two (reload the page to see it). Keep notes at the top level of the notes folder, not in subfolders, and never change the 14-digit ID at the start of a filename: that makes a new note and breaks links to the old one.</p>
+        <p>Nothing locks you in: edit any note in Obsidian, VS Code, vim or TextEdit, and Slipbox picks up the change within a second or two (reload the page to see it). Keep notes at the top level of the notes folder, not in subfolders, and never change the 14-digit ID at the start of a filename: that makes a new note and breaks links to the old one. Front-matter fields another app adds (<code>aliases</code>, say) are kept when Slipbox saves the note. Slipbox reads a Markdown file only if its name starts with a 14-digit ID (or its front matter has an <code>id</code>); to bring in files without one, <a href="#importing">import</a> them.</p>
+
+        <h3 id="importing">Importing notes from elsewhere</h3>
+        <p><a href="{{ url_for('settings_page') }}#import">Settings → Import notes</a> brings in Markdown files from another app or folder: an Obsidian vault, Zettlr or Bear notes, a Notion export, plain <code>.md</code> files. Enter the folder’s path (select it in Finder and press <kbd>⌥⌘C</kbd> to copy it), choose the kind the notes should be, and press <em>Check the folder</em>. Slipbox shows what it found and what it will do; nothing is imported until you press <em>Import</em>.</p>
+        <ul>
+          <li><strong>Copies only.</strong> The files in that folder are never changed. Subfolders are included; hidden ones such as <code>.obsidian</code> and <code>.git</code> are not.</li>
+          <li><strong>Each file becomes a note</strong> with a new ID, the title from its front matter (else its first heading, else its file name), its tags plus <code>imported</code>, and its dates. A first line that repeats the title is left out, since Slipbox shows the title above the note. Other front-matter fields are kept. A file whose name starts with a free 14-digit ID keeps it.</li>
+          <li><strong>Links between the files</strong> become Slipbox links: <code>[[Title]]</code>, <code>[[file name]]</code>, <code>[[folder/file name]]</code>, <code>[[name|words]]</code>, <code>[[name#heading]]</code> and Markdown links such as <code>[words](other%20note.md)</code>; <code>![[name]]</code> becomes an <a href="#embedding">embed</a>. Links that match no file, or more than one, stay as written and are listed, so you can fix them by hand.</li>
+          <li><strong>Not brought in:</strong> pictures and other attachments (references to them stay as text and are counted), and thread information from another Slipbox, since the IDs change.</li>
+          <li><strong>Afterwards</strong>, the <code>imported</code> tag gathers the new notes: remove it from each once you’ve looked it over. Importing the same folder twice makes a second copy of each note; the preview warns when titles match notes you already have.</li>
+        </ul>
 
         <h3 id="deleting">Deleting and the trash</h3>
         <p>Deleting moves the file into <code>.trash</code> inside your notes folder, with a timestamp added (<code>…-mynote.md.20260407164314.deleted</code>). To restore it, move it back and remove the <code>.2026….deleted</code> ending. Slipbox never empties the trash by itself. When you’re sure, use <em>Empty trash</em> in <a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a>, which also deletes those notes’ <a href="#history">history</a>; the same place can delete the history of notes you removed in Finder.</p>

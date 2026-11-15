@@ -2,7 +2,7 @@
 {% block title %}Threads{% endblock %}
 {% block content %}
   <h1>Threads</h1>
-  <p class="meta">Folgezettel-style sequences. A note can belong to multiple threads.</p>
+  <p class="meta">Named sequences of notes in the order of an argument, like Luhmann’s Folgezettel. A note can belong to several threads.</p>
   {% if threads %}
     <ul class="note-list">
       {% for name, count in threads %}
@@ -13,6 +13,6 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty">No threads yet. Add a <code>threads:</code> field to a note's frontmatter to start one.</p>
+    <p class="empty">No threads yet. To start one, open a note and choose <strong>Add to a thread</strong> in the side panel, or choose <strong>Thread → New</strong> in the Details panel when you write a new note.</p>
   {% endif %}
 {% endblock %}

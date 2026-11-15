@@ -21,7 +21,7 @@ tested on Apple-silicon Macs (M1 and later).
 
 ### Step 1: Copy it into Applications
 
-1. Double-click the `Slipbox-5.2.0.dmg` file you downloaded or were given. A window opens.
+1. Double-click the `Slipbox-5.3.0.dmg` file you downloaded or were given. A window opens.
 2. Drag **Slipbox** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 
@@ -66,6 +66,12 @@ The first time Slipbox opens with no notes, it shows a short welcome screen:
   **Settings → Updates**.
 
 Press **Start writing** and you are in.
+
+**Notes from another app?** Markdown files from Obsidian, Zettlr, Bear, a
+Notion export or any folder can be brought in with **Settings → Import
+notes**. They are copied, never changed; titles, tags, dates and the links
+between them come along, and you see what will happen before anything is
+imported.
 
 ### Finding your way around
 

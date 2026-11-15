@@ -1317,3 +1317,41 @@ button.chip-lock-open:hover { background: var(--accent-soft); }
 .tour-slips path { stroke-dasharray: 3 5; }
 .tour-slips rect { stroke: none; }
 .tour-slips .s1 { fill: var(--k-research-soft); } .tour-slips .s2 { fill: var(--k-journal-soft); } .tour-slips .s3 { fill: var(--k-teaching-soft); }
+
+/* ---------- 5.3: threads for existing notes, Markdown import ---------- */
+.rail-threads { display: flex; flex-direction: column; gap: 24px; }
+.thread-out { margin: 2px 0 0; }
+.thread-out .btn { color: var(--ink-3); padding-left: 8px; }
+.thread-add summary {
+  cursor: pointer; list-style: none; font-size: 0.9em; font-weight: 900; color: var(--ink-2);
+  padding: 7px 8px; border-radius: 12px;
+}
+.thread-add summary::-webkit-details-marker { display: none; }
+.thread-add summary::before { content: "+"; display: inline-block; width: 1.1em; font-weight: 900; color: var(--accent-text); }
+.thread-add details[open] summary::before { content: "−"; }
+.thread-add summary:hover { background: var(--surface-2); }
+.thread-add-form { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 2px; }
+.thread-add-form select, .thread-add-form input[type="text"] { width: 100%; min-height: 32px; font-size: 0.9em; }
+.thread-add-form .ta-new, .thread-add-form .ta-after { display: flex; flex-direction: column; gap: 6px; }
+.thread-add-form .ta-new[hidden], .thread-add-form .ta-after[hidden] { display: none; }
+.thread-add-form .btn { align-self: flex-start; margin-top: 4px; }
+.thread-chain li .ol-tools { align-self: center; }
+.thread-chain li:hover .ol-tools, .thread-chain li:focus-within .ol-tools { opacity: 1; }
+.thread-chain li:target { box-shadow: inset 0 0 0 2px var(--accent); }
+.thread-add-note { margin: 1.4rem 0 0; display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+.thread-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.thread-add-row input[type="text"] { flex: 1 1 260px; min-width: 0; }
+.thread-add-row select { flex: 0 1 260px; min-width: 0; }
+
+.import-page { max-width: 860px; }
+.import-page h2 { margin-top: 1.6rem; }
+.import-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0.8rem 0 1rem; padding: 0; list-style: none; }
+.import-summary li { background: var(--surface-2); border-radius: 14px; padding: 10px 14px; font-weight: 700; }
+.import-summary li strong { display: block; font-size: 1.4em; font-weight: 900; color: var(--ink); }
+.import-list { margin: 0.4rem 0 0; padding-left: 1.2rem; max-height: 340px; overflow: auto; }
+.import-list li { margin: 2px 0; }
+.import-list code { font-size: 0.85em; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 1.4rem 0 0.4rem; }
+.bib-missing { color: var(--warn-ink); }
+.thread-add-note .field-label { margin: 0; }
+.import-page .hint + .import-summary { margin-top: 1.4rem; }

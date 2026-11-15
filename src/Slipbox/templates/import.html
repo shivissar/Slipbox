@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
+{% block title %}Import notes{% endblock %}
+{% block content %}
+{%- set n_items = (report.written|length) if report else (plan.items|length) %}
+{%- set kind_label = plan.kind|capitalize %}
+<div class="import-page">
+  {%- if report %}
+  <h1>Imported {{ n_items }} note{{ '' if n_items == 1 else 's' }}</h1>
+  {%- if report.error %}
+  <div class="flash error">{{ report.error }}. The notes listed below were imported; the rest weren’t, and nothing else was changed. Check the folder and the space on your Mac, then import again: the notes already imported would be imported a second time, so delete them first (tag <code>imported</code>).</div>
+  {%- endif %}
+  <p>From <span class="path-pill">{{ plan.folder }}</span>, as {{ kind_label }} notes tagged <code>imported</code>. The files in that folder haven’t been changed.</p>
+  <div class="import-actions">
+    <a class="btn btn-primary" href="{{ url_for('tag_view', tag_name='imported') }}">{{ icon("tag", "i sm") }}See the imported notes</a>
+    <a class="btn" href="{{ url_for('settings_page') }}#import">Back to Settings</a>
+  </div>
+  <p class="hint">Remove the <code>imported</code> tag from a note once you’ve looked it over, and the tag works as an inbox.{% if embed_ready %} For related notes, press <strong>Re-index all notes</strong> in Settings → AI.{% endif %}</p>
+  {%- else %}
+  <h1>Import notes: check, then import</h1>
+  <p>From <span class="path-pill">{{ plan.folder }}</span>, including its subfolders. Nothing has been imported yet.</p>
+  <p>Each Markdown file becomes a new {{ kind_label }} note, with its title, its tags plus <code>imported</code>, and its dates. Links between these files become Slipbox links. The files themselves are copied, never changed.</p>
+  {%- endif %}
+
+  <ul class="import-summary">
+    <li><strong>{{ plan.found }}</strong>Markdown file{{ '' if plan.found == 1 else 's' }} found</li>
+    <li><strong>{{ n_items }}</strong>{{ 'imported' if report else 'to import' }}</li>
+    <li><strong>{{ plan.converted }}</strong>link{{ '' if plan.converted == 1 else 's' }} {{ 'became' if report else 'will become' }} Slipbox links</li>
+    {%- if plan.unmatched %}<li><strong>{{ plan.unmatched|length }}</strong>link{{ '' if plan.unmatched|length == 1 else 's' }} not matched</li>{% endif %}
+    {%- if plan.skipped %}<li><strong>{{ plan.skipped|length }}</strong>file{{ '' if plan.skipped|length == 1 else 's' }} skipped</li>{% endif %}
+  </ul>
+
+  {%- if not report %}
+  {%- if plan.items %}
+  <form method="post" action="{{ url_for('import_run') }}" class="import-actions"
+        data-confirm="Import {{ n_items }} note{{ '' if n_items == 1 else 's' }} into Slipbox as {{ kind_label }} notes, tagged imported?&#10;&#10;The files in the folder won’t be changed.">
+    <input type="hidden" name="folder" value="{{ folder_typed }}">
+    <input type="hidden" name="kind" value="{{ plan.kind }}">
+    <button type="submit" class="btn btn-primary btn-lg">Import {{ n_items }} note{{ '' if n_items == 1 else 's' }}</button>
+    <a class="btn btn-lg" href="{{ url_for('settings_page', folder=folder_typed) }}#import">Cancel</a>
+  </form>
+  {%- else %}
+  <p><strong>There’s nothing to import from this folder.</strong> Slipbox looks for files ending in <code>.md</code> or <code>.markdown</code>, in the folder and its subfolders (hidden folders such as <code>.obsidian</code> are left out).</p>
+  <div class="import-actions"><a class="btn" href="{{ url_for('settings_page', folder=folder_typed) }}#import">Back to Settings</a></div>
+  {%- endif %}
+  {%- endif %}
+
+  {%- set shown = report.written if report else plan.items %}
+  {%- if shown %}
+  <h2>Notes</h2>
+  <ol class="import-list">
+    {%- for it in shown[:300] %}
+    <li>{% if report %}<a href="{{ url_for('view', note_id=it.id) }}">{{ it.title }}</a>{% else %}<strong>{{ it.title }}</strong>{% endif %} <span class="muted small">from {{ it.rel }}</span></li>
+    {%- endfor %}
+  </ol>
+  {%- if shown|length > 300 %}<p class="hint">and {{ shown|length - 300 }} more.</p>{% endif %}
+  {%- endif %}
+
+  {%- if plan.clashes %}
+  <h2>Titles you already have</h2>
+  <p>{{ plan.clashes|length }} of these {{ 'has' if plan.clashes|length == 1 else 'have' }} the same title as a note already in Slipbox. {{ 'It is' if plan.clashes|length == 1 else 'They are' }} {{ 'imported' if report else 'imported anyway' }}, as separate notes; if you imported this folder before, these may be the same notes again.</p>
+  <ul class="import-list">{% for t in plan.clashes[:100] %}<li>{{ t }}</li>{% endfor %}</ul>
+  {%- endif %}
+
+  {%- if plan.unmatched %}
+  <h2>Links that can’t be matched</h2>
+  <p>No file in the folder has this name or title, or more than one does. These links stay as they are in the note’s text, so you can fix them by hand.</p>
+  <ul class="import-list">{% for rel, link in plan.unmatched[:200] %}<li><code>{{ link }}</code> <span class="muted small">in {{ rel }}</span></li>{% endfor %}</ul>
+  {%- if plan.unmatched|length > 200 %}<p class="hint">and {{ plan.unmatched|length - 200 }} more.</p>{% endif %}
+  {%- endif %}
+
+  {%- if plan.attachments %}
+  <h2>Pictures and other files</h2>
+  <p>{{ plan.attachments }} reference{{ '' if plan.attachments == 1 else 's' }} to pictures or other files in the folder. Those files aren’t copied, so they won’t show in Slipbox; the references stay in the text. For example:</p>
+  <ul class="import-list">{% for rel, ref in plan.attachment_examples %}<li><code>{{ ref }}</code> <span class="muted small">in {{ rel }}</span></li>{% endfor %}</ul>
+  {%- endif %}
+
+  {%- if plan.skipped %}
+  <h2>Files skipped</h2>
+  <ul class="import-list">{% for rel, why in plan.skipped[:200] %}<li>{{ rel }}: {{ why }}</li>{% endfor %}</ul>
+  {%- endif %}
+
+  {%- if plan.yaml_problems %}
+  <h2>Front matter kept as text</h2>
+  <p>The front matter (the lines between <code>---</code> at the top) of {{ 'this file' if plan.yaml_problems|length == 1 else 'these files' }} couldn’t be read, often because of an unclosed quotation mark or bracket. It stays at the top of the note’s text, and the title comes from the first heading or the file name.</p>
+  <ul class="import-list">{% for rel in plan.yaml_problems[:100] %}<li>{{ rel }}</li>{% endfor %}</ul>
+  {%- endif %}
+
+  {%- if plan.threads_dropped %}
+  <p class="hint">{{ plan.threads_dropped }} file{{ '' if plan.threads_dropped == 1 else 's' }} had thread information from another Slipbox. It isn’t brought over, because the notes it pointed to have new IDs; use <strong>Add to a thread</strong> on a note to rebuild a thread.</p>
+  {%- endif %}
+</div>
+{% endblock %}

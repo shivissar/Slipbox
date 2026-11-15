@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
 {% block title %}Thread: {{ name }}{% endblock %}
 {% block content %}
   <h1>⛓ {{ name }}</h1>
@@ -7,13 +8,53 @@
     <a href="{{ url_for('export_view', source_type='thread', source_id=name) }}">export this thread</a>
   </p>
   <ol class="thread-chain">
-    {% for n in chain %}
-      <li>
-        <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
-        <code class="muted">{{ n.id }}</code>
-      </li>
-    {% else %}
-      <li class="empty">Thread is empty.</li>
-    {% endfor %}
+    {%- for n in chain %}
+    <li id="n-{{ n.id }}">
+      <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+      <code class="muted">{{ n.id }}</code>
+      <span class="ol-tools">
+        {%- if not loop.first %}
+        <form method="post" action="{{ url_for('thread_change') }}" class="inline">
+          <input type="hidden" name="action" value="up"><input type="hidden" name="note" value="{{ n.id }}">
+          <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
+          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” up" title="Move up">↑</button>
+        </form>
+        {%- endif %}
+        {%- if not loop.last %}
+        <form method="post" action="{{ url_for('thread_change') }}" class="inline">
+          <input type="hidden" name="action" value="down"><input type="hidden" name="note" value="{{ n.id }}">
+          <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
+          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” down" title="Move down">↓</button>
+        </form>
+        {%- endif %}
+        <form method="post" action="{{ url_for('thread_change') }}" class="inline"
+              data-confirm="Take “{{ n.title }}” out of this thread?&#10;&#10;The note itself stays.{% if not loop.first and not loop.last %} The notes either side will be joined up.{% elif loop.length == 1 %} It’s the only note, so the thread will go.{% endif %}">
+          <input type="hidden" name="action" value="remove"><input type="hidden" name="note" value="{{ n.id }}">
+          <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
+          <button type="submit" class="icon-btn tiny" aria-label="Take “{{ n.title }}” out of the thread" title="Take out of the thread (the note itself stays)">×</button>
+        </form>
+      </span>
+    </li>
+    {%- endfor %}
   </ol>
+
+  <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-note">
+    <input type="hidden" name="action" value="add">
+    <input type="hidden" name="thread" value="{{ name }}">
+    <input type="hidden" name="back" value="thread">
+    <label class="field-label" for="thread-add-input">Add a note</label>
+    <div class="thread-add-row">
+      <input type="text" id="thread-add-input" name="note" list="thread-notes" placeholder="Start typing a title…" required data-ms-notes autocomplete="off">
+      <datalist id="thread-notes"></datalist>
+      <select name="after" aria-label="Where it goes">
+        <option value="">at the end</option>
+        <option value="start">at the start</option>
+        {%- for n in chain %}
+        <option value="{{ n.id }}">after “{{ n.title|truncate(48, True, "…") }}”</option>
+        {%- endfor %}
+      </select>
+      <button type="submit" class="btn btn-small btn-primary">{{ icon("plus", "i sm") }}Add</button>
+    </div>
+    <p class="hint">↑ and ↓ move a note along the thread; × takes it out, and the notes either side are joined up. A note can be in several threads.</p>
+  </form>
 {% endblock %}

@@ -43,8 +43,10 @@ from . import updates as release_check
 from . import settings
 from . import themes
 from . import watcher
+from . import importer
+from . import threads as thread_ops
 
-__version__ = "5.2.0"
+__version__ = "5.3.0"
 
 app = Flask(__name__)
 
@@ -774,13 +776,16 @@ def view(note_id):
         })
     thread_contexts = _thread_positions(note_id, thread_contexts)
     similar = embed.find_related(note_id, k=8) if db.SQLITE_VEC_AVAILABLE else []
+    all_threads = db.all_threads()
+    in_threads = {tc["name"] for tc in thread_contexts}
     return render_template(
         "note.html",
         rail="context",
         backlinks=backlinks,
         mentions=mentions,
         outline=outline,
-        all_threads=db.all_threads() if outline is not None else [],
+        all_threads=all_threads if outline is not None else [],
+        add_threads=[(t, n) for t, n in all_threads if t not in in_threads],  # 5.3
         thread_contexts=thread_contexts,
         similar=similar,
         **_note_page_context(note, rendered),
@@ -1138,6 +1143,37 @@ def history_prune():
     return redirect(url_for("settings_page", hk_msg="Deleted the history of %s." % _plural(n, "deleted note")) + "#housekeeping")
 
 
+@app.route("/history/settings", methods=["POST"])
+def history_settings():
+    """5.3: how many versions to keep per note."""
+    try:
+        n = int(request.form.get("history_max", ""))
+    except ValueError:
+        n = 0
+    if n not in history.CHOICES:
+        return redirect(url_for("settings_page") + "#housekeeping")
+    settings.save({"history_max": n})
+    msg = "Slipbox now keeps up to %d versions of each note." % n
+    over = history.usage_all(n)
+    if over["excess_versions"]:
+        msg += (" %s of %s %s beyond that (%s): Trim now deletes them, or they go one note at a time, "
+                "as Slipbox keeps a new version of each." % (
+                    _plural(over["excess_versions"], "older version"), _plural(over["excess_notes"], "note"),
+                    "is" if over["excess_versions"] == 1 else "are", _size(over["excess_bytes"])))
+    return redirect(url_for("settings_page", hk_msg=msg) + "#housekeeping")
+
+
+@app.route("/history/trim", methods=["POST"])
+def history_trim():
+    """5.3: apply the limit to every note now."""
+    count, freed = history.trim(history.max_versions())
+    if count:
+        msg = "Deleted %s (%s)." % (_plural(count, "older version"), _size(freed))
+    else:
+        msg = "No note has more versions than the limit."
+    return redirect(url_for("settings_page", hk_msg=msg) + "#housekeeping")
+
+
 # --- 5.2: links to deleted notes -----------------------------------------
 # Clicking one used to show a bare "Not Found" page with no way back. Now it
 # opens a page that says what happened, offers to restore the note from the
@@ -1270,9 +1306,111 @@ def threads_index():
 
 @app.route("/thread/<thread_name>")
 def thread_view(thread_name):
-    return render_template(
-        "thread.html", name=thread_name, chain=db.thread_chain(thread_name)
-    )
+    chain = db.thread_chain(thread_name)
+    if not chain:
+        return redirect(url_for("threads_index"))
+    return render_template("thread.html", name=thread_name, chain=chain)
+
+
+# --- 5.3: existing notes in threads -------------------------------------
+# A note can join a thread from its side panel (choosing the note it
+# follows) or from the thread's page, be moved up or down there, and be
+# taken out; the notes either side are joined up. See threads.py.
+
+@app.route("/threads/change", methods=["POST"])
+def thread_change():
+    action = request.form.get("action", "")
+    m = re.search(r"(\d{14})", request.form.get("note", ""))
+    note_id = m.group(1) if m else ""
+    name = (request.form.get("thread") or "").strip()
+    back = request.form.get("back", "note")
+    msg = ""
+    try:
+        if not note_id or not db.get_note_meta(note_id):
+            raise thread_ops.ThreadError("Choose a note from the suggestions as you type.")
+        with _SAVE_LOCK:
+            if action == "add":
+                if not name:
+                    name = thread_ops.clean_name(request.form.get("new_thread", ""))
+                after = (request.form.get("after") or "").strip() or None
+                pos, length = thread_ops.add(note_id, name, after)
+                msg = ("Started the thread “%s”." % name if length == 1
+                       else "Added to “%s”, %d of %d." % (name, pos, length))
+            elif action == "remove":
+                left = thread_ops.remove(note_id, name)
+                msg = "Taken out of “%s”." % name
+                if not left:
+                    msg += " It had no other notes, so the thread is gone."
+            elif action in ("up", "down"):
+                thread_ops.move(note_id, name, -1 if action == "up" else 1)
+            else:
+                abort(400)
+    except thread_ops.ThreadError as e:
+        msg = str(e)
+    except vault.VaultLocked:
+        msg = ("A locked note in this thread couldn’t be saved. Open locked notes with your "
+               "password and try again.")
+    if msg:
+        _SWEEP["msg"] = msg
+    if back == "thread":
+        if name and db.thread_chain(name):
+            return redirect(url_for("thread_view", thread_name=name) + ("#n-%s" % note_id if note_id else ""))
+        return redirect(url_for("threads_index"))
+    if note_id:
+        return redirect(url_for("view", note_id=note_id) + "#threads")
+    return redirect(url_for("threads_index"))
+
+
+@app.route("/api/thread")
+def api_thread():
+    """A thread's notes in order, for the 'Place it' list (5.3)."""
+    return jsonify([{"id": c["id"], "title": c["title"]}
+                    for c in db.thread_chain(request.args.get("name", ""))])
+
+
+# --- 5.3: importing Markdown notes (Settings → Import notes) -------------
+# The preview works everything out without writing; Import does it again
+# (the folder may have changed) and writes. The report is kept for the
+# page it redirects to, so reloading that page can't import twice.
+_IMPORT_REPORTS = {}
+
+
+def _import_args():
+    return request.form.get("folder", "").strip(), request.form.get("kind", "research")
+
+
+@app.route("/import/preview", methods=["POST"])
+def import_preview():
+    folder, kind = _import_args()
+    try:
+        plan = importer.scan(folder, kind)
+    except importer.ImportProblem as e:
+        return redirect(url_for("settings_page", import_msg=str(e), folder=folder) + "#import")
+    return render_template("import.html", plan=plan, folder_typed=folder, report=None)
+
+
+@app.route("/import/run", methods=["POST"])
+def import_run():
+    folder, kind = _import_args()
+    try:
+        plan = importer.scan(folder, kind)
+    except importer.ImportProblem as e:
+        return redirect(url_for("settings_page", import_msg=str(e), folder=folder) + "#import")
+    with _SAVE_LOCK:
+        written, error = importer.run(plan)
+    token = secrets.token_urlsafe(8)
+    _IMPORT_REPORTS.clear()  # only the latest is needed
+    _IMPORT_REPORTS[token] = {"plan": plan, "written": written, "error": error, "folder": folder}
+    return redirect(url_for("import_done", token=token))
+
+
+@app.route("/import/done/<token>")
+def import_done(token):
+    report = _IMPORT_REPORTS.get(token)
+    if not report:
+        return redirect(url_for("tag_view", tag_name=importer.TAG))
+    return render_template("import.html", plan=report["plan"], folder_typed=report["folder"],
+                           report=report, embed_ready=bool(ai.get_embed_provider()) and db.SQLITE_VEC_AVAILABLE)
 
 
 @app.route("/help")
@@ -1328,6 +1466,16 @@ def api_appearance():
     return jsonify({"ok": True, "saved": cleaned, "appearance": themes.current()})
 
 
+def _bib_status():
+    """5.3: whether the BibTeX file is where Settings says it is. If it was
+    renamed or moved, Slipbox keeps the references it last read and says
+    so, rather than guessing which file to follow."""
+    path = settings.get_bib_path()
+    if not path:
+        return None
+    return {"path": path, "found": Path(path).is_file(), "count": db.bib_count()}
+
+
 @app.route("/settings", methods=["GET", "POST"])
 def settings_page():
     saved = False
@@ -1360,6 +1508,7 @@ def settings_page():
         except Exception as e:
             error = str(e)
     current = settings.load()
+    history_max = history.max_versions()
     env_override = os.environ.get("ZETTEL_BIB_PATH", "").strip()
     env_notes_override = os.environ.get("ZETTEL_NOTES_DIR", "").strip()
     return render_template(
@@ -1367,8 +1516,14 @@ def settings_page():
         vault_msg=request.args.get("vault_msg", "")[:200],
         tpl_msg=request.args.get("tpl_msg", "")[:200],
         housekeeping=_housekeeping(),
-        history_max=history.MAX_VERSIONS,
+        history_max=history_max,
+        history_choices=history.CHOICES,
+        history_usage=history.usage_all(history_max),
         hk_msg=request.args.get("hk_msg", "")[:300],
+        import_msg=request.args.get("import_msg", "")[:300],
+        import_folder=request.args.get("folder", "")[:1000],
+        bib_status=_bib_status(),
+        kinds=KINDS,
         upd_msg=request.args.get("upd_msg", "")[:200],
         note_templates=note_templates.list_templates(),
         vault_err=request.args.get("vault_err") == "1",
@@ -2441,6 +2596,7 @@ def note_history(note_id):
         "note_history.html", note=note, versions=versions, chosen=chosen,
         version=version, preview=preview, diff=diff,
         restored=request.args.get("restored") == "1",
+        history_max=history.max_versions(),
     )
 
 
@@ -2467,8 +2623,25 @@ def note_history_restore(note_id):
     return redirect(url_for("note_history", note_id=note_id, restored=1))
 
 
+def _history_limit_once():
+    """5.3: how many versions are kept per note became a setting. Installs
+    already in use (a settings file, or history on disk) keep the old fixed
+    200 until the person changes it; new installs start at 50. Runs before
+    anything else writes the settings file, and decides only once."""
+    try:
+        stored = settings.stored()
+    except ValueError:
+        return  # unreadable: history.max_versions() keeps 200 meanwhile
+    if stored is not None and "history_max" in stored:
+        return
+    hdir = history.history_dir()
+    in_use = stored is not None or (hdir.is_dir() and any(hdir.iterdir()))
+    settings.save({"history_max": history.OLD_FIXED if in_use else 50})
+
+
 def _apply_once_settings():
-    """One-time changes for installs upgrading to 5.2."""
+    """One-time changes for installs upgrading to 5.2 and 5.3."""
+    _history_limit_once()
     s = settings.load()
     if not s.get("html_safety_applied"):
         # Before 5.2 sanitising was off by default and every save wrote

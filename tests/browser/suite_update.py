@@ -10,6 +10,9 @@ os.environ.update(ZETTEL_SETTINGS_PATH=f"{D}/settings.json", ZETTEL_DB_PATH=f"{D
                   ZETTEL_NOTES_DIR=f"{D}/notes", ZETTEL_EXPORT_DIR=f"{D}/exports", ZETTEL_VAULT_KDF="light")
 sys.path.insert(0, H.SRC_DIR)
 from Slipbox import flask_app, embed, settings, watcher, updates
+# The suite pretends 5.2.0 is installed and offers 5.3.0, whatever the
+# app's real version (before 5.3 this followed from __version__ itself).
+flask_app.__version__ = "5.2.0"
 embed.embed_note = lambda note: None
 flask_app.embed.embed_note = embed.embed_note
 settings.save({"tour_seen": True, "update_check": True, "update_next_check": 0, "update_latest": {},

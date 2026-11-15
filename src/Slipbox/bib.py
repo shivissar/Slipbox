@@ -152,6 +152,16 @@ class BibHandler(FileSystemEventHandler):
         if not event.is_directory and Path(event.src_path).resolve() == self.target:
             self._trigger()
 
+    def on_moved(self, event):
+        # 5.3: a program that saves by writing a new file and renaming it
+        # over the old one reports a move, not a change, so the new
+        # references were missed. If the file itself is renamed or moved
+        # away, the references already read are kept and Settings says the
+        # file can't be found: other programs rename a file the same way to
+        # keep a backup copy, so following the new name could read that.
+        if not event.is_directory and Path(event.dest_path).resolve() == self.target:
+            self._trigger()
+
 
 def stop_bib_watcher():
     """Stop the active observer if any. Safe to call multiple times."""

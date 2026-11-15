@@ -5,6 +5,66 @@ rename keep the old name. The full, user-facing history is on the About
 page inside the app (src/Slipbox/templates/about.html). Engineering notes
 are in DEVNOTES.md.
 
+## 5.3.0 (November 2026)
+
+* Import (importer.py, Settings → Import notes, /import/preview,
+  /import/run, /import/done/<token>, templates/import.html): Markdown files
+  from a folder and its subfolders (hidden folders, node_modules and
+  __MACOSX left out; up to 5,000 files, 5 MB each) become Slipbox notes, as
+  copies. ID: a free 14-digit ID at the start of the file name is kept,
+  else one made from the note's own date (front matter created/date, else
+  the file's), moved on a second at a time past IDs in the folder, the
+  trash, the history and the import itself. Title: front matter, else a
+  first-line heading, else the file name without a leading 12-14 digit ID;
+  a first line repeating the title is left out. Tags: front matter tags/tag
+  (list or string; # dropped; spaces and slashes become hyphens) plus
+  "imported". Kind chosen per import. Other front-matter fields kept;
+  threads dropped (the IDs change). [[name]], [[folder/name]],
+  [[name|words]], [[name#heading]], [[ID]], aliases and Markdown links to
+  .md files between the imported files become [[ID]] or [[ID|words]];
+  ![[name]] becomes ![[ID]]; code is left alone. Unmatched or ambiguous
+  links stay as written and are listed; attachments are counted, not
+  copied. The preview writes nothing; Import scans again and writes each
+  note atomically, and the report is kept server-side so reloading it
+  can't import twice. Skipped: not UTF-8, empty, locked Slipbox notes,
+  over 5 MB; front matter that can't be read stays as text.
+* Threads (threads.py, /threads/change, /api/thread): an existing note can
+  join a thread from its side panel (choosing the note it follows, or the
+  start; the end by default) or from the thread's page (Add a note), be
+  moved with ↑ ↓ and be taken out (its neighbours are joined). Each change
+  works out the new order and rewrites the prev/next of every member whose
+  entry differs, which also mends a chain broken by a note deleted
+  elsewhere; locked notes change only in their front matter. Any kind of
+  note can be in a thread (the new-note form no longer hides Thread for
+  other kinds), and a note can be in several. Thread names can't contain
+  "/" (it breaks the thread's address). An empty thread's page goes to
+  Threads. Wording fixed in Help, on the empty Threads page and in the
+  editor's hint.
+* History limit (history.max_versions, Settings → Trash and history,
+  /history/settings, /history/trim): 10, 25, 50, 100 or 200 versions per
+  note, with the history's size shown. New installs 50; installs with a
+  settings file or history from before 5.3 are set to 200 once
+  (_history_limit_once, run before any other start-up write). An
+  unreadable settings file or an unexpected value means 200, so nothing is
+  deleted by mistake. Trim now deletes the excess at once; otherwise it goes
+  as each note's next version is kept. The history page states the limit.
+* Front matter: fields Slipbox doesn't write itself (Note.extra) are now
+  written back on save instead of dropped; Help's locked-notes section says
+  they stay readable.
+* Update page (updates.clean_notes): lines that are only HTML tags,
+  comments or a Markdown picture are left out of the release notes, also
+  for notes stored by 5.2. RELEASE-NOTES.md puts the logo line last, for
+  5.2 copies, which show it as text.
+* Bibliography: a .bib file replaced by a rename (an atomic save) is
+  reloaded (BibHandler.on_moved). Settings → Bibliography shows how many
+  references are in use, or that the file can't be found, keeping the
+  references last read; a rename away from the path is not followed.
+* THIRD-PARTY-NOTICES.md: nh3 (MIT; statically links Rust crates, two of
+  them MPL-2.0) in place of bleach and webencodings, which 5.2 stopped
+  using. pyproject long_description names Voyage AI. tests/Zetteling.py is
+  tests/Slipbox.py, the name Briefcase's test mode looks for.
+* Tests: tests/test_v53.py (21); browser suites threads and importing.
+
 ## 5.2.0 (November 2026)
 
 * The logo is a trademark: the About panel shows it with a small ™ just

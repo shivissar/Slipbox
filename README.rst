@@ -29,10 +29,14 @@ What it does
 * **Four kinds of note.** Research, journal, teaching and life notes stay in
   separate streams; tags cut across them.
 * **Threads.** Ordered sequences of notes, like the numbered branches of a
-  paper slip box.
+  paper slip box. Any note can join one, at the place you choose, and a note
+  can be in several.
 * **Citations.** Type ``@`` to cite from a ``.bib`` file exported from Zotero.
-* **Autosave and history.** Notes save as you write; earlier versions are kept
-  so you can compare and restore them.
+* **Autosave and history.** Notes save as you write; earlier versions are kept,
+  as many per note as you choose, so you can compare and restore them.
+* **Import.** Bring in Markdown notes from Obsidian, Zettlr, Bear, a Notion
+  export or any folder, as copies: titles, tags, dates and the links between
+  them come along.
 * **Locked notes.** A note, or every note of a kind, can be encrypted on your
   Mac (AES-256-GCM, with a password and a recovery key). Locked notes are
   never sent to an AI provider.
@@ -70,6 +74,20 @@ More
 * **Homepage:** https://shivissar.com/slipbox
 * **Problems and suggestions:**
   `issues <https://github.com/shivissar/Slipbox/issues>`_.
+
+If you wish to cite Slipbox
+---------------------------
+
+Slipbox is archived on Zenodo. The DOI below stands for all versions and
+always leads to the latest; the record lists each version.
+
+APA
+   Issar, S. (2026). Slipbox: a Zettelkasten for Mac. (Version 5.2.0) [Computer
+   software]. Zenodo. https://doi.org/10.5281/zenodo.24086145
+
+Chicago
+   Issar, S. Slipbox: A Zettelkasten for Mac. V. 5.2.0. Zenodo, released
+   November 9, 2026. https://doi.org/10.5281/zenodo.24086145.
 
 Licence
 -------

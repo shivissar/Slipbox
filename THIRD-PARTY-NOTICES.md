@@ -20,11 +20,12 @@ licence. Those licences apply to those components, not to Slipbox.
 | certifi | 2026.10.23 | MPL-2.0 | Root certificates for HTTPS. Shipped unmodified, as source, in `app_packages/certifi/`. Source: https://github.com/certifi/python-certifi |
 | numpy | 2.5.4 | BSD-3-Clause (and others for bundled parts) | Its wheels bundle OpenBLAS (BSD-3-Clause), LAPACK (BSD-3-Clause-Open-MPI), the GCC runtime library (GPL-3.0-or-later WITH GCC-exception-3.1) and libquadmath (LGPL-2.1-or-later, a separate dynamic library in `numpy/.dylibs/`, source at https://gcc.gnu.org/git/?p=gcc.git;a=tree;f=libquadmath). Full texts: `numpy-*.dist-info/licenses/LICENSE.txt` in `app_packages/`. |
 | cryptography | 48.0.1 | Apache-2.0 OR BSD-3-Clause | Includes a statically linked OpenSSL (Apache-2.0). Used for locked notes. |
+| nh3 | 0.3.7 | MIT | Removes unsafe HTML when notes are shown (it replaced bleach in 5.2). A compiled library that statically links Rust crates, among them ammonia and html5ever (MIT OR Apache-2.0), Unicode data (Unicode-3.0), and cssparser and dtoa-short (MPL-2.0, unmodified; source at https://crates.io/crates/cssparser and https://crates.io/crates/dtoa-short). The full list, with each crate's licence, is in `nh3-*.dist-info/sboms/nh3.cyclonedx.json` in `app_packages/`. |
 
 ## Other Python packages
 
 Each ships with its own licence file in its `*.dist-info` folder inside
-`app_packages/`. Versions are those resolved for Slipbox 5.2.0 on macOS;
+`app_packages/`. Versions are those resolved for Slipbox 5.3.0 on macOS;
 a given build may differ slightly (the exact set is in `app_packages/`).
 
 | Package | Version | Licence |
@@ -32,7 +33,6 @@ a given build may differ slightly (the exact set is in `app_packages/`).
 | annotated-types | 0.8.0 | MIT |
 | anthropic | 2.6.0 | Apache-2.0 |
 | anyio | 4.16.0 | MIT |
-| bleach | 6.4.0 | Apache-2.0 |
 | blinker | 1.9.0 | MIT |
 | cffi | 2.1.1 | MIT-0 |
 | charset-normalizer | 3.5.2 | MIT |
@@ -77,7 +77,6 @@ a given build may differ slightly (the exact set is in `app_packages/`).
 | typing_extensions | 4.16.0 | PSF-2.0 |
 | urllib3 | 2.8.0 | MIT |
 | watchdog | 7.1.0 | Apache-2.0 |
-| webencodings | 0.6.1 | BSD |
 | websockets | 17.4 | BSD-3-Clause |
 | Werkzeug | 3.1.9 | BSD-3-Clause |
 
@@ -94,4 +93,6 @@ same place as the app:
   numpy (it is only used to compare notes for "related notes").
 - **certifi (MPL-2.0):** it ships as unmodified Python source, so the app
   already contains its source; keep its licence file with it.
+- **cssparser and dtoa-short (MPL-2.0), compiled into nh3:** unmodified;
+  this notice says where their source is published (crates.io, above).
 - Keep the `*.dist-info` licence files and this notice with the app.

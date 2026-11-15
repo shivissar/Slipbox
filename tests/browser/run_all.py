@@ -13,7 +13,7 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SUITES = ["back", "links", "update", "tour", "autosave", "locked", "research"]
+SUITES = ["back", "links", "update", "tour", "autosave", "locked", "research", "threads", "importing"]
 
 
 def main(names):

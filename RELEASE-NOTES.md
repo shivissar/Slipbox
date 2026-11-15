@@ -1,42 +1,29 @@
-<img src="https://raw.githubusercontent.com/shivissar/Slipbox/main/artwork/slipbox-logo-tm.png" width="128" alt="The Slipbox logo">
-
-Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own words, each one a plain Markdown file in a folder you choose, linked into a web of ideas that grows with your work. It was called Zetteling until this version.
+Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own words, each one a plain Markdown file in a folder you choose, linked into a web of ideas that grows with your work. Version 5.3.0 brings in notes from other apps, lets any note join a thread, and lets you choose how much history to keep.
 
 ## Download
 
-**Slipbox-5.2.0.dmg** (111 MB, below under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
+**Slipbox-5.3.0.dmg** (__SIZE__ MB, below under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
 
-SHA-256: `d87fe4a6370b769d5800297ad3b350a72fa7a748cad81ed7cc461d8c7087e939`
+SHA-256: `__SHA256__`
 
-To check your download, run `shasum -a 256 ~/Downloads/Slipbox-5.2.0.dmg` in Terminal and compare the result with the line above.
+To check your download, run `shasum -a 256 ~/Downloads/Slipbox-5.3.0.dmg` in Terminal and compare the result with the line above.
 
-## Installing
+## Installing or updating
 
-1. Open the `.dmg` and drag **Slipbox** onto **Applications**.
-2. Open Slipbox from Applications. macOS asks whether you want to open an app downloaded from the internet; click **Open**.
+1. Open the `.dmg` and drag **Slipbox** onto **Applications**. If you have an earlier version, choose **Replace**.
+2. Open Slipbox from Applications. The first time, macOS asks whether you want to open an app downloaded from the internet; click **Open**.
 
-Slipbox is signed with a Developer ID and notarised by Apple, so there is no Open Anyway step and no Terminal command. Full guide: [INSTALL.md](https://github.com/shivissar/Slipbox/blob/main/INSTALL.md).
-
-## Coming from Zetteling
-
-Install Slipbox and open it. The first time, it moves your settings, search index, note history and locked-notes key across from Zetteling, and says so. Your notes folder stays where it is. Then drag the old Zetteling app to the Bin.
-
-If the same notes folder is also used on another Mac, install Slipbox there too before opening locked notes on it: Zetteling can't find the renamed locked-notes key.
+Your notes, settings, note history and locked-notes key are not inside the app, so replacing it leaves them as they are. Full guide: [INSTALL.md](https://github.com/shivissar/Slipbox/blob/main/INSTALL.md).
 
 ## In this version
 
-This is the first public release, so it includes everything since Zetteling 5.0:
-
-- **One window:** sidebar, note list, the note, and a side panel with its thread, backlinks and related notes.
-- **Linking and citing:** `[[` to link a note and `@` to cite from Zotero, at the cursor; ⌘K finds any note or runs any command.
-- **Research tools:** note history with one-click restore; backlinks with the sentence around each link; unlinked mentions; templates for interview memos, fieldnotes, reading notes and lecture plans; qualitative coding with a Codebook and CSV export; manuscripts; search filters such as `kind:`, `tag:`, `code:` and `after:`.
-- **Locked notes:** encrypt a note, or every note of a kind, on your Mac with a password and a recovery key. Locked notes are never sent to an AI provider.
-- **Autosave** while you write, and on quit.
-- **Export** to Word, LaTeX, HTML, OpenDocument and EPUB with the bundled pandoc, with formatted citations.
-- **Your look:** seven light and dark themes, fonts, text sizes and accent colours.
-- **Optional AI** (Anthropic, OpenAI-compatible services, Google Gemini, Voyage AI or Ollama on your Mac), off until you set it up.
-- **Help, a short tour, and update notices.** Slipbox tells you when a new version is out but never downloads or installs anything by itself.
+- **Import notes from another app.** Settings → Import notes brings in Markdown files from an Obsidian vault, Zettlr or Bear notes, a Notion export or any folder, subfolders included. They are copied, never changed. Each becomes a note with its title, its tags plus `imported`, and its dates; links between the files become Slipbox links. You see what will happen, including any links that can't be matched, before anything is imported. Pictures and other attachments aren't copied.
+- **Threads for every note.** Open a note you've already written and choose **Add to a thread** in the side panel, picking the thread and the note it should follow. On a thread's page, add notes, move them with ↑ and ↓, or take one out; the notes either side are joined up. Notes of any kind can be in threads, and a note can be in several.
+- **Choose how much history to keep.** Settings → Trash and history sets how many earlier versions of each note are kept (10 to 200) and shows how much space the history uses. More versions take more space. If you used Slipbox before 5.3, it keeps 200 until you change it; new installs keep 50.
+- **Smaller things.** Fields that other apps add to a note's front matter are kept when Slipbox saves the note. The update page no longer shows the release notes' logo as code. A bibliography that Zotero saves by replacing the whole file is picked up, and Settings → Bibliography shows how many references are in use, or says if the file has been renamed or moved.
 
 ## Licences
 
 Slipbox: PolyForm Noncommercial 1.0.0 (free for personal, academic and non-profit use). The app bundles pandoc 3.1.13 (GPL-2.0-or-later); its source is attached below as `pandoc-3.1.13-source.tar.gz` and is at https://github.com/jgm/pandoc/releases/tag/3.1.13. numpy's bundled libquadmath (LGPL-2.1-or-later) comes from GCC; its source is attached below as well. See [THIRD-PARTY-NOTICES.md](https://github.com/shivissar/Slipbox/blob/main/THIRD-PARTY-NOTICES.md).
+
+<img src="https://raw.githubusercontent.com/shivissar/Slipbox/main/artwork/slipbox-logo-tm.png" width="128" alt="The Slipbox logo">

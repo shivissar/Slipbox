@@ -16,8 +16,9 @@
     </header>
     {%- if restored %}<div class="flash success">Restored. The version it replaced is now at the top of the list, so you can undo this.</div>{% endif %}
     {%- if not versions %}
-    <p class="hint">No earlier versions yet. Slipbox keeps one at most every 10 minutes while you edit, and one before every restore, lock or bulk change.</p>
+    <p class="hint">No earlier versions yet. Slipbox keeps one at most every 10 minutes while you edit, and one before every restore, lock or bulk change, up to {{ history_max }} per note (<a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a>).</p>
     {%- else %}
+    <p class="hint">{{ versions|length }} earlier version{{ '' if versions|length == 1 else 's' }}. Slipbox keeps up to {{ history_max }} of each note; the oldest go first (<a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a>).</p>
     <div class="history-grid">
       <nav class="history-list" aria-label="Versions, newest first">
         {%- for v in versions %}

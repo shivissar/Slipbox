@@ -1,6 +1,6 @@
 # Browser tests
 
-Seven Playwright suites that drive Slipbox's pages in Chromium against a
+Nine Playwright suites that drive Slipbox's pages in Chromium against a
 copy of a small fixture library (`fixture/`: nine notes, a BibTeX file and
 settings). Each run copies the fixture to a temporary folder, so nothing
 outside it is touched.
@@ -14,12 +14,14 @@ outside it is touched.
 | `suite_autosave.py` | Autosave, the last save on leaving, saving when the app quits |
 | `suite_locked.py` | Locked notes: set-up, lock, open/closed, inline unlock, kind sweep, idle lock |
 | `suite_research.py` | History, backlinks, templates, coding, manuscripts, search filters |
+| `suite_threads.py` | Existing notes into threads from the side panel and the thread's page; place, ↑ ↓, take out; new-note Thread for every kind |
+| `suite_importing.py` | Settings → Import notes (check, import, report, converted links); versions kept per note and Trim now; bibliography status |
 
 ## Running
 
 ```sh
 pip install playwright && playwright install chromium
-python tests/browser/run_all.py          # all suites, about four minutes
+python tests/browser/run_all.py          # all suites, about five minutes
 python tests/browser/run_all.py tour     # one suite
 ```
 

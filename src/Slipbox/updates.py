@@ -33,6 +33,20 @@ TIMEOUT = 8
 NOTES_LIMIT = 6000
 
 _VERSION_RE = re.compile(r"^[vV]?(\d+)\.(\d+)(?:\.(\d+))?$")
+
+# 5.3: the notes are shown as plain text, so a line that is only markup
+# (the logo's <img> tag, an HTML comment, a Markdown picture) appeared as
+# raw code. Such lines are left out. <https://…> links are kept.
+_MARKUP_ONLY_RE = re.compile(
+    r"^\s*(?:(?:<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>)\s*)+$"
+    r"|^\s*!\[[^\]\n]*\]\([^)\n]*\)\s*$")
+
+
+def clean_notes(text):
+    """Release notes without lines that are only markup, and without the
+    blank lines that leaves at the top and bottom."""
+    lines = [ln for ln in (text or "").split("\n") if not _MARKUP_ONLY_RE.match(ln)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 _RUNNING = threading.Lock()
 
 
@@ -99,7 +113,7 @@ def fetch_latest(current_version):
         if name.lower().endswith(".dmg") and url:
             dmg = url
             break
-    notes = str(data.get("body") or "").replace("\r\n", "\n").strip()
+    notes = clean_notes(str(data.get("body") or "").replace("\r\n", "\n"))
     if len(notes) > NOTES_LIMIT:
         notes = notes[:NOTES_LIMIT].rstrip() + "\n\n…"
     return {
@@ -159,6 +173,8 @@ def status(current_version, s=None):
     latest = s.get("update_latest") or {}
     if not isinstance(latest, dict):
         latest = {}
+    if latest.get("notes"):  # stored by 5.2, before markup lines were left out
+        latest = dict(latest, notes=clean_notes(str(latest["notes"])))
     lv, cv = parse_version(latest.get("version", "")), parse_version(current_version)
     newer = bool(lv and cv and lv > cv)
     skipped = newer and latest.get("version") == s.get("update_skip")

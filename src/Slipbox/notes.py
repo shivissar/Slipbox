@@ -39,6 +39,12 @@ def extract_wikilinks(body):
 VALID_KINDS = ("research", "journal", "teaching", "life")
 DEFAULT_KIND = "research"
 
+# Front-matter fields Slipbox writes itself. Any others (aliases, source,
+# fields from Obsidian or another app) are kept as they are when Slipbox
+# saves the note (5.3; before, a save dropped them).
+OWN_FIELDS = ("id", "title", "created", "modified", "type", "kind", "tags",
+              "threads", "refs", "locked")
+
 
 def normalize_kind(k):
     """Coerce any kind value to a valid one, defaulting to research."""
@@ -68,6 +74,8 @@ class Note:
     cipher: str = ""          # the armoured body as read from disk
     unreadable: bool = False  # locked and not decrypted (closed or damaged)
     damaged: bool = False
+    # 5.3: front-matter fields that aren't Slipbox's own, written back as read.
+    extra: dict = field(default_factory=dict)
 
     @property
     def path(self):
@@ -138,6 +146,7 @@ def parse_file(path):
         cipher=cipher,
         unreadable=unreadable,
         damaged=damaged,
+        extra={k: v for k, v in fm.items() if k not in OWN_FIELDS},
     )
 
 
@@ -194,11 +203,12 @@ def write_note(note):
         content = note.body
     note.modified = now_iso()
     note.outgoing_links = set() if note.unreadable else extract_wikilinks(note.body)
-    meta = {}
-    if note.locked:
-        meta["locked"] = True
-    post = frontmatter.Post(
-        content,
+    # Other apps' fields first, then Slipbox's own, which always win. Set
+    # through the dict, not as keyword arguments: a field called "content"
+    # or "handler" would otherwise clash with Post's own arguments.
+    post = frontmatter.Post(content)
+    post.metadata.update({k: v for k, v in (note.extra or {}).items() if k not in OWN_FIELDS})
+    post.metadata.update(
         id=note.id,
         title=note.title,
         created=note.created,
@@ -208,8 +218,9 @@ def write_note(note):
         tags=note.tags,
         threads=note.threads,
         refs=note.refs,
-        **meta,
     )
+    if note.locked:
+        post.metadata["locked"] = True
     note.kept_outside_version = False
     try:  # 5.2: keep the previous version (at most every 10 minutes)
         from . import history

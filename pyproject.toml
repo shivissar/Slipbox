@@ -2,7 +2,7 @@
 [tool.briefcase]
 project_name = "Slipbox"
 bundle = "com.shivissar"
-version = "5.2.0"
+version = "5.3.0"
 url = "https://shivissar.com/slipbox"
 license.file = "LICENSE"
 author = "Shiv Issar, Ph.D."
@@ -17,7 +17,8 @@ installer_icon = "artwork/Slipbox-installer"
 long_description = """Slipbox keeps each note as a plain Markdown file in a folder you
 choose, and connects notes with links, tags and threads. Optional AI features
 (note interrogation, tag suggestions, related notes) work with Anthropic,
-OpenAI-compatible services, Google Gemini or Ollama on your own Mac.
+OpenAI-compatible services, Google Gemini, Voyage AI (related notes only) or
+Ollama on your own Mac.
 """
 sources = [
     "src/Slipbox",

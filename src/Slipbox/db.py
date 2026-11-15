@@ -572,6 +572,12 @@ def all_known_ids():
         return {r["id"] for r in rows}
 
 
+def all_titles():
+    """Every note's title (5.3: the import preview flags clashes)."""
+    with get_conn() as conn:
+        return [r["title"] or "" for r in conn.execute("SELECT title FROM notes_meta").fetchall()]
+
+
 # ---------- Bibliography (Zotero / BibTeX) ---------- #
 
 def replace_bib_entries(entries):
@@ -582,6 +588,12 @@ def replace_bib_entries(entries):
                VALUES (:citekey, :title, :author, :year, :raw)""",
             entries,
         )
+
+
+def bib_count():
+    """How many references are indexed (5.3: shown in Settings)."""
+    with get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM bib_entries").fetchone()[0]
 
 
 def search_bib(q, limit=20):
