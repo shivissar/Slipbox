@@ -85,6 +85,35 @@ release notes and About entry cover everything since 5.2.0.
   run that again on "pageshow", because the browser restores the radio
   buttons after Back but not the disabled state.
 
+### The 5.4.0 build (16 November)
+
+- numpy is not pinned, and the build took 2.5.5 where 5.2.0 had 2.5.4.
+  Its macOS wheels changed what they bundle: 2.5.4 had four files in
+  numpy/.dylibs (libscipy_openblas64_, libgfortran.5, libquadmath.0,
+  libgcc_s.1.1); 2.5.5 has only libscipy_openblas64_.dylib
+  (scipy-openblas 0.3.34.237.2), which depends on nothing but
+  libSystem and has three libgfortran routines linked into it
+  (concat_string and two integer powers). numpy's own LICENSE.txt in
+  the wheel dropped its libquadmath entry and describes libgfortran as
+  "statically linked". Checked three ways: the wheels from PyPI
+  (macosx_11_0_arm64 and macosx_10_13_x86_64), a search of the library
+  for quadmath names (none), and the folders of the build itself, whose
+  two libraries have the same sizes as the wheels' (13,899,920 and
+  25,336,960 bytes). So 5.4.0 ships no libquadmath and attaches no
+  source for it.
+- After every build, list numpy/.dylibs in build/slipbox/macos/app/
+  app_packages.arm64 and app_packages.x86_64 before deciding which
+  source archives the release needs. A later numpy could bring
+  libquadmath back.
+- templates/license.html still says numpy bundles libquadmath. Correct
+  it in the next version that is built anyway (a change under src/
+  means a new build and notarisation).
+- Briefcase on the Mac is 0.4.1. The warning that license.file is an
+  old format, with the licence guessed as "MIT", comes from Briefcase
+  0.4.7 in the test container, not from the Mac's build. Leave
+  license.file as it is until the Mac's Briefcase is upgraded, then
+  check which form that version wants.
+
 ## 5.3 (November 2026)
 
 - Import (importer.py). scan() reads and plans without writing: files

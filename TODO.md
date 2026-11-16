@@ -80,3 +80,7 @@ Not actionable, but worth periodically revisiting:
 - **Dependency rot.** Once a year, audit `pyproject.toml` for dependencies that have had major version bumps (Flask, Toga, the AI provider libraries). A weekend of "upgrade and retest" is cheaper than accumulating years of skipped upgrades at once.
 - **The bus factor.** If Slipbox keeps growing in features and surface area, the gap between what exists and what any second person could pick up widens. Consider whether any version of Slipbox is small enough for another developer to understand in a weekend, and whether keeping it that size is worth it as a constraint.
 - **When 2.x of bibtexparser goes stable.** Revisit the in-house parser decision. A stable upstream parser may be worth depending on again, though the current in-house version is small enough to maintain indefinitely.
+
+## Next version that is built
+
+- **Licences page (templates/license.html):** numpy no longer bundles libquadmath (from numpy 2.5.5, first shipped in Slipbox 5.4.0). Take libquadmath out of the numpy line; keep OpenBLAS, LAPACK and the GCC runtime library. See DEVNOTES, "The 5.4.0 build".

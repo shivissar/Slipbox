@@ -2,9 +2,9 @@ Slipbox is a free Mac app for keeping a Zettelkasten: short notes in your own wo
 
 ## Download
 
-**Slipbox-5.4.0.dmg** (__SIZE__ MB, below under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
+**Slipbox-5.4.0.dmg** (108 MB, below under Assets). Needs macOS 11 or later. Built for Apple-silicon and Intel Macs; tested so far on Apple silicon.
 
-SHA-256: `__SHA256__`
+SHA-256: `612de0183809d00c7323e7e7dde99f188aaf434e70389e6ac9b32408db52890e`
 
 To check your download, run `shasum -a 256 ~/Downloads/Slipbox-5.4.0.dmg` in Terminal and compare the result with the line above.
 
@@ -26,6 +26,6 @@ Your notes, settings, note history and locked-notes key are not inside the app, 
 
 ## Licences
 
-Slipbox: PolyForm Noncommercial 1.0.0 (free for personal, academic and non-profit use). The app bundles pandoc 3.1.13 (GPL-2.0-or-later); its source is attached below as `pandoc-3.1.13-source.tar.gz` and is at https://github.com/jgm/pandoc/releases/tag/3.1.13. numpy's bundled libquadmath (LGPL-2.1-or-later) comes from GCC; its source is attached below as well. See [THIRD-PARTY-NOTICES.md](https://github.com/shivissar/Slipbox/blob/main/THIRD-PARTY-NOTICES.md).
+Slipbox: PolyForm Noncommercial 1.0.0 (free for personal, academic and non-profit use). The app bundles pandoc 3.1.13 (GPL-2.0-or-later); its source is attached below as `pandoc-3.1.13-source.tar.gz` and is at https://github.com/jgm/pandoc/releases/tag/3.1.13. The version of numpy in this build no longer includes libquadmath, so that source archive is not attached. See [THIRD-PARTY-NOTICES.md](https://github.com/shivissar/Slipbox/blob/main/THIRD-PARTY-NOTICES.md).
 
 <img src="https://raw.githubusercontent.com/shivissar/Slipbox/main/artwork/slipbox-logo-tm.png" width="128" alt="The Slipbox logo">

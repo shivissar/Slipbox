@@ -16,8 +16,8 @@ Slipbox was called Zetteling until version 5.2.
 Status
 ------
 
-Slipbox 5.2.0 released on Saturday, Nov 14, 2026: the first public release,
-signed and notarised by Apple. Downloads are on the
+Slipbox 5.4.0 released on Monday, Nov 16, 2026, signed and notarised by
+Apple. Downloads are on the
 `releases page <https://github.com/shivissar/Slipbox/releases>`_.
 
 What it does
@@ -84,12 +84,12 @@ Slipbox is archived on Zenodo. The DOI below stands for all versions and
 always leads to the latest; the record lists each version.
 
 APA
-   Issar, S. (2026). Slipbox: a Zettelkasten for Mac. (Version 5.2.0) [Computer
+   Issar, S. (2026). Slipbox: a Zettelkasten for Mac. (Version 5.4.0) [Computer
    software]. Zenodo. https://doi.org/10.5281/zenodo.24086145
 
 Chicago
-   Issar, S. Slipbox: A Zettelkasten for Mac. V. 5.2.0. Zenodo, released
-   November 9, 2026. https://doi.org/10.5281/zenodo.24086145.
+   Issar, S. Slipbox: A Zettelkasten for Mac. V. 5.4.0. Zenodo, released
+   November 16, 2026. https://doi.org/10.5281/zenodo.24086145.
 
 Licence
 -------
@@ -97,8 +97,7 @@ Licence
 PolyForm Noncommercial 1.0.0 (see ``LICENSE``): free for personal, academic,
 research and non-profit use, but not for commercial use. The app also ships
 other people's software and fonts under their own licences, among them pandoc
-(GPL-2.0-or-later), certifi (MPL-2.0) and numpy's bundled libquadmath
-(LGPL-2.1-or-later); see ``THIRD-PARTY-NOTICES.md``.
+(GPL-2.0-or-later) and certifi (MPL-2.0); see ``THIRD-PARTY-NOTICES.md``.
 
 Built with `Briefcase <https://briefcase.readthedocs.io/>`_ and
 `Toga <https://toga.readthedocs.io/>`_ from the BeeWare project.

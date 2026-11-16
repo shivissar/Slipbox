@@ -18,7 +18,7 @@ licence. Those licences apply to those components, not to Slipbox.
 | Package | Version | Licence | Notes |
 |---|---|---|---|
 | certifi | 2026.10.23 | MPL-2.0 | Root certificates for HTTPS. Shipped unmodified, as source, in `app_packages/certifi/`. Source: https://github.com/certifi/python-certifi |
-| numpy | 2.5.4 | BSD-3-Clause (and others for bundled parts) | Its wheels bundle OpenBLAS (BSD-3-Clause), LAPACK (BSD-3-Clause-Open-MPI), the GCC runtime library (GPL-3.0-or-later WITH GCC-exception-3.1) and libquadmath (LGPL-2.1-or-later, a separate dynamic library in `numpy/.dylibs/`, source at https://gcc.gnu.org/git/?p=gcc.git;a=tree;f=libquadmath). Full texts: `numpy-*.dist-info/licenses/LICENSE.txt` in `app_packages/`. |
+| numpy | 2.5.5 | BSD-3-Clause (and others for bundled parts) | Its wheels bundle OpenBLAS (BSD-3-Clause) and LAPACK (BSD-3-Clause-Open-MPI) as one library, `numpy/.dylibs/libscipy_openblas64_.dylib`, with a few routines of the GCC runtime library libgfortran linked into it (GPL-3.0-or-later WITH GCC-exception-3.1). From numpy 2.5.5 the wheels hold no libquadmath: Slipbox 5.2.0 (numpy 2.5.4) shipped it as a separate library, Slipbox 5.4.0 does not. Full texts: `numpy-*.dist-info/licenses/LICENSE.txt` in `app_packages/`. |
 | cryptography | 48.0.1 | Apache-2.0 OR BSD-3-Clause | Includes a statically linked OpenSSL (Apache-2.0). Used for locked notes. |
 | nh3 | 0.3.7 | MIT | Removes unsafe HTML when notes are shown (it replaced bleach in 5.2). A compiled library that statically links Rust crates, among them ammonia and html5ever (MIT OR Apache-2.0), Unicode data (Unicode-3.0), and cssparser and dtoa-short (MPL-2.0, unmodified; source at https://crates.io/crates/cssparser and https://crates.io/crates/dtoa-short). The full list, with each crate's licence, is in `nh3-*.dist-info/sboms/nh3.cyclonedx.json` in `app_packages/`. |
 
@@ -31,7 +31,7 @@ a given build may differ slightly (the exact set is in `app_packages/`).
 | Package | Version | Licence |
 |---|---|---|
 | annotated-types | 0.8.0 | MIT |
-| anthropic | 2.6.0 | Apache-2.0 |
+| anthropic | 2.8.0 | Apache-2.0 |
 | anyio | 4.16.0 | MIT |
 | blinker | 1.9.0 | MIT |
 | cffi | 2.1.1 | MIT-0 |
@@ -41,18 +41,18 @@ a given build may differ slightly (the exact set is in `app_packages/`).
 | docstring_parser | 0.18.0 | MIT |
 | Flask | 3.1.3 | BSD-3-Clause |
 | fonttools | 4.68.0 | MIT |
-| google-auth | 2.62.1 | Apache-2.0 |
-| google-genai | 3.0.0 | Apache-2.0 |
+| google-auth | 2.62.2 | Apache-2.0 |
+| google-genai | 3.3.0 | Apache-2.0 |
 | h11 | 0.16.0 | MIT |
-| httpcore2 | 2.16.0 | BSD-3-Clause |
-| httpx2 | 2.16.0 | BSD-3-Clause |
+| httpcore2 | 2.16.2 | BSD-3-Clause |
+| httpx2 | 2.16.2 | BSD-3-Clause |
 | idna | 3.20 | BSD-3-Clause |
 | itsdangerous | 2.2.0 | BSD |
 | Jinja2 | 3.1.6 | BSD |
 | jiter | 0.19.0 | MIT |
 | Markdown | 3.11.3 | BSD-3-Clause |
 | MarkupSafe | 3.0.4 | BSD-3-Clause |
-| openai | 3.46.0 | Apache-2.0 |
+| openai | 3.51.0 | Apache-2.0 |
 | opentelemetry-api | 1.45.2 | Apache-2.0 |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause |
 | platformdirs | 4.14.5 | MIT |
@@ -88,9 +88,12 @@ same place as the app:
 
 - **Pandoc (GPL-2.0-or-later):** attach pandoc's 3.1.13 source archive to
   the same release.
-- **libquadmath (LGPL-2.1-or-later), inside numpy:** attach the matching
-  libquadmath source from GCC to the same release as well, or replace
-  numpy (it is only used to compare notes for "related notes").
+- **libquadmath (LGPL-2.1-or-later):** not in the app from 5.4.0, because
+  numpy 2.5.5 no longer ships it. Slipbox 5.2.0 did, and its release
+  carries the matching source. Look in `numpy/.dylibs/` after each build:
+  if a `libquadmath` file is there again, attach its matching source from
+  GCC to that release, or replace numpy (it is only used to compare notes
+  for "related notes").
 - **certifi (MPL-2.0):** it ships as unmodified Python source, so the app
   already contains its source; keep its licence file with it.
 - **cssparser and dtoa-short (MPL-2.0), compiled into nh3:** unmodified;
