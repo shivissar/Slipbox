@@ -44,6 +44,50 @@ under 5.3.0 below ships for the first time in 5.4.0.
     (How Slipbox helps, the side panel, Browse); no stop was added.
 * Tests: tests/test_v54.py (25); 21 more checks in the threads browser
   suite and one in the tour suite.
+* Audit of 16 November, fixed before release (tests in
+  tests/test_v54_audit.py, 20; two more checks in the threads browser
+  suite). The first three came in with the fixes of 15 November:
+  - Import, a value the YAML reader refuses. A date that can't exist
+    (0000-00-00, 30 February, a 13th month, 25 o'clock) or a number
+    thousands of digits long in one file's front matter stopped the whole
+    preview with an error page. The fields are now read with every value
+    as the text it was written as, so the title and tags come through and
+    the date is kept as written; brackets nested too deep to read leave
+    the block in the note's text, and the file is listed.
+  - Import, fields Slipbox can't store. Front-matter fields named
+    "content" or "handler" made a note that Slipbox then could not open.
+    They are kept as source-content and source-handler and listed in the
+    preview. Before anything is written, each note is read back as it
+    will be stored: a file whose fields can't be kept is imported as
+    whole text, and one that still can't be read back is skipped, with
+    the reason, while the import goes on. A write that fails leaves no
+    half-made note behind.
+  - Import, links. A link with a path that leads outside the imported
+    folder ([x](../other/note.md)) is no longer matched to a note that
+    happens to have the same file name; only a bare file name is matched
+    by name alone.
+  - Splitting a thread (threads.cut) writes the new branch first and
+    takes the notes out of the old thread second, so a failure partway
+    can leave a note in both threads but never in neither. The message
+    says so and what to do.
+  - Index: INDEX_VERSION is "5.4", so the index is rebuilt at first start
+    after an older version used the folder. Before, branches made in 5.4
+    and then saved by 5.2.0 could be missing from the index.
+  - A thread can't be named with full stops alone ("." and ".." gave
+    pages that could not be opened). A new note never takes the ID of a
+    note in the trash or in the history. "Make it a thread of its own" on
+    a thread that is not a branch says so, and no longer reports a change
+    it didn't make.
+  - The branch form: its fields match the chosen option again after Back,
+    and its button says "Starting…" and can't be pressed twice. Branches
+    inside branches are set in one size (each level used to be smaller
+    than the last; at ten levels the text was about 60% of its size).
+  - Left as they are: a thread given the name of a branch that no longer
+    has notes takes over that branch's place while notes elsewhere still
+    name it as their parent; files written to exhaust the reader (YAML
+    aliases that multiply, tens of thousands of brackets) are slow to
+    preview; Pandoc's "..." closing line and JSON front matter are not
+    read as front matter.
 
 ## 5.3.0 (November 2026; not released, part of 5.4.0)
 

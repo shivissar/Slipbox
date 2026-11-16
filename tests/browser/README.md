@@ -14,7 +14,7 @@ outside it is touched.
 | `suite_autosave.py` | Autosave, the last save on leaving, saving when the app quits |
 | `suite_locked.py` | Locked notes: set-up, lock, open/closed, inline unlock, kind sweep, idle lock |
 | `suite_research.py` | History, backlinks, templates, coding, manuscripts, search filters |
-| `suite_threads.py` | Existing notes into threads from the side panel and the thread's page; place, ↑ ↓, take out; new-note Thread for every kind |
+| `suite_threads.py` | Existing notes into threads from the side panel and the thread's page; place, ↑ ↓, take out; new-note Thread for every kind; branches: start one (a note, a new note, the rest of the thread), the tree and its labels, move and free a branch |
 | `suite_importing.py` | Settings → Import notes (check, import, report, converted links); versions kept per note and Trim now; bibliography status |
 
 ## Running

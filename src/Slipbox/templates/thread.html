@@ -100,7 +100,7 @@
 
   {#- 5.4: a second line of thought leaving from one of this thread's notes. #}
   {%- if can_branch %}
-  <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-note thread-branch-form" id="branch" data-branch-form>
+  <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-note thread-branch-form" id="branch" data-branch-form data-busy="Starting…">
     <input type="hidden" name="action" value="branch">
     <input type="hidden" name="thread" value="{{ name }}">
     <input type="hidden" name="back" value="thread">

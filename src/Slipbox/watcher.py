@@ -20,7 +20,11 @@ from . import notes
 
 # Bump when upsert_note starts indexing something new, so the next start
 # re-reads every note instead of trusting modification times.
-INDEX_VERSION = "5.2"
+# 5.4: branches are indexed (thread_membership.parent_thread, from_id). An
+# older Slipbox used on the same Mac in between writes its own, older
+# version here and drops those two values for the notes it saves, so 5.4
+# re-reads every note whenever the index was last used by another version.
+INDEX_VERSION = "5.4"
 
 # Note files Slipbox couldn't read, by filename -> reason (5.2: these
 # used to vanish from the list with only a console message).

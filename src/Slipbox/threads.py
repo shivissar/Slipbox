@@ -56,6 +56,8 @@ def clean_name(raw):
         raise ThreadError("Give the new thread a name.")
     if "/" in name:
         raise ThreadError("A thread name can’t contain a slash (/).")
+    if not name.strip("."):
+        raise ThreadError("A thread’s name needs a letter or a number: a name of full stops alone can’t be opened.")
     if len(name) > NAME_MAX:
         raise ThreadError("Keep the thread’s name under %d characters." % NAME_MAX)
     return name
@@ -283,10 +285,18 @@ def cut(parent, from_id, name):
     if depth(parent, links) + 1 + (1 + max(height(b, links) for b in moving) if moving else 0) > MAX_DEPTH:
         raise _too_deep()
     _readable([parent] + moving)
-    _write(parent, current[:current.index(from_id) + 1], removed=rest)
-    _write(name, rest, link=(parent, from_id))
-    for b in moving:
-        _write(b, order(b), link=(name, links[b][1]))
+    # Into the new branch first, out of the old thread last: if a write
+    # fails partway (a full disk, a file another app holds), the notes are
+    # in both threads, never in neither.
+    try:
+        _write(name, rest, link=(parent, from_id))
+        _write(parent, current[:current.index(from_id) + 1], removed=rest)
+        for b in moving:
+            _write(b, order(b), link=(name, links[b][1]))
+    except ThreadError as e:
+        raise ThreadError("The split stopped partway: %s No note has dropped out of a thread, but some may now "
+                          "be in both “%s” and “%s”. Once the cause is dealt with, take them out of one."
+                          % (str(e).split(" The thread may be")[0], parent, name))
     return len(rest)
 
 
@@ -313,6 +323,8 @@ def detach(thread):
     mine = order(thread)
     if not mine:
         raise ThreadError("The thread “%s” can’t be found. Reload the page and try again." % thread)
+    if thread not in db.thread_links():
+        raise ThreadError("“%s” isn’t a branch." % thread)
     _write(thread, mine, link=None)
 
 

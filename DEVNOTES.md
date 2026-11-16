@@ -41,6 +41,50 @@ release notes and About entry cover everything since 5.2.0.
 - Not done: adding a thread to a manuscript, or exporting it, with its
   branches in place; reordering sibling branches by hand.
 
+### After the audit of 16 November (still 5.4.0)
+
+- importer._front_matter catches Exception, not only yaml.YAMLError.
+  PyYAML's SafeLoader builds dates and integers as it reads, so a date
+  that can't exist raises ValueError (and Python refuses to turn more
+  than 4,300 digits into an int), and deep nesting raises RecursionError.
+  None of these is a YAMLError. On such a value the block is loaded again
+  with yaml.BaseLoader, which makes every scalar a string; only if that
+  fails too is the block left in the text. One file must never stop the
+  scan: anything new that reads a file in importer.scan needs the same
+  care.
+- python-frontmatter's Post takes "content" and "handler" as arguments of
+  its own, so front matter with either key makes frontmatter.loads raise
+  TypeError (notes.parse_file fails on such a file, however it got into
+  the folder; not changed). The importer renames both (_UNREADABLE) and
+  then checks rather than trusts: _storable(extra) round-trips the extra
+  fields through frontmatter.dumps and loads at scan time, and run()
+  round-trips each whole note before writing it. importer._item is the
+  pure part of _read (no file access), so tests can feed it fields.
+- importer.run is in three stages per note: prepare (encryption; a
+  failure stops the import), build and read back (a failure skips that
+  file and goes on), write and index (a failure deletes the file just
+  written and stops). The report's wording differs for each.
+- find_path matches by file name alone only when the link is a bare file
+  name. A path with a folder in it that doesn't resolve inside the import
+  is somebody else's file.
+- threads.cut order: write the branch, then shorten the parent, then
+  re-parent the branches that moved. Each note is in at least one thread
+  at every step. The reverse order (as first written) could drop notes
+  out of both when the second write failed.
+- watcher.INDEX_VERSION must be changed in every release that changes
+  what the index holds (5.4 added parent_thread and from_id). It is
+  compared for equality, so going back to an older version and forward
+  again also rebuilds.
+- notes._id_in_use looks in the folder, .trash and the history folders. A
+  new note that took a trashed note's ID would have been overwritten by
+  "Put back", or have inherited its history.
+- style.css: nested branches (.tb .tb) are 1em. A relative size on a
+  recursive element compounds; set the size once on the outermost and
+  reset it inside.
+- app.js: a form whose fields are enabled and disabled by script must
+  run that again on "pageshow", because the browser restores the radio
+  buttons after Back but not the disabled state.
+
 ## 5.3 (November 2026)
 
 - Import (importer.py). scan() reads and plans without writing: files

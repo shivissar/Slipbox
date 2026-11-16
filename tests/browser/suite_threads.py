@@ -171,6 +171,17 @@ with sync_playwright() as p:
     check("both branches hang from the note, in name order",
           pg.locator(f"#n-{R2} > .tb > li > .tb-head .tl").all_inner_texts() == ["2a", "2b"])
     pg.screenshot(path=f"{SH}/v54_thread_tree.png", full_page=True)
+    sizes = pg.evaluate("""(sel) => { const px = q => parseFloat(getComputedStyle(document.querySelector(q)).fontSize);
+        return [px(sel + ' > .tb > li > .tb-notes > li > a'), px(sel + ' .tb .tb .tb-notes > li > a'),
+                px(sel + ' > .tb > li > .tb-head .tl'), px(sel + ' .tb .tb .tb-head .tl')]; }""", f"#n-{R2}")
+    check("a branch inside a branch is set in the same size", sizes[0] == sizes[1] and sizes[2] == sizes[3] and sizes[0] >= 13, sizes)
+    # Back to the form after leaving it: the fields still match the choice
+    pg.select_option("#branch-start", "note"); pg.wait_for_timeout(150)
+    pg.goto(f"{BASE}/threads"); pg.wait_for_timeout(300); pg.go_back(); pg.wait_for_timeout(700)
+    check("after Back the form's fields match its choice",
+          pg.is_visible("#branch-note") == (pg.input_value("#branch-start") == "note")
+          and pg.is_visible("#branch-name") == (pg.input_value("#branch-start") != "thread"),
+          (pg.input_value("#branch-start"), pg.is_visible("#branch-note")))
 
     # Threads page nests them; a branch can stand on its own again
     pg.goto(f"{BASE}/threads"); pg.wait_for_timeout(300)

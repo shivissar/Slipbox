@@ -55,6 +55,10 @@ _ID_FMT = "%Y%m%d%H%M%S"
 # Fields the import sets itself; anything else in a file's front matter is
 # kept as it is.
 _TAKEN_OVER = set(notes.OWN_FIELDS) | {"tag"}
+# The library Slipbox reads note files with fails on a front-matter field
+# with either of these names, so a note holding one could never be opened
+# again. They are kept as source-content and source-handler.
+_UNREADABLE = ("content", "handler")
 
 _NUM_PREFIX_RE = re.compile(r"^(\d{12,14})(?!\d)")
 _CODE_RE = re.compile(r"(```.*?```|~~~.*?~~~|`[^`\n]*`)", re.DOTALL)
@@ -333,6 +337,18 @@ def _front_matter(text):
         fields = yaml.load(block, Loader=yaml.SafeLoader)
     except yaml.YAMLError:
         return {}, text.strip(), False
+    except Exception:
+        # Not a mistake in the YAML but a value that can't be: a date such
+        # as 0000-00-00 or 30 February (ValueError), a number thousands of
+        # digits long. Read the block again with every value taken as the
+        # text it is written as, so the title and tags still come through.
+        # If that fails too (brackets nested very deep: RecursionError),
+        # the block stays in the note's text. Either way, one such file
+        # must not stop the whole preview.
+        try:
+            fields = yaml.load(block, Loader=yaml.BaseLoader)
+        except Exception:
+            return {}, text.strip(), False
     if not isinstance(fields, dict) or not all(isinstance(k, str) for k in fields):
         return {}, text.strip(), False
     return fields, text[end.end():].strip(), True
@@ -359,10 +375,41 @@ def _read(path, rel, plan):
         plan.skipped.append((rel, "a locked Slipbox note: remove its lock in the Slipbox it came from, then import it"))
         return None
     meta, body, ok = _front_matter(text)
+    item, counts = _item(path, rel, plan.kind, meta, body)
+    if ok and not _storable(item.extra):
+        # Fields Slipbox couldn't read back from a note file: the opening
+        # lines stay in the note's text instead, and the file is listed.
+        ok = False
+        item, counts = _item(path, rel, plan.kind, {}, text.strip())
     if not ok:
         plan.yaml_problems.append(rel)
+    for name, n in counts["renamed"].items():
+        plan.renamed[name] = plan.renamed.get(name, 0) + n
+    plan.threads_dropped += counts["threads_dropped"]
+    plan.inline_tags += counts["inline_tags"]
+    return item
 
-    extra = {k: v for k, v in meta.items() if k not in _TAKEN_OVER}
+
+def _storable(extra):
+    """Whether these fields, once in a note's front matter, can be read
+    back by the reader Slipbox uses for its own notes. Nothing is written
+    that Slipbox couldn't open again."""
+    if not extra:
+        return True
+    try:
+        post = frontmatter.Post("x")
+        post.metadata.update(extra)
+        frontmatter.loads(frontmatter.dumps(post))
+        return True
+    except Exception:
+        return False
+
+
+def _item(path, rel, kind, meta, body):
+    """The note a file becomes, from its fields and its text. Returns the
+    Item and what to count for the preview; changes nothing else."""
+    counts = {"renamed": {}, "threads_dropped": 0, "inline_tags": 0}
+    extra = {k: v for k, v in meta.items() if k not in _TAKEN_OVER and k not in _UNREADABLE}
 
     def keep(name):
         """A field whose name Slipbox uses itself, and whose value it isn't
@@ -371,7 +418,11 @@ def _read(path, rel, plan):
         while key in extra or key in meta:
             key += "-imported"
         extra[key] = meta[name]
-        plan.renamed[name] = plan.renamed.get(name, 0) + 1
+        counts["renamed"][name] = counts["renamed"].get(name, 0) + 1
+
+    for name in _UNREADABLE:
+        if name in meta:
+            keep(name)
 
     created, modified = _file_times(path)
     for key in ("created", "date", "created_at"):
@@ -396,7 +447,7 @@ def _read(path, rel, plan):
     body = _drop_title_heading(body, title)
 
     if meta.get("threads"):
-        plan.threads_dropped += 1
+        counts["threads_dropped"] = 1
         keep("threads")
     m = _NUM_PREFIX_RE.match(path.name)
     number = m.group(1) if m else ""
@@ -406,7 +457,7 @@ def _read(path, rel, plan):
     note_type = meta.get("type") if meta.get("type") in ("zettel", "manuscript") else "zettel"
     if meta.get("type") not in (None, "", "zettel", "manuscript"):
         keep("type")
-    if meta.get("kind") not in (None, "") and str(meta["kind"]).strip().lower() != plan.kind:
+    if meta.get("kind") not in (None, "") and str(meta["kind"]).strip().lower() != kind:
         keep("kind")
     if "locked" in meta:
         keep("locked")
@@ -414,13 +465,13 @@ def _read(path, rel, plan):
         keep("refs")
     if any(not _HEX_COLOUR_RE.fullmatch(t) for part in _CODE_RE.split(body)[::2]
            for t in _INLINE_TAG_RE.findall(part)):
-        plan.inline_tags += 1
+        counts["inline_tags"] = 1
     return Item(
         src=path, rel=rel, title=title[:200], body=body, tags=_tags(meta),
         created=created, modified=modified, type=note_type,
         refs=_list(meta.get("refs")), extra=extra,
         number=number, aliases=_list(meta.get("aliases")), fm_id=meta.get("id"),
-    )
+    ), counts
 
 
 def _taken_ids():
@@ -527,8 +578,8 @@ class _Links:
 
     def find_path(self, path, here):
         """The Item a Markdown link's path points to, or None: taken as
-        relative to the file it is in, then from the top folder, then by
-        file name alone when only one file has that name."""
+        relative to the file it is in, then from the top folder, then, for
+        a bare file name, by that name when only one file has it."""
         p = path
         for ext in SUFFIXES:
             if p.lower().endswith(ext):
@@ -543,7 +594,13 @@ class _Links:
             hit = self.by_path.get(k)
             if hit:
                 return hit
-        hit = self._one(self.by_name.get(_key(posixpath.basename(p))))
+        # By file name alone only when the link is a bare file name. A path
+        # that names folders and matches nothing points somewhere else,
+        # perhaps outside the folder being imported, and a note that merely
+        # shares the file name is not what it meant.
+        if "/" in posixpath.normpath(p) or posixpath.normpath(p) in (".", ".."):
+            return None
+        hit = self._one(self.by_name.get(_key(p)))
         return hit if isinstance(hit, Item) else None
 
 
@@ -678,7 +735,9 @@ def scan(raw_folder, kind):
 def run(plan, lock=False):
     """Write the planned notes. Returns (notes written, error message or "").
     With lock (the kind is one the person always locks, and locked notes
-    are open), each note's text is encrypted before it reaches the disk."""
+    are open), each note's text is encrypted before it reaches the disk.
+    A file whose note Slipbox couldn't read back is skipped and listed,
+    not written; a failure to write stops the import."""
     written = []
     present = {m.group(1) for m in (notes.ID_RE.match(p.name) for p in notes.NOTES_DIR.glob("*.md")) if m}
     for it in plan.items:
@@ -688,7 +747,11 @@ def run(plan, lock=False):
             continue
         try:
             text = it.body.strip("\n") + "\n"
-            post = frontmatter.Post(vault.encrypt_body(it.id, text) if lock else text)
+            content = vault.encrypt_body(it.id, text) if lock else text
+        except Exception as e:
+            return written, "Stopped at %s: %s" % (it.rel, e)
+        try:
+            post = frontmatter.Post(content)
             post.metadata.update(it.extra)
             post.metadata.update(
                 id=it.id, title=it.title,
@@ -698,9 +761,19 @@ def run(plan, lock=False):
             )
             if lock:
                 post.metadata["locked"] = True
-            notes._write_atomically(path, frontmatter.dumps(post))
+            out = frontmatter.dumps(post)
+            frontmatter.loads(out)  # what is written must be readable again
+        except Exception as e:
+            plan.skipped.append((it.rel, "its front matter can’t be kept in a Slipbox note (%s)" % type(e).__name__))
+            continue
+        try:
+            notes._write_atomically(path, out)
             db.upsert_note(notes.parse_file(path))
         except Exception as e:
+            try:
+                path.unlink()  # never leave a half-made note behind
+            except OSError:
+                pass
             return written, "Stopped at %s: %s" % (it.rel, e)
         written.append(it)
     return written, ""

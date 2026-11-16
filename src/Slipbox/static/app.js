@@ -1103,6 +1103,9 @@
     };
     how.addEventListener("change", sync);
     sync();
+    // Coming back with Back, the browser puts the earlier choice in the
+    // list again but not the fields that went with it.
+    window.addEventListener("pageshow", sync);
   });
 
   /* 5.3: "Add to a thread" in a note's side panel. Choosing a thread lists
@@ -1147,6 +1150,7 @@
     } else {
       sync();
     }
+    window.addEventListener("pageshow", function (e) { if (e.persisted && (!box || box.open)) sync(); });
   });
 
   /* ------------------------------------------------------------------ *

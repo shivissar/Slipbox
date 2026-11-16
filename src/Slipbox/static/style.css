@@ -1388,9 +1388,13 @@ button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
 .tb-head a { font-weight: 850; }
 .tb-head .i, .tf-row .i { vertical-align: -3px; margin-right: 3px; }
 .tb-notes { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.tb-notes > li { display: block; padding: 0; background: none; font-size: 0.95em; }
+.tb-notes > li { display: block; padding: 0; background: none; }
 .tb-notes > li > a { font-weight: 650; }
-.tb .tl { margin-right: 6px; font-size: 0.86em; }
+/* Sizes are set once, at the first level: set on every level they would
+   multiply, and a tenth-level note would be too small to read. */
+.thread-chain > li > .tb, .thread-loose > .tb { font-size: 0.95em; }
+.tb .tb { font-size: 1em; }
+.tb .tl { margin-right: 6px; font-size: 0.9em; }
 .thread-loose { margin: 0.6rem 0 0; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
 .thread-forest { list-style: none; margin: 1rem 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .thread-forest .thread-forest { margin: 4px 0 2px; padding-left: 14px; border-left: 3px solid var(--surface-3); }

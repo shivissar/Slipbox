@@ -319,10 +319,27 @@ def _unused_id(note_id):
     """Note IDs are 14-digit timestamps. Two notes made in the same second
     used to share one; move to the next free second instead (5.2)."""
     from datetime import datetime, timedelta
-    while any(NOTES_DIR.glob(f"{note_id}*.md")):
+    while _id_in_use(note_id):
         t = datetime.strptime(note_id, "%Y%m%d%H%M%S") + timedelta(seconds=1)
         note_id = t.strftime("%Y%m%d%H%M%S")
     return note_id
+
+
+def _id_in_use(note_id):
+    """An ID a new note must not take: a note in the folder has it, or
+    (5.4) a note in the trash, or a deleted note's history. A new note
+    with such an ID would inherit that note's history and the links other
+    notes made to it."""
+    if any(NOTES_DIR.glob(f"{note_id}*.md")):
+        return True
+    trash = NOTES_DIR / ".trash"
+    if trash.is_dir() and any(trash.glob(f"{note_id}*")):
+        return True
+    try:
+        from . import history
+        return (history.history_dir() / note_id).is_dir()
+    except Exception:
+        return False
 
 
 def create_note(title, body="", tags=None, type_="zettel", kind=DEFAULT_KIND, locked=False):
