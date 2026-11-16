@@ -99,8 +99,10 @@ with sync_playwright() as p:
     total_note = int(pg.locator(".tour-step").text_content().split(" of ")[1])
     check("a note shows the note stops too", total_note > total_index, (total_note, total_index))
     titles = []
+    said = {}
     for i in range(total_note):
         titles.append(pg.inner_text("#tour-title"))
+        said[titles[-1]] = pg.inner_text(".tour-card")
         if titles[-1] == "Everything connected to this note":
             pg.screenshot(path=f"{SH}/v52_tour_rail.png")
         if titles[-1] == "Lock a note":
@@ -109,6 +111,10 @@ with sync_playwright() as p:
             pg.click(".tour-next"); pg.wait_for_timeout(380)
     check("all stops on a note", {"Write and edit", "Lock a note", "History", "Export", "Everything connected to this note",
                                    "While you write", "Browse", "Make it yours"} <= set(titles), titles)
+    check("the tour says that threads branch (5.4)",
+          "can branch" in said.get("How Slipbox helps", "")
+          and "Branch from here" in said.get("Everything connected to this note", "")
+          and "threads with their branches" in said.get("Browse", ""), list(said))
     check("last stop points at the tour button", titles[-1] == "That’s the tour" and pg.inner_text(".tour-next") == "Done")
     spot = pg.locator(".tour-spot").bounding_box(); btn = pg.locator('[data-tour="tour"]').bounding_box()
     check("last spotlight is on the compass", abs((spot["x"] + spot["width"] / 2) - (btn["x"] + btn["width"] / 2)) < 3, (spot, btn))

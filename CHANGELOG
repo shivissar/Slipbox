@@ -40,8 +40,10 @@ under 5.3.0 below ships for the first time in 5.4.0.
     label, the branches that leave from it, and "Branch from here".
   - Index: thread_membership gains parent_thread and from_id (added to an
     existing database at start; db.thread_links()).
+  - The welcome tour says so in the three stops that speak of threads
+    (How Slipbox helps, the side panel, Browse); no stop was added.
 * Tests: tests/test_v54.py (25); 21 more checks in the threads browser
-  suite.
+  suite and one in the tour suite.
 
 ## 5.3.0 (November 2026; not released, part of 5.4.0)
 
