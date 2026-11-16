@@ -5,9 +5,9 @@
 ## 5.3 (November 2026)
 
 - Import (importer.py). scan() reads and plans without writing: files
-  (os.walk, no symlinked folders, hidden folders and the notes folder's
-  own top level skipped, at most MAX_FILES), then Items, then IDs, then
-  links. The run request scans again before writing, since the folder may
+  (os.walk, no symlinked folders, hidden folders and the notes folder
+  with everything in it skipped, at most MAX_FILES), then Items, then
+  IDs, then links. The run request scans again before writing, since the folder may
   have changed since the preview, and keeps the report in
   _IMPORT_REPORTS for a GET page (reloading can't import twice). Notes
   are written with notes._write_atomically, not write_note, so their
@@ -48,6 +48,58 @@
   whether the file is found (_bib_status).
 - tests/Zetteling.py is tests/Slipbox.py, the module name Briefcase's
   test mode runs for the app Slipbox.
+
+### After the audit of 15 November (still 5.3.0)
+
+- Import front matter (importer._front_matter): Slipbox splits the block
+  itself and loads it with yaml.SafeLoader, and accepts it only as a dict
+  with string keys. python-frontmatter drops a block that isn't a dict
+  without saying so, which lost text written between two rules.
+- Import IDs are given in date order with a moving "next free second", so
+  the search never revisits seconds already given out. _stamp() formats
+  the ID itself: strftime("%Y") gives "1" for the year 1 on Linux.
+- Import once: /import/preview puts a token in _IMPORT_PREVIEWS; /import/run
+  holds _IMPORT_LOCK, and a token already used redirects to the report it
+  made. An unknown token (restart, old page) shows a fresh preview and
+  imports nothing. Tests that post to /import/run need the token from the
+  preview page.
+- MAX_FILES is 2,000 because the Mac app's web view gives a request 60
+  seconds (NSURLRequest's default). Measured here: 2,000 files plan in
+  under a second and import in about 15 s (20 s when encrypted).
+- Import into an always-locked kind: importer.run(plan, lock=True) encrypts
+  each body with vault.encrypt_body before it is written, when locked
+  notes are open. Closed: written plain, locked by sweep_locked_kinds at
+  the next unlock, as any arriving note is.
+- Folder access: os.walk(onerror=...) records subfolders that can't be
+  opened and raises for the top folder; errno EPERM is macOS's refusal
+  (Files and Folders), EACCES the folder's own permissions. The advice is
+  shown only then. macOS 11 to 13 keep an undownloaded iCloud file as
+  ".name.icloud"; those are counted. From macOS 14 they are ordinary
+  files that download when read, so nothing special is needed.
+- Fields from another app that share a name with Slipbox's own are kept as
+  source-<name> (importer._read's keep(), and "id" after IDs are given).
+- notes.write_note(note, touch=False): "modified" kept, no routine history
+  version (an "external" one is still kept if the file changed outside).
+  threads.py uses it for every write. threads._write loads all members
+  before writing any.
+- The new-note form's thread choice is applied after the note is written
+  and indexed, through threads.add (it needs the note in the index).
+- /thread/<path:thread_name>, so names containing "/" made before the
+  check can be opened.
+- updates._markup_only() matches one comment or tag at a time from the
+  left. Don't go back to one pattern for the whole line: nested
+  quantifiers there backtrack exponentially on a line that ends in text.
+- _history_usage() caches only a count that took over 0.25 s, for two
+  minutes, and trash/history routes forget it; a quick count is always
+  fresh, which is what the tests see.
+- pyproject.toml [tool.briefcase.app.Slipbox.macOS] info."NS…UsageDescription":
+  Briefcase writes each as a key in Info.plist. They show only in the
+  built app, not under `briefcase dev`.
+- Manuscripts: /manuscripts/new redirects to the note page (#build).
+  manuscript_outline has a "rename" action and takes from=page to return
+  to #build; add_note and add_thread skip notes already embedded. The page
+  block is in note.html under the rendered text, shown when `outline` is
+  set (type manuscript, readable).
 
 ## Rename to Slipbox (9 November 2026)
 

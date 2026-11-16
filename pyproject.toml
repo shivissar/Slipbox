@@ -52,6 +52,15 @@ test_requires = [
 
 [tool.briefcase.app.Slipbox.macOS]
 universal_build = true
+# 5.3: what macOS shows when it asks whether Slipbox may use a folder it
+# guards (the notes folder, or a folder notes are imported from). Without
+# these lines the question appears with Apple's general wording only.
+info."NSDesktopFolderUsageDescription" = "Slipbox reads and saves notes in the folder you choose, and reads a folder when you import notes from it."
+info."NSDocumentsFolderUsageDescription" = "Slipbox reads and saves notes in the folder you choose, and reads a folder when you import notes from it."
+info."NSDownloadsFolderUsageDescription" = "Slipbox reads a folder when you import notes from it, and saves exports to the folder you choose."
+info."NSRemovableVolumesUsageDescription" = "Slipbox reads and saves notes in the folder you choose, and reads a folder when you import notes from it."
+info."NSNetworkVolumesUsageDescription" = "Slipbox reads and saves notes in the folder you choose, and reads a folder when you import notes from it."
+info."NSFileProviderDomainUsageDescription" = "Slipbox reads and saves notes in the folder you choose, and reads a folder when you import notes from it."
 requires = [
     "toga-cocoa~=0.5.0",
     "std-nslog~=1.0.3",

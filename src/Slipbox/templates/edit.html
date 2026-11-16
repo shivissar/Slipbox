@@ -46,6 +46,9 @@
           <span class="chip chip-accent">type [[ to link a note</span>
           <span class="chip chip-code">select text, ⌘⇧C to code it</span>
         </div>
+        {%- if note and note.type == "manuscript" %}
+        <p class="hint ms-edit-hint">This is a manuscript: write here as in any note, and a line holding only <code>![[</code>…<code>]]</code> pulls in a whole note (type <kbd>![[</kbd> to choose one). Notes, whole threads and headings can also be added on the <a href="{{ url_for('view', note_id=note.id) }}#build">manuscript’s page</a>.</p>
+        {%- endif %}
         <div class="editor-wrap" id="editor-wrap">
           <label class="sr-only" for="body">Body</label>
           <textarea name="body" id="body" class="editor-body" spellcheck="true"{% if focus_body %} autofocus{% endif %}
@@ -102,7 +105,8 @@
         </div>
         <div data-thread-when="new" hidden>
           <label class="field-label" for="new-thread-name" style="display: block; margin: 8px 0 6px">New thread name</label>
-          <input type="text" id="new-thread-name" name="new_thread_name" placeholder="e.g. tethered-autonomy" style="width: 100%">
+          <input type="text" id="new-thread-name" name="new_thread_name" maxlength="80" placeholder="e.g. tethered-autonomy" style="width: 100%">
+          <p class="hint">If a thread already has this name, the note joins it at the end. A name can’t contain a slash.</p>
         </div>
         <div data-thread-when="existing" hidden>
           <label class="field-label" for="existing-thread" style="display: block; margin: 8px 0 6px">Thread</label>

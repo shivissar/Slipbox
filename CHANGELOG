@@ -10,7 +10,7 @@ are in DEVNOTES.md.
 * Import (importer.py, Settings → Import notes, /import/preview,
   /import/run, /import/done/<token>, templates/import.html): Markdown files
   from a folder and its subfolders (hidden folders, node_modules and
-  __MACOSX left out; up to 5,000 files, 5 MB each) become Slipbox notes, as
+  __MACOSX left out; up to 2,000 files, 5 MB each) become Slipbox notes, as
   copies. ID: a free 14-digit ID at the start of the file name is kept,
   else one made from the note's own date (front matter created/date, else
   the file's), moved on a second at a time past IDs in the folder, the
@@ -64,6 +64,63 @@ are in DEVNOTES.md.
   using. pyproject long_description names Voyage AI. tests/Zetteling.py is
   tests/Slipbox.py, the name Briefcase's test mode looks for.
 * Tests: tests/test_v53.py (21); browser suites threads and importing.
+* Audit of 15 November, all findings fixed before release (tests in
+  tests/test_v53_audit.py, 41):
+  - Import. Lines between two --- at the top of a file are taken as front
+    matter only if they read as named fields; otherwise the whole file is
+    the note's text and the file is listed (text or a heading between two
+    rules used to be dropped). IDs are given in one pass (5,000 files
+    sharing a date took 27 s to plan, now under a second), and never have
+    fewer than 14 digits: dates before 1900 are not used. One import takes
+    2,000 files. Each preview carries a token that Import uses up, so a
+    second press, or Back and Import, shows the first report; the button
+    says "Importing…" and the form can't be sent twice. A folder that
+    can't be opened is reported as such, with what to do in macOS, and so
+    are subfolders; files still in iCloud (".name.md.icloud") are counted.
+    None of this is shown unless it happens. Paths pasted in quotation
+    marks, with Terminal's backslashes or as file:// are understood; a
+    file's path is said to be a file. A folder that contains the notes
+    folder no longer has that folder's subfolders read.
+  - Import, links: [[name\|words]] in a table (becomes [[ID]], counted);
+    ![[name]] inside a sentence, or pointing at part of a note, becomes a
+    link, not "!" and a link or an embed of the whole note; a name with a
+    dot in it ([[Chapter 1.2]]) is a note, not an attachment;
+    [words](<path with spaces.md>), links without .md, and paths written
+    from the top folder are matched; [[#heading]] is left alone.
+  - Import, fields: a file's own id, type, kind, locked, threads, or a
+    created/modified/refs value Slipbox can't use, is kept as source-id
+    and so on, and the preview lists them. Tags written in the text
+    (#idea) stay as text; the preview and Help say so.
+  - Locked notes: fields from another app stay readable in a locked note's
+    file. Said in Settings and Help; named in a question before locking
+    such a note, in the notice when notes are locked by kind, and in the
+    import preview. Importing into an always-locked kind encrypts each
+    note as it is written when locked notes are open (it was written
+    plain and locked later), and says so; when they are closed the
+    preview says the notes stay plain until they are next open.
+  - History limit: 200 is the built-in fallback (was 50), so a save made
+    while the settings file can't be read never lowers the limit.
+  - Threads: a change of place, joining or leaving a thread no longer
+    alters a note's "modified" date or adds a history version
+    (notes.write_note(touch=False)). Every member is read before any is
+    written; one that can't be read is named and nothing changes (it was
+    an error page after some had been rewritten). The new-note form goes
+    through threads.py: a name with a slash is refused with a notice, and
+    "New" with an existing thread's name joins that thread. A thread
+    whose name does contain a slash can be opened. The note picker takes
+    the last 14-digit number, so a title containing one works.
+  - updates.clean_notes reads a line a piece at a time; a line of many
+    comments followed by text could take minutes with the old pattern.
+  - Settings remembers a slow count of the history for two minutes; a note
+    page fetches a thread's notes only when "Add to a thread" is opened.
+  - pyproject.toml: Info.plist usage descriptions for the folders macOS
+    guards, so its permission questions carry Slipbox's own wording.
+* Manuscripts: a new manuscript opens on its own page, not in the editor.
+  Under its text, "Build this manuscript" names it and adds a note, a
+  whole thread or a heading (the side panel keeps the list, with ↑ ↓ ×).
+  A note already in the manuscript isn't added twice. The editor says
+  when the note being edited is a manuscript. Help and the Manuscripts
+  page say what a manuscript is for.
 
 ## 5.2.0 (November 2026)
 

@@ -2,6 +2,7 @@
 Markdown import, other apps' front-matter fields kept, release-notes
 markup lines hidden, and a replaced or missing .bib file."""
 import os
+import re
 import sys
 import tempfile
 import time
@@ -441,7 +442,8 @@ def test_import_pages(client, tmp_path):
     page = r.get_data(as_text=True)
     assert r.status_code == 200 and "Import 2 notes" in page and "Nothing has been imported yet" in page
     assert not list(notes.NOTES_DIR.glob("*.md"))
-    r = client.post("/import/run", data={"folder": str(src), "kind": "life"})
+    token = re.search(r'name="token" value="([^"]+)"', page).group(1)
+    r = client.post("/import/run", data={"folder": str(src), "kind": "life", "token": token})
     assert r.status_code == 302 and "/import/done/" in r.location
     page = client.get(r.location).get_data(as_text=True)
     assert "Imported 2 notes" in page and "as Life notes" in page

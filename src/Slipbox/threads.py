@@ -12,6 +12,11 @@ prev/next of each member whose entry differs, so a chain that was broken
 (by a note deleted in Finder, say) is mended as a side effect. Locked
 notes can be moved too: only their front matter changes, and their
 encrypted text is written back as it was.
+
+A note's place in a thread isn't part of what the note says, so these
+changes leave its "modified" date alone and add nothing to its history.
+Every member is read before any is written: if one can't be read, the
+thread is left as it was and the note is named.
 """
 
 # Copyright (c) 2026 Shiv Issar
@@ -57,7 +62,23 @@ def _load(note_id):
     path = notes.NOTES_DIR / meta["filename"] if meta else None
     if path is None or not path.exists():
         raise ThreadError("A note in this thread can’t be found. Reload the page and try again.")
-    return notes.parse_file(path)
+    try:
+        return notes.parse_file(path)
+    except Exception as e:  # front matter that isn't valid, a file that isn't text
+        raise ThreadError(
+            "“%s” can’t be read, so the thread wasn’t changed. Its file (%s) has a problem in the "
+            "lines between --- at the top: %s. Open it in a text editor to fix it." % (
+                meta.get("title") or note_id, meta["filename"],
+                (str(e).splitlines() or [type(e).__name__])[0][:120]))
+
+
+def _save(note):
+    try:
+        notes.write_note(note, touch=False)
+    except OSError as e:
+        raise ThreadError("“%s” couldn’t be saved (%s). The thread may be out of order: "
+                          "try the change again." % (note.title, e.strerror or type(e).__name__))
+    db.upsert_note(note)
 
 
 def _id(value):
@@ -69,10 +90,11 @@ def _write(name, new_order, removed=()):
     and take the thread out of the notes in `removed`. Returns the IDs of
     the notes rewritten."""
     changed = []
+    loaded = {nid: _load(nid) for nid in list(new_order) + list(removed)}  # all, before any write
     for i, nid in enumerate(new_order):
         prev_id = new_order[i - 1] if i else None
         next_id = new_order[i + 1] if i + 1 < len(new_order) else None
-        note = _load(nid)
+        note = loaded[nid]
         entries = [t for t in note.threads if isinstance(t, dict) and t.get("name") == name]
         if not entries:
             note.threads.append({"name": name, "prev": prev_id, "next": next_id})
@@ -83,16 +105,14 @@ def _write(name, new_order, removed=()):
             first = entries[0]
             note.threads = [t for t in note.threads if t is first or t not in entries]
             first["prev"], first["next"] = prev_id, next_id
-        notes.write_note(note)
-        db.upsert_note(note)
+        _save(note)
         changed.append(nid)
     for nid in removed:
-        note = _load(nid)
+        note = loaded[nid]
         kept = [t for t in note.threads if not (isinstance(t, dict) and t.get("name") == name)]
         if len(kept) != len(note.threads):
             note.threads = kept
-            notes.write_note(note)
-            db.upsert_note(note)
+            _save(note)
             changed.append(nid)
     return changed
 

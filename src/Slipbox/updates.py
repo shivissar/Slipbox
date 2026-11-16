@@ -37,15 +37,33 @@ _VERSION_RE = re.compile(r"^[vV]?(\d+)\.(\d+)(?:\.(\d+))?$")
 # 5.3: the notes are shown as plain text, so a line that is only markup
 # (the logo's <img> tag, an HTML comment, a Markdown picture) appeared as
 # raw code. Such lines are left out. <https://…> links are kept.
-_MARKUP_ONLY_RE = re.compile(
-    r"^\s*(?:(?:<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>)\s*)+$"
-    r"|^\s*!\[[^\]\n]*\]\([^)\n]*\)\s*$")
+# One comment or one tag, each written so that it can match in one way
+# only. The line is then read a piece at a time (below): a single pattern
+# for the whole line could take minutes on a line of many comments followed
+# by text, and this runs for every page.
+_MARKUP_PIECE_RE = re.compile(
+    r"\s*(?:<!--(?:(?!-->).)*-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*|/)?>)\s*")
+_PICTURE_LINE_RE = re.compile(r"^\s*!\[[^\]\n]*\]\([^)\n]*\)\s*$")
+
+
+def _markup_only(line):
+    if _PICTURE_LINE_RE.match(line):
+        return True
+    if not line.strip():
+        return False
+    pos = 0
+    while pos < len(line):
+        m = _MARKUP_PIECE_RE.match(line, pos)
+        if not m or m.end() == pos:
+            return False
+        pos = m.end()
+    return True
 
 
 def clean_notes(text):
     """Release notes without lines that are only markup, and without the
     blank lines that leaves at the top and bottom."""
-    lines = [ln for ln in (text or "").split("\n") if not _MARKUP_ONLY_RE.match(ln)]
+    lines = [ln for ln in (text or "").split("\n") if not _markup_only(ln)]
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 _RUNNING = threading.Lock()
 

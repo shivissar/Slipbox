@@ -12,12 +12,15 @@ into the notes folder. The import makes a Slipbox note from each file:
   name, a title (front matter, else its first heading, else the file
   name), its tags plus "imported", its dates, and the kind chosen;
 - [[Title]], [[file name]], [[folder/file name]], [[name|words]],
-  [[name#heading]] and Markdown links to .md files between the imported
-  files become Slipbox links; ![[name]] becomes an embed. Links that can't
-  be matched stay as they are and are listed;
+  [[name#heading]] and Markdown links to other imported files become
+  Slipbox links; ![[name]] on a line of its own becomes an embed. Links
+  that can't be matched stay as they are and are listed;
 - subfolders are included, hidden folders (.obsidian, .git, .trash) not;
 - pictures and other attachments are not copied: references to them stay
-  as text and are counted.
+  as text and are counted;
+- front-matter fields Slipbox doesn't use are kept as they are; a field
+  whose name Slipbox uses for something else (id, type, kind) is kept
+  under "source-id" and so on, so nothing a file held is dropped.
 
 scan() works everything out without writing; run() writes the notes.
 """
@@ -25,24 +28,26 @@ scan() works everything out without writing; run() writes the notes.
 # Copyright (c) 2026 Shiv Issar
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import errno
 import os
 import posixpath
 import re
+import stat
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 import frontmatter
+import yaml
 
-from . import db
-from . import history
-from . import notes
-from . import vault
+from . import db, history, notes, vault
 
 SUFFIXES = (".md", ".markdown")
-MAX_FILES = 5000
+# One import. The Mac app's web view gives a page 60 seconds to answer, and
+# 2,000 files take well under that on an ordinary Mac.
+MAX_FILES = 2000
 MAX_BYTES = 5 * 1024 * 1024
 SKIP_DIRS = {"node_modules", "__MACOSX"}
 TAG = "imported"
@@ -54,9 +59,29 @@ _TAKEN_OVER = set(notes.OWN_FIELDS) | {"tag"}
 _NUM_PREFIX_RE = re.compile(r"^(\d{12,14})(?!\d)")
 _CODE_RE = re.compile(r"(```.*?```|~~~.*?~~~|`[^`\n]*`)", re.DOTALL)
 _WIKI_RE = re.compile(r"(!?)\[\[([^\[\]\n|]+)(?:\|([^\[\]\n]*))?\]\]")
-_MD_LINK_RE = re.compile(r'(!?)\[([^\]\n]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"\n]*")?\s*\)')
+# [words](path), [words](<path with spaces>), with an optional "title".
+_MD_LINK_RE = re.compile(
+    r"(!?)\[([^\]\n]*)\]\(\s*(?:<([^<>\n]*)>|([^)\s]+))"
+    r"(?:\s+(?:\"[^\"\n]*\"|'[^'\n]*'))?\s*\)")
 _SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 _EXT_RE = re.compile(r"\.([A-Za-z0-9]{1,6})$")
+# What a [[link]] must end in to count as a picture or other file. A name
+# that merely has a dot in it ([[Chapter 1.2]]) is a note.
+_ATTACHMENT_EXTS = frozenset("""
+    png jpg jpeg gif svg webp bmp tif tiff heic heif avif ico
+    pdf doc docx rtf odt pages txt xls xlsx csv tsv ods numbers ppt pptx odp key
+    mp3 wav m4a ogg oga flac aac aiff mp4 mov m4v mkv webm avi
+    zip gz tar epub html htm json xml yaml yml bib tex canvas excalidraw base
+""".split())
+_FM_OPEN_RE = re.compile(r"-{3,}[ \t]*\n")
+_FM_CLOSE_RE = re.compile(r"^-{3,}[ \t]*$", re.MULTILINE)
+# A file in iCloud Drive that isn't on this Mac (macOS 11 to 13) is a
+# hidden stub: ".Name.md.icloud".
+_CLOUD_STUB_RE = re.compile(r"^\.(.+\.(?:md|markdown))\.icloud$", re.IGNORECASE)
+# A tag written in the text: #idea, #field/site (not a heading, a link to
+# a heading, or part of a web address).
+_INLINE_TAG_RE = re.compile(r"(?<![\w/#&(\[])#[A-Za-z][\w/-]*")
+_HEX_COLOUR_RE = re.compile(r"#(?:[0-9a-fA-F]{3}){1,2}")
 
 
 class ImportProblem(Exception):
@@ -77,6 +102,7 @@ class Item:
     extra: dict
     number: str = ""        # a 12-14 digit ID at the start of the file name
     aliases: list = field(default_factory=list)
+    fm_id: object = None    # an "id" field in the file's front matter
     id: str = ""
     filename: str = ""
 
@@ -93,46 +119,113 @@ class Plan:
     attachments: int = 0
     attachment_examples: list = field(default_factory=list)
     clashes: list = field(default_factory=list)       # titles already in Slipbox
-    yaml_problems: list = field(default_factory=list)  # files whose front matter was kept as text
+    yaml_problems: list = field(default_factory=list)  # files whose opening block was kept as text
     threads_dropped: int = 0
+    unreadable: list = field(default_factory=list)    # (subfolder, why) that couldn't be opened
+    cloud_only: int = 0                               # files in iCloud, not on this Mac
+    cloud_examples: list = field(default_factory=list)
+    renamed: dict = field(default_factory=dict)       # field name -> files where it was kept as source-<name>
+    inline_tags: int = 0                              # files with #tags written in their text
+    table_links: int = 0                              # links in tables that lost their own words
+    embeds_as_links: int = 0                          # ![[...]] that Slipbox can't embed
+
+    @property
+    def other_fields(self):
+        """Names of the fields from other apps that the notes carry."""
+        return sorted({k for it in self.items for k in it.extra}, key=str.casefold)
 
 
 def _key(text):
     return unicodedata.normalize("NFC", text or "").strip().casefold()
 
 
+def _cant_read(shown, err):
+    """What to say when a folder can't be opened. macOS answers "Operation
+    not permitted" when the person hasn't allowed the app to use a folder
+    it guards (Desktop, Documents, Downloads, iCloud Drive, other disks)."""
+    if err.errno == errno.EPERM:
+        return ("macOS didn’t let Slipbox read %s. If macOS asked whether Slipbox may use that "
+                "folder and the answer was Don’t Allow, turn it on in System Settings → Privacy & "
+                "Security → Files and Folders → Slipbox, then check the folder again." % shown)
+    if err.errno == errno.EACCES:
+        return ("Slipbox doesn’t have permission to open %s. In Finder, select the folder, choose "
+                "File → Get Info, and look under Sharing & Permissions." % shown)
+    return "Slipbox couldn’t read %s (%s)." % (shown, err.strerror or type(err).__name__)
+
+
+def _typed_path(raw):
+    """The path as pasted, tidied: without quotation marks around it, as a
+    plain path if it's a file:// address, and with Terminal's backslashes
+    before spaces removed when that is what makes it exist."""
+    raw = (raw or "").strip()
+    if len(raw) >= 2 and raw[0] in "\"'“‘" and raw[-1] in "\"'”’":
+        raw = raw[1:-1].strip()
+    if raw.lower().startswith("file://"):
+        raw = unquote(urlparse(raw).path)
+    if "\\" in raw and not os.path.exists(os.path.expanduser(raw)):
+        plain = re.sub(r"\\(.)", r"\1", raw)
+        if os.path.exists(os.path.expanduser(plain)):
+            raw = plain
+    return raw
+
+
 def resolve_folder(raw):
     """The folder to import from, checked, or ImportProblem."""
-    raw = (raw or "").strip()
+    raw = _typed_path(raw)
     if not raw:
         raise ImportProblem("Enter the folder to import from.")
     folder = Path(raw).expanduser()
     if not folder.is_absolute():
         raise ImportProblem("Enter the folder’s full path, starting with / or ~ (for example ~/Documents/Notes).")
-    if not folder.is_dir():
+    try:
+        mode = os.stat(folder).st_mode
+    except PermissionError as e:
+        raise ImportProblem(_cant_read(raw, e))
+    except OSError:
         raise ImportProblem("Slipbox can’t find a folder at %s." % raw)
+    if not stat.S_ISDIR(mode):
+        raise ImportProblem("%s is a file, not a folder. Enter the folder it is in: Slipbox shows "
+                            "every Markdown file there before importing anything." % raw)
     folder = folder.resolve()
     if folder == notes.NOTES_DIR.resolve():
         raise ImportProblem("That is your notes folder: its notes are already in Slipbox. Choose the folder you want to bring in.")
     return folder
 
 
-def _files(folder):
+def _files(folder, plan):
     notes_dir = notes.NOTES_DIR.resolve()
     out = []
-    for dirpath, dirnames, filenames in os.walk(folder, followlinks=False):
-        dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d not in SKIP_DIRS)
+
+    def failed(err):
+        where = Path(err.filename) if err.filename else folder
+        if where == folder:
+            raise ImportProblem(_cant_read(str(folder), err))
+        try:
+            shown = where.relative_to(folder).as_posix()
+        except ValueError:
+            shown = str(where)
+        plan.unreadable.append((shown, err.errno))
+
+    for dirpath, dirnames, filenames in os.walk(folder, onerror=failed, followlinks=False):
         here = Path(dirpath)
         if here.resolve() == notes_dir:
-            continue  # Slipbox's own notes, where the folder chosen contains it
+            dirnames[:] = []  # Slipbox's own notes, where the folder chosen contains it
+            continue
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith(".") and d not in SKIP_DIRS)
         for name in sorted(filenames):
+            stub = _CLOUD_STUB_RE.match(name)
+            if stub:
+                plan.cloud_only += 1
+                if len(plan.cloud_examples) < 5:
+                    plan.cloud_examples.append((here / stub.group(1)).relative_to(folder).as_posix())
+                continue
             if name.startswith(".") or not name.lower().endswith(SUFFIXES):
                 continue
             out.append(here / name)
             if len(out) > MAX_FILES:
                 raise ImportProblem(
                     "That folder holds more than %s Markdown files, counting its subfolders. "
-                    "Choose a smaller folder, or import it a part at a time." % format(MAX_FILES, ","))
+                    "Import it a part at a time: choose one of its subfolders, then the next." % format(MAX_FILES, ","))
     return out
 
 
@@ -149,6 +242,8 @@ def _when(value):
             return None
     else:
         return None
+    if dt.year < 1900:
+        return None  # an unset date (Hugo writes 0001-01-01), not when the note was written
     try:
         return dt.astimezone()  # a time without a zone is taken as local
     except (OverflowError, OSError, ValueError):
@@ -219,6 +314,30 @@ def _drop_title_heading(body, title):
     return body
 
 
+def _front_matter(text):
+    """(fields, text below them, ok). The lines between --- at the top of a
+    file are its front matter only if they read as a set of named fields.
+    Otherwise (plain text or a heading between two rules, a broken quotation
+    mark) nothing is taken out: the whole file is the note's text, and ok
+    is False so the file can be listed."""
+    start = _FM_OPEN_RE.match(text)
+    if not start:
+        return {}, text.strip(), True
+    end = _FM_CLOSE_RE.search(text, start.end())
+    if not end:
+        return {}, text.strip(), True  # an opening rule, nothing more
+    block = text[start.end():end.start()]
+    if not block.strip():
+        return {}, text[end.end():].strip(), True  # empty front matter
+    try:
+        fields = yaml.load(block, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return {}, text.strip(), False
+    if not isinstance(fields, dict) or not all(isinstance(k, str) for k in fields):
+        return {}, text.strip(), False
+    return fields, text[end.end():].strip(), True
+
+
 def _read(path, rel, plan):
     try:
         if path.stat().st_size > MAX_BYTES:
@@ -239,12 +358,20 @@ def _read(path, rel, plan):
     if vault.looks_locked(text):
         plan.skipped.append((rel, "a locked Slipbox note: remove its lock in the Slipbox it came from, then import it"))
         return None
-    try:
-        post = frontmatter.loads(text)
-        meta, body = dict(post.metadata or {}), post.content
-    except Exception:
-        meta, body = {}, text
+    meta, body, ok = _front_matter(text)
+    if not ok:
         plan.yaml_problems.append(rel)
+
+    extra = {k: v for k, v in meta.items() if k not in _TAKEN_OVER}
+
+    def keep(name):
+        """A field whose name Slipbox uses itself, and whose value it isn't
+        using: kept as source-<name>."""
+        key = "source-" + name
+        while key in extra or key in meta:
+            key += "-imported"
+        extra[key] = meta[name]
+        plan.renamed[name] = plan.renamed.get(name, 0) + 1
 
     created, modified = _file_times(path)
     for key in ("created", "date", "created_at"):
@@ -257,6 +384,9 @@ def _read(path, rel, plan):
         if dt:
             modified = dt
             break
+    for key in ("created", "modified"):
+        if meta.get(key) not in (None, "") and _when(meta.get(key)) is None:
+            keep(key)
     now = datetime.now().astimezone()
     created, modified = min(created, now), min(modified, now)
 
@@ -267,18 +397,29 @@ def _read(path, rel, plan):
 
     if meta.get("threads"):
         plan.threads_dropped += 1
+        keep("threads")
     m = _NUM_PREFIX_RE.match(path.name)
     number = m.group(1) if m else ""
     fm_id = str(meta.get("id") or "")
     if not number and re.fullmatch(r"\d{14}", fm_id):
         number = fm_id
     note_type = meta.get("type") if meta.get("type") in ("zettel", "manuscript") else "zettel"
+    if meta.get("type") not in (None, "", "zettel", "manuscript"):
+        keep("type")
+    if meta.get("kind") not in (None, "") and str(meta["kind"]).strip().lower() != plan.kind:
+        keep("kind")
+    if "locked" in meta:
+        keep("locked")
+    if meta.get("refs") is not None and not isinstance(meta["refs"], (list, tuple, str)):
+        keep("refs")
+    if any(not _HEX_COLOUR_RE.fullmatch(t) for part in _CODE_RE.split(body)[::2]
+           for t in _INLINE_TAG_RE.findall(part)):
+        plan.inline_tags += 1
     return Item(
         src=path, rel=rel, title=title[:200], body=body, tags=_tags(meta),
         created=created, modified=modified, type=note_type,
-        refs=_list(meta.get("refs")),
-        extra={k: v for k, v in meta.items() if k not in _TAKEN_OVER},
-        number=number, aliases=_list(meta.get("aliases")),
+        refs=_list(meta.get("refs")), extra=extra,
+        number=number, aliases=_list(meta.get("aliases")), fm_id=meta.get("id"),
     )
 
 
@@ -298,6 +439,10 @@ def _taken_ids():
     return taken
 
 
+def _stamp(t):
+    return "%04d%02d%02d%02d%02d%02d" % (t.year, t.month, t.day, t.hour, t.minute, t.second)
+
+
 def _assign_ids(items):
     """A file whose name starts with a free 14-digit ID keeps it, so [[ID]]
     links among the files still work; the others get an ID from the date
@@ -311,14 +456,20 @@ def _assign_ids(items):
                 continue
             it.id = it.number
             taken.add(it.id)
+    # In date order, so the search for a free second never goes back over
+    # seconds already given out: one pass, however many files share a date.
+    nxt = None
     for it in sorted((i for i in items if not i.id), key=lambda i: (i.created, i.rel)):
-        t = it.created.replace(tzinfo=None)
-        nid = t.strftime(_ID_FMT)
+        t = it.created.replace(tzinfo=None, microsecond=0)
+        if nxt is not None and t < nxt:
+            t = nxt
+        nid = _stamp(t)
         while nid in taken:
             t += timedelta(seconds=1)
-            nid = t.strftime(_ID_FMT)
+            nid = _stamp(t)
         it.id = nid
         taken.add(nid)
+        nxt = t + timedelta(seconds=1)
     for it in items:
         it.filename = notes.make_filename(it.id, it.title)
 
@@ -374,10 +525,35 @@ class _Links:
                 return hit
         return None
 
+    def find_path(self, path, here):
+        """The Item a Markdown link's path points to, or None: taken as
+        relative to the file it is in, then from the top folder, then by
+        file name alone when only one file has that name."""
+        p = path
+        for ext in SUFFIXES:
+            if p.lower().endswith(ext):
+                p = p[: -len(ext)]
+                break
+        p = p.rstrip("/")
+        if not p:
+            return None
+        relative = _key(posixpath.normpath(posixpath.join(here, p)).lstrip("/"))
+        from_top = _key(posixpath.normpath(p.lstrip("/")))
+        for k in (relative, from_top, relative + "/index", from_top + "/index"):
+            hit = self.by_path.get(k)
+            if hit:
+                return hit
+        hit = self._one(self.by_name.get(_key(posixpath.basename(p))))
+        return hit if isinstance(hit, Item) else None
+
+
+def _ext(path):
+    m = _EXT_RE.search(path)
+    return m.group(1).lower() if m else ""
+
 
 def _is_attachment(target):
-    m = _EXT_RE.search(re.split(r"[#^|]", target.strip(), maxsplit=1)[0].strip())
-    return bool(m) and ("." + m.group(1).lower()) not in SUFFIXES
+    return _ext(re.split(r"[#^|]", target.strip(), maxsplit=1)[0].strip()) in _ATTACHMENT_EXTS
 
 
 def _link_text(nid, title, words):
@@ -385,6 +561,12 @@ def _link_text(nid, title, words):
     if not words or _key(words) == _key(title):
         return "[[%s]]" % nid
     return "[[%s|%s]]" % (nid, words)
+
+
+def _alone_on_line(text, start, end):
+    a = text.rfind("\n", 0, start) + 1
+    b = text.find("\n", end)
+    return not text[a:start].strip() and not text[end:len(text) if b < 0 else b].strip()
 
 
 def _convert(item, links, plan):
@@ -397,6 +579,12 @@ def _convert(item, links, plan):
 
     def wiki(m):
         bang, target, words = m.group(1), m.group(2), m.group(3)
+        # In a table the | is written \| so that it doesn't end the cell.
+        in_table = target.endswith("\\")
+        if in_table:
+            target = target[:-1]
+        if target.lstrip().startswith(("#", "^")):
+            return m.group(0)  # a heading or block in this same note: not a link to another
         hit = links.find(target, here)
         if hit == "existing":
             return m.group(0)
@@ -407,8 +595,12 @@ def _convert(item, links, plan):
                 plan.unmatched.append((item.rel, m.group(0)))
             return m.group(0)
         plan.converted += 1
+        part = bool(re.search(r"[#^]", target))
         if bang:
-            return "![[%s]]" % hit.id
+            # Slipbox embeds a whole note, and only from a line of its own.
+            if not part and _alone_on_line(m.string, m.start(), m.end()):
+                return "![[%s]]" % hit.id
+            plan.embeds_as_links += 1
         if not words:
             # The words shown are the link's own: its name without any
             # folder, and a heading as "Name › Heading".
@@ -420,20 +612,28 @@ def _convert(item, links, plan):
             heading = heading.split("^", 1)[0].strip()
             if heading and words:
                 words += " › " + heading
+        if in_table:
+            # [[ID|words]] would end the table cell at the |, and Slipbox
+            # has no \| form, so the link shows the note's title.
+            if words.strip() and _key(words) != _key(hit.title):
+                plan.table_links += 1
+            return "[[%s]]" % hit.id
         return _link_text(hit.id, hit.title, words)
 
     def md(m):
-        bang, words, target = m.group(1), m.group(2), m.group(3)
-        if _SCHEME_RE.match(target) or target.startswith("#"):
+        bang, words = m.group(1), m.group(2)
+        target = (m.group(3) if m.group(3) is not None else m.group(4)).strip()
+        if not target or _SCHEME_RE.match(target) or target.startswith(("#", "//")):
             return m.group(0)  # a web link, an e-mail address, a heading here
         path = unquote(target).split("#", 1)[0]
-        if bang or (_EXT_RE.search(path) and not path.lower().endswith(SUFFIXES)):
+        if not path:
+            return m.group(0)
+        ext = _ext(path)
+        is_note = path.lower().endswith(SUFFIXES)
+        if bang or (not is_note and (ext in _ATTACHMENT_EXTS or re.search(r"[a-z]", ext))):
             note_attachment(m.group(0))
             return m.group(0)
-        if not path.lower().endswith(SUFFIXES):
-            return m.group(0)
-        stem = posixpath.splitext(posixpath.normpath(posixpath.join(here, path)))[0]
-        hit = links.by_path.get(_key(stem.lstrip("/")))
+        hit = links.find_path(path, here)
         if hit is None:
             plan.unmatched.append((item.rel, m.group(0)))
             return m.group(0)
@@ -451,7 +651,7 @@ def scan(raw_folder, kind):
     raises ImportProblem."""
     folder = resolve_folder(raw_folder)
     plan = Plan(folder=folder, kind=notes.normalize_kind(kind))
-    files = _files(folder)
+    files = _files(folder, plan)
     plan.found = len(files)
     for path in files:
         rel = path.relative_to(folder).as_posix()
@@ -459,6 +659,14 @@ def scan(raw_folder, kind):
         if item:
             plan.items.append(item)
     _assign_ids(plan.items)
+    for it in plan.items:
+        # Another app's "id", unless it is the ID the note has here.
+        if it.fm_id not in (None, "") and str(it.fm_id) != it.id:
+            key = "source-id"
+            while key in it.extra:
+                key += "-imported"
+            it.extra[key] = it.fm_id
+            plan.renamed["id"] = plan.renamed.get("id", 0) + 1
     links = _Links(plan.items)
     for item in plan.items:
         _convert(item, links, plan)
@@ -467,8 +675,10 @@ def scan(raw_folder, kind):
     return plan
 
 
-def run(plan):
-    """Write the planned notes. Returns (notes written, error message or "")."""
+def run(plan, lock=False):
+    """Write the planned notes. Returns (notes written, error message or "").
+    With lock (the kind is one the person always locks, and locked notes
+    are open), each note's text is encrypted before it reaches the disk."""
     written = []
     present = {m.group(1) for m in (notes.ID_RE.match(p.name) for p in notes.NOTES_DIR.glob("*.md")) if m}
     for it in plan.items:
@@ -476,15 +686,18 @@ def run(plan):
         if path.exists() or it.id in present:
             plan.skipped.append((it.rel, "a note with the same ID appeared while importing"))
             continue
-        post = frontmatter.Post(it.body.strip("\n") + "\n")
-        post.metadata.update(it.extra)
-        post.metadata.update(
-            id=it.id, title=it.title,
-            created=it.created.isoformat(timespec="seconds"),
-            modified=it.modified.isoformat(timespec="seconds"),
-            type=it.type, kind=plan.kind, tags=it.tags, threads=[], refs=it.refs,
-        )
         try:
+            text = it.body.strip("\n") + "\n"
+            post = frontmatter.Post(vault.encrypt_body(it.id, text) if lock else text)
+            post.metadata.update(it.extra)
+            post.metadata.update(
+                id=it.id, title=it.title,
+                created=it.created.isoformat(timespec="seconds"),
+                modified=it.modified.isoformat(timespec="seconds"),
+                type=it.type, kind=plan.kind, tags=it.tags, threads=[], refs=it.refs,
+            )
+            if lock:
+                post.metadata["locked"] = True
             notes._write_atomically(path, frontmatter.dumps(post))
             db.upsert_note(notes.parse_file(path))
         except Exception as e:

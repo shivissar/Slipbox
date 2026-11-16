@@ -74,8 +74,30 @@ with sync_playwright() as p:
     check("preview counts", "Import 3 notes" in body and "3\nMarkdown files found" in body, body[:600])
     check("preview lists the unmatched link", "[[Day three]]" in body)
     check("preview counts the picture", "Pictures and other files" in body and "launch.jpg" in body)
+    check("an ordinary folder gets no advice about access or iCloud",
+          not any(w in body for w in ("System Settings", "iCloud", "couldn’t be opened", "another name", "written in the text")))
     pg.screenshot(path=f"{SH}/v53_import_preview.png", full_page=True)
-    pg.click("button:has-text('Import 3 notes')"); pg.wait_for_timeout(900)
+    # While it works the button says so, and the form can't be sent again.
+    # (The form is pointed at a hidden frame for this, so the page itself
+    # stays put and can be looked at while the import is under way.)
+    real_run = flask_app.importer.run
+    flask_app.importer.run = lambda plan, lock=False: (time.sleep(1.2), real_run(plan, lock=lock))[1]
+    pg.evaluate("""() => { const i = document.createElement('iframe'); i.name = 'sink'; i.hidden = true;
+                           document.body.appendChild(i); document.querySelector('form[data-busy]').target = 'sink'; }""")
+    pg.click("button:has-text('Import 3 notes')", no_wait_after=True); pg.wait_for_timeout(350)
+    btn = pg.locator("form[data-busy] button[type=submit]")
+    check("the button says Importing…", btn.inner_text().strip() == "Importing…" and btn.is_disabled(), btn.inner_text())
+    pg.evaluate("document.querySelector('form[data-busy]').requestSubmit()")   # a second press
+    for _ in range(60):
+        if flask_app._IMPORT_REPORTS:
+            break
+        pg.wait_for_timeout(100)
+    flask_app.importer.run = real_run
+    check("a second press imports nothing more", len(glob.glob(f"{D}/notes/*.md")) == before + 3
+          and len(flask_app._IMPORT_REPORTS) == 1, len(glob.glob(f"{D}/notes/*.md")))
+    pg.goto(f"{BASE}/import/done/{next(iter(flask_app._IMPORT_REPORTS))}"); pg.wait_for_timeout(500)
+    # The app's pages refuse to be shown in a frame, so the hidden frame logs that; expected here.
+    errs[:] = [e for e in errs if "frame-ancestors" not in e]
     body = pg.inner_text("main")
     check("report", "Imported 3 notes" in body and "as Teaching notes" in body, body[:300])
     check("three notes written", len(glob.glob(f"{D}/notes/*.md")) == before + 3)
@@ -98,6 +120,23 @@ with sync_playwright() as p:
     pg.click(".rendered a.wikilink >> text=Suchman on plans"); pg.wait_for_timeout(500)
     check("a converted link opens the other note", "Plans are resources for action" in pg.inner_text(".rendered"))
     check("its backlink goes to the first note", "Fieldwork day one" in pg.inner_text(".rail"))
+
+    # A folder with things worth saying something about: each is said, and only then
+    ODD = os.path.join(os.path.dirname(D), "Odd folder")
+    os.makedirs(ODD, exist_ok=True)
+    open(os.path.join(ODD, ".Still in the cloud.md.icloud"), "w").write("")
+    open(os.path.join(ODD, "Lit.md"), "w").write("---\ntype: literature\nid: zk-7\n---\nA #tagged thought.\n")
+    open(os.path.join(ODD, "Prose.md"), "w").write("---\nNot fields, just words.\n---\n\nThe rest.\n")
+    pg.goto(f"{BASE}/settings#import"); pg.wait_for_timeout(300)
+    pg.fill("#import-folder", '"%s"' % ODD)          # pasted with quotation marks
+    pg.click("#import button[type=submit]"); pg.wait_for_timeout(600)
+    body = pg.inner_text("main")
+    check("a quoted path is understood", "Import 2 notes" in body, body[:300])
+    check("files still in iCloud are said to be", "Files still in iCloud" in body and "Still in the cloud.md" in body)
+    check("renamed fields are listed", "Fields kept under another name" in body and "source-type" in body and "source-id" in body)
+    check("opening lines that aren't fields are kept", "Opening lines kept as text" in body and "Prose.md" in body)
+    check("tags in the text are mentioned", "1 file has tags written in the text" in body)
+    pg.screenshot(path=f"{SH}/v53_import_notices.png", full_page=True)
 
     # Versions kept per note
     pg.goto(f"{BASE}/settings#housekeeping"); pg.wait_for_timeout(400)

@@ -249,6 +249,7 @@ def sweep_locked_kinds(force=False):
     _SWEEP["at"] = now
     kinds = _locked_kinds()
     count = 0
+    fields = set()
     for nid in _pending_kind_locks():
         note = _find_note_by_id(nid)
         if not note or note.locked or note.unreadable or note.kind not in kinds:
@@ -257,13 +258,32 @@ def sweep_locked_kinds(force=False):
             with _SAVE_LOCK:
                 _lock_note(note)
             count += 1
+            fields.update(note.extra or {})
         except (OSError, vault.VaultError) as e:
             print("[vault] couldn't lock %s: %s" % (nid, e))
     if count:
         db.scrub_index()
-        _SWEEP["msg"] = "Locked %s of a kind you always lock: %s arrived in plain text." % (
-            _plural(count, "note"), "it" if count == 1 else "they")
+        _SWEEP["msg"] = "Locked %s of a kind you always lock: %s arrived in plain text.%s" % (
+            _plural(count, "note"), "it" if count == 1 else "they", _other_fields_note(fields))
     return count
+
+
+def _field_names(fields, limit=6):
+    """Front-matter field names for a sentence: "aliases, source and 3 more"."""
+    names = sorted((str(f) for f in fields), key=str.casefold)
+    if len(names) > limit:
+        return "%s and %d more" % (", ".join(names[:limit]), len(names) - limit)
+    return ", ".join(names)
+
+
+def _other_fields_note(fields):
+    """5.3: a locked note keeps the fields another app put in its front
+    matter, and they aren't encrypted. Said wherever a note that has some
+    is locked, naming them."""
+    if not fields:
+        return ""
+    return (" Fields from another app (%s) stay readable in the file, like the title and tags: "
+            "locking encrypts a note’s text." % _field_names(fields))
 
 
 def _pop_flash():
@@ -788,6 +808,8 @@ def view(note_id):
         add_threads=[(t, n) for t, n in all_threads if t not in in_threads],  # 5.3
         thread_contexts=thread_contexts,
         similar=similar,
+        other_fields=_field_names(note.extra or {}),  # 5.3: named before locking
+        manuscript_new_title=MANUSCRIPT_NEW_TITLE,
         **_note_page_context(note, rendered),
     )
 
@@ -872,36 +894,35 @@ def _apply_edit_form(note, form):
 
 
 def _apply_thread_action(note, form):
-    """Put a new note into a thread, as chosen on the new-note form. Sets
-    note.threads (the caller writes the note) and updates the old tail."""
-    thread_action = form.get("thread_action", "").strip()
-    if thread_action == "new":
-        thread_name = form.get("new_thread_name", "").strip()
-        if thread_name:
-            note.threads = [{"name": thread_name, "prev": None, "next": None}]
-    elif thread_action == "existing":
-        thread_name = form.get("existing_thread_name", "").strip()
-        if not thread_name:
+    """Put a note that has just been saved into a thread, as chosen on the
+    new-note form: at the end of the thread named, which is started if no
+    thread has that name yet. Goes through threads.py (5.3), so a name is
+    checked as it is in the side panel, and "New" with the name of a
+    thread that exists adds to that thread rather than starting a second
+    one beside it."""
+    action = form.get("thread_action", "").strip()
+    try:
+        if action == "new":
+            if not form.get("new_thread_name", "").strip():
+                return
+            name = thread_ops.clean_name(form.get("new_thread_name", ""))
+        elif action == "existing":
+            name = form.get("existing_thread_name", "").strip()
+            if not name:
+                return
+        else:
             return
-        tail_id = db.thread_tail(thread_name)
-        if not tail_id or tail_id == note.id:
-            note.threads = [{"name": thread_name, "prev": None, "next": None}]
-            return
-        note.threads = [{"name": thread_name, "prev": tail_id, "next": None}]
-        tail_meta = db.get_note_meta(tail_id)
-        if tail_meta:
-            tail_path = notes.NOTES_DIR / tail_meta["filename"]
-            if tail_path.exists():
-                tail_note = notes.parse_file(tail_path)
-                updated = False
-                for t in tail_note.threads:
-                    if isinstance(t, dict) and t.get("name") == thread_name:
-                        t["next"] = note.id
-                        updated = True
-                        break
-                if updated:
-                    notes.write_note(tail_note)
-                    db.upsert_note(tail_note)
+        thread_ops.add(note.id, name)
+    except thread_ops.ThreadError as e:
+        _SWEEP["msg"] = "The note is saved, but it isn’t in a thread: %s" % e
+        return
+    except vault.VaultLocked:
+        _SWEEP["msg"] = ("The note is saved, but it isn’t in the thread: a locked note there couldn’t "
+                         "be changed. Open locked notes, then use Add to a thread on the note.")
+        return
+    fresh = _find_note_by_id(note.id)
+    if fresh:
+        note.threads = fresh.threads
 
 
 @app.route("/note/<note_id>/edit", methods=["GET", "POST"])
@@ -924,16 +945,18 @@ def edit(note_id):
                     _apply_edit_form(note, request.form)
                     if not note.locked and note.kind != old_kind and _kind_locked(note.kind):
                         note.locked = newly_locked = True
-                    if mode != "auto" and not note.threads:
-                        _apply_thread_action(note, request.form)
                     notes.write_note(note)
                     db.upsert_note(note)
+                    if mode != "auto" and not note.threads:
+                        _apply_thread_action(note, request.form)
         except vault.VaultLocked:
             return _locked_response(mode)
         if newly_locked:
             history.encrypt_versions(note.id)
             embed.delete_embedding_for_note(note.id)
             db.scrub_index()
+            if note.extra:
+                _SWEEP["msg"] = "This note is now locked.%s" % _other_fields_note(note.extra)
         elif fresh and mode != "auto":
             embed.embed_note_async(note)
         if mode == "save":
@@ -996,10 +1019,10 @@ def new():
                     if not note.locked and note.kind != old_kind and _kind_locked(note.kind):
                         note.locked = True
                 if fresh:
-                    if mode != "auto" and not note.threads:
-                        _apply_thread_action(note, request.form)
                     notes.write_note(note)
                     db.upsert_note(note)
+                    if mode != "auto" and not note.threads:
+                        _apply_thread_action(note, request.form)
         except vault.VaultLocked:
             return _locked_response(mode)
         if note.locked:
@@ -1101,6 +1124,28 @@ def _housekeeping():
     }
 
 
+# 5.3: Settings shows how much the history holds, which means looking at
+# every version on disk. With a very large history that takes a second or
+# two, so a slow count is remembered for two minutes; a quick one is made
+# afresh each time. Anything that deletes versions forgets it.
+_USAGE = {"at": -1e9, "limit": None, "value": None}
+
+
+def _history_usage(limit):
+    import time as _time
+    now = _time.monotonic()
+    if _USAGE["value"] is not None and _USAGE["limit"] == limit and now - _USAGE["at"] < 120:
+        return _USAGE["value"]
+    value = history.usage_all(limit)
+    took = _time.monotonic() - now
+    _USAGE.update(at=now, limit=limit, value=value if took > 0.25 else None)
+    return value
+
+
+def _history_usage_changed():
+    _USAGE["value"] = None
+
+
 def _size(n):
     return "%d KB" % max(1, round(n / 1024)) if n < 1024 * 1024 else "%.1f MB" % (n / 1024 / 1024)
 
@@ -1112,6 +1157,7 @@ app.jinja_env.filters["filesize"] = _size
 def trash_empty():
     """Delete the notes in .trash for good, with their history (unless a
     note with the same ID is back in the folder)."""
+    _history_usage_changed()
     live = _live_ids()
     gone = failed = 0
     for path, nid in notes.trashed():
@@ -1133,6 +1179,7 @@ def trash_empty():
 def history_prune():
     """Delete the history of notes that are neither in the folder nor in
     the trash (deleted in Finder, or the trash emptied by hand)."""
+    _history_usage_changed()
     live = _live_ids()
     trash_ids = {nid for _, nid in notes.trashed()}
     n = 0
@@ -1146,6 +1193,7 @@ def history_prune():
 @app.route("/history/settings", methods=["POST"])
 def history_settings():
     """5.3: how many versions to keep per note."""
+    _history_usage_changed()
     try:
         n = int(request.form.get("history_max", ""))
     except ValueError:
@@ -1166,6 +1214,7 @@ def history_settings():
 @app.route("/history/trim", methods=["POST"])
 def history_trim():
     """5.3: apply the limit to every note now."""
+    _history_usage_changed()
     count, freed = history.trim(history.max_versions())
     if count:
         msg = "Deleted %s (%s)." % (_plural(count, "older version"), _size(freed))
@@ -1304,7 +1353,7 @@ def threads_index():
     return render_template("threads.html", threads=db.all_threads())
 
 
-@app.route("/thread/<thread_name>")
+@app.route("/thread/<path:thread_name>")
 def thread_view(thread_name):
     chain = db.thread_chain(thread_name)
     if not chain:
@@ -1317,11 +1366,17 @@ def thread_view(thread_name):
 # follows) or from the thread's page, be moved up or down there, and be
 # taken out; the notes either side are joined up. See threads.py.
 
+def _picked_id(value):
+    """The note chosen in a "Title · ID" suggestion box. The ID is the last
+    14-digit number in it: a title can hold such a number too."""
+    found = re.findall(r"(?<!\d)\d{14}(?!\d)", value or "")
+    return found[-1] if found else ""
+
+
 @app.route("/threads/change", methods=["POST"])
 def thread_change():
     action = request.form.get("action", "")
-    m = re.search(r"(\d{14})", request.form.get("note", ""))
-    note_id = m.group(1) if m else ""
+    note_id = _picked_id(request.form.get("note", ""))
     name = (request.form.get("thread") or "").strip()
     back = request.form.get("back", "note")
     msg = ""
@@ -1373,10 +1428,29 @@ def api_thread():
 # (the folder may have changed) and writes. The report is kept for the
 # page it redirects to, so reloading that page can't import twice.
 _IMPORT_REPORTS = {}
+# Each preview page carries a token that Import uses up, so pressing Import
+# twice, or going Back to the preview and pressing it again, shows the
+# report of the import already made rather than making every note twice.
+_IMPORT_PREVIEWS = {}   # token -> "" (not used yet) or the token of its report
+_IMPORT_LOCK = _threading.Lock()
 
 
 def _import_args():
     return request.form.get("folder", "").strip(), request.form.get("kind", "research")
+
+
+def _import_preview_page(plan, folder, notice=""):
+    token = secrets.token_urlsafe(8)
+    while len(_IMPORT_PREVIEWS) >= 20:
+        _IMPORT_PREVIEWS.pop(next(iter(_IMPORT_PREVIEWS)))
+    _IMPORT_PREVIEWS[token] = ""
+    return render_template("import.html", plan=plan, folder_typed=folder, report=None, token=token,
+                           notice=notice, kind_locked=_kind_locked(plan.kind), vault_open=vault.is_unlocked(),
+                           other_fields=_field_names(plan.other_fields))
+
+
+def _import_problem(e, folder):
+    return redirect(url_for("settings_page", import_msg=str(e), folder=folder) + "#import")
 
 
 @app.route("/import/preview", methods=["POST"])
@@ -1385,23 +1459,41 @@ def import_preview():
     try:
         plan = importer.scan(folder, kind)
     except importer.ImportProblem as e:
-        return redirect(url_for("settings_page", import_msg=str(e), folder=folder) + "#import")
-    return render_template("import.html", plan=plan, folder_typed=folder, report=None)
+        return _import_problem(e, folder)
+    return _import_preview_page(plan, folder)
 
 
 @app.route("/import/run", methods=["POST"])
 def import_run():
     folder, kind = _import_args()
-    try:
-        plan = importer.scan(folder, kind)
-    except importer.ImportProblem as e:
-        return redirect(url_for("settings_page", import_msg=str(e), folder=folder) + "#import")
-    with _SAVE_LOCK:
-        written, error = importer.run(plan)
-    token = secrets.token_urlsafe(8)
-    _IMPORT_REPORTS.clear()  # only the latest is needed
-    _IMPORT_REPORTS[token] = {"plan": plan, "written": written, "error": error, "folder": folder}
-    return redirect(url_for("import_done", token=token))
+    token = request.form.get("token", "")
+    with _IMPORT_LOCK:  # a second press waits here for the first to finish
+        used = _IMPORT_PREVIEWS.get(token)
+        if used:
+            return redirect(url_for("import_done", token=used))
+        try:
+            plan = importer.scan(folder, kind)
+        except importer.ImportProblem as e:
+            return _import_problem(e, folder)
+        if used is None:
+            # No preview is behind this request (Slipbox was restarted, or
+            # the page is an old one): show one rather than import unseen.
+            return _import_preview_page(plan, folder, notice="This page was out of date, so nothing was "
+                                        "imported. Here is the folder as it is now.")
+        # A kind the person always locks: encrypted as it is written when
+        # locked notes are open, else locked when they next are (the sweep).
+        lock = _kind_locked(plan.kind) and vault.is_unlocked()
+        with _SAVE_LOCK:
+            written, error = importer.run(plan, lock=lock)
+        fields = _field_names(plan.other_fields)
+        for it in plan.items:
+            it.body, it.extra = "", {}  # the report shows titles only
+        done = secrets.token_urlsafe(8)
+        _IMPORT_REPORTS.clear()  # only the latest is needed
+        _IMPORT_REPORTS[done] = {"plan": plan, "written": written, "error": error, "folder": folder,
+                                 "locked": lock, "kind_locked": _kind_locked(plan.kind), "other_fields": fields}
+        _IMPORT_PREVIEWS[token] = done
+    return redirect(url_for("import_done", token=done))
 
 
 @app.route("/import/done/<token>")
@@ -1410,7 +1502,9 @@ def import_done(token):
     if not report:
         return redirect(url_for("tag_view", tag_name=importer.TAG))
     return render_template("import.html", plan=report["plan"], folder_typed=report["folder"],
-                           report=report, embed_ready=bool(ai.get_embed_provider()) and db.SQLITE_VEC_AVAILABLE)
+                           report=report, kind_locked=report["kind_locked"], vault_open=report["locked"],
+                           other_fields=report["other_fields"],
+                           embed_ready=bool(ai.get_embed_provider()) and db.SQLITE_VEC_AVAILABLE)
 
 
 @app.route("/help")
@@ -1518,9 +1612,10 @@ def settings_page():
         housekeeping=_housekeeping(),
         history_max=history_max,
         history_choices=history.CHOICES,
-        history_usage=history.usage_all(history_max),
+        history_usage=_history_usage(history_max),
         hk_msg=request.args.get("hk_msg", "")[:300],
-        import_msg=request.args.get("import_msg", "")[:300],
+        import_msg=request.args.get("import_msg", "")[:900],
+        import_max=importer.MAX_FILES,
         import_folder=request.args.get("folder", "")[:1000],
         bib_status=_bib_status(),
         kinds=KINDS,
@@ -2182,12 +2277,18 @@ def manuscripts_page():
     return render_template("manuscripts.html", rows=rows)
 
 
+MANUSCRIPT_NEW_TITLE = "Untitled manuscript"
+
+
 @app.route("/manuscripts/new", methods=["POST"])
 def manuscript_new():
+    """5.3: a new manuscript opens on its own page, where it is named and
+    notes, threads and headings are added (it used to open in the editor,
+    which looked like any note)."""
     with _SAVE_LOCK:
-        note = notes.create_note("Untitled manuscript", body="", tags=[], type_="manuscript", kind="research")
+        note = notes.create_note(MANUSCRIPT_NEW_TITLE, body="", tags=[], type_="manuscript", kind="research")
         db.upsert_note(note)
-    return redirect(url_for("edit", note_id=note.id))
+    return redirect(url_for("view", note_id=note.id) + "#build")
 
 
 @app.route("/note/<note_id>/outline", methods=["POST"])
@@ -2206,6 +2307,8 @@ def manuscript_outline(note_id):
     except ValueError:
         n = -1
     changed = False
+    msg = ""
+    here = {it[2] for it in items if it[1] == "embed"}  # notes already in the manuscript
     if action in ("up", "down", "remove") and 0 <= n < len(items):
         i = items[n][0]
         if action == "remove" and items[n][1] == "embed":
@@ -2220,31 +2323,52 @@ def manuscript_outline(note_id):
             lines[i], lines[j] = lines[j], lines[i]
             changed = True
     elif action == "add_note":
-        m = re.search(r"(\d{14})", request.form.get("note", ""))
-        if m and m.group(1) != note.id and db.get_note_meta(m.group(1)):
-            lines += ["", "![[%s]]" % m.group(1)]
+        picked = _picked_id(request.form.get("note", ""))
+        if not picked or picked == note.id or not db.get_note_meta(picked):
+            msg = "Choose a note from the suggestions as you type."
+        elif picked in here:
+            msg = "“%s” is already in this manuscript." % (db.title_for(picked) or picked)
+        else:
+            lines += ["", "![[%s]]" % picked]
             changed = True
+            msg = "Added “%s”." % (db.title_for(picked) or picked)
     elif action == "add_thread":
-        ids = [c["id"] for c in db.thread_chain(request.form.get("thread", ""))]
-        ids = [i for i in ids if i != note.id]
+        name = request.form.get("thread", "")
+        chain = [c["id"] for c in db.thread_chain(name) if c["id"] != note.id]
+        ids = [i for i in chain if i not in here]
         if ids:
             lines += [""] + ["![[%s]]" % i for i in ids]
             changed = True
+            msg = "Added %s from “%s”, in the thread’s order." % (_plural(len(ids), "note"), name)
+            if len(ids) < len(chain):
+                msg += " %s already here." % ("1 was" if len(chain) - len(ids) == 1 else "%d were" % (len(chain) - len(ids)))
+        elif chain:
+            msg = "Every note of “%s” is already in this manuscript." % name
     elif action == "add_heading":
-        text = request.form.get("heading", "").strip()
+        text = re.sub(r"\s+", " ", request.form.get("heading", "")).strip().lstrip("#").strip()
         if text:
             lines += ["", "## " + text]
             changed = True
-    if changed:
+    renamed = False
+    if action == "rename":
+        title = re.sub(r"\s+", " ", request.form.get("title", "")).strip()[:200]
+        if title and title != note.title:
+            note.title = title
+            renamed = True
+    if msg:
+        _SWEEP["msg"] = msg
+    back = "#build" if request.form.get("from") == "page" else "#outline"
+    if changed or renamed:
         with _SAVE_LOCK:
             history.snapshot(note.path, "outline", force=True)
-            note.body = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n") + "\n"
+            if changed:
+                note.body = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n") + "\n"
             try:
                 notes.write_note(note)
             except vault.VaultLocked:
                 return redirect(url_for("unlock_page", next=url_for("view", note_id=note_id)))
             db.upsert_note(note)
-    return redirect(url_for("view", note_id=note_id) + "#outline")
+    return redirect(url_for("view", note_id=note_id) + back)
 
 
 # ---------- 5.2 qualitative coding ---------- #
@@ -2631,7 +2755,10 @@ def _history_limit_once():
     try:
         stored = settings.stored()
     except ValueError:
-        return  # unreadable: history.max_versions() keeps 200 meanwhile
+        # Unreadable: history.max_versions() keeps 200 meanwhile, and 200 is
+        # also the built-in default, so the next save of any setting writes
+        # 200, never a lower number the person didn't choose.
+        return
     if stored is not None and "history_max" in stored:
         return
     hdir = history.history_dir()

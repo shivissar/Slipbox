@@ -1116,7 +1116,18 @@
         }).catch(function () {});
     };
     pick.addEventListener("change", sync);
-    sync();
+    // The thread's notes are fetched when the box is opened, not for every
+    // note page that merely contains it.
+    var box = f.closest("details");
+    if (box && !box.open) {
+      box.addEventListener("toggle", function opened() {
+        if (!box.open) return;
+        box.removeEventListener("toggle", opened);
+        sync();
+      });
+    } else {
+      sync();
+    }
   });
 
   /* ------------------------------------------------------------------ *
@@ -1430,6 +1441,33 @@
     var msg = f && f.getAttribute && f.getAttribute("data-confirm");
     if (msg && !window.confirm(msg)) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
+  /* 5.3: forms marked data-busy say that they are at work (reading a folder,
+   * importing) and can't be sent a second time while they are. */
+  document.addEventListener("submit", function (e) {
+    var f = e.target;
+    var label = f && f.getAttribute && f.getAttribute("data-busy");
+    if (!label || e.defaultPrevented) return;
+    if (f.getAttribute("data-sent") === "1") { e.preventDefault(); return; }
+    f.setAttribute("data-sent", "1");
+    var b = f.querySelector('button[type="submit"]');
+    if (b) {
+      b.setAttribute("data-label", b.textContent);
+      b.textContent = label;
+      b.setAttribute("aria-busy", "true");
+      b.disabled = true;
+    }
+  });
+  window.addEventListener("pageshow", function () {  // back to the page: ready again
+    document.querySelectorAll('form[data-busy][data-sent="1"]').forEach(function (f) {
+      f.removeAttribute("data-sent");
+      var b = f.querySelector('button[type="submit"]');
+      if (b) {
+        if (b.getAttribute("data-label")) b.textContent = b.getAttribute("data-label");
+        b.removeAttribute("aria-busy");
+        b.disabled = false;
+      }
+    });
+  });
   document.querySelectorAll("[data-history-back]").forEach(function (b) {
     b.addEventListener("click", function (e) { e.preventDefault(); window.history.back(); });
   });

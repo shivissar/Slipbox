@@ -59,9 +59,12 @@ DEFAULTS = {
     "update_skip": "",
     "lock_after_minutes": 15,
     # 5.3: earlier versions kept per note (history.py; the choices are
-    # history.CHOICES). New installs start at 50; installs from before 5.3
-    # were given 200, the old fixed number, once (flask_app).
-    "history_max": 50,
+    # history.CHOICES). The number here is only the fallback, and is the old
+    # fixed 200 so that a save made while the real value can't be read never
+    # lowers it. Each install's own number is written once at its first
+    # start (flask_app._history_limit_once): 50 for a new install, 200 for
+    # one from before 5.3.
+    "history_max": 200,
     # v5.0: appearance. Allowed values live in themes.py.
     "theme_mode": "auto",
     "theme_light": "meadow",

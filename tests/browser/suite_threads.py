@@ -52,11 +52,15 @@ with sync_playwright() as p:
     pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("dialog", lambda d: d.accept())
+    asked = []
+    pg.on("request", lambda r: asked.append(r.url) if "/api/thread" in r.url else None)
 
     # A note in no thread: Add to a thread, after a chosen note
     pg.goto(f"{BASE}/note/{FOLGE}"); pg.wait_for_timeout(400)
     check("side panel offers Add to a thread", pg.locator(".thread-add summary").inner_text().strip() == "Add to a thread")
+    check("the thread's notes aren't fetched until the box is opened", asked == [], asked)
     pg.click(".thread-add summary"); pg.wait_for_timeout(500)
+    check("opening the box fetches them, once", len(asked) == 1, asked)
     check("first thread chosen, its notes listed under Place it",
           pg.locator("#ta-after option").count() == 6, pg.locator("#ta-after option").all_inner_texts())
     check("New thread… is offered", pg.locator('#ta-thread option[value=""]').count() == 1)

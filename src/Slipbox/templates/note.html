@@ -27,7 +27,8 @@
       </form>
       {%- endif %}
       {%- else %}
-      <form method="post" action="{{ url_for('note_lock', note_id=note.id) }}" class="inline">
+      <form method="post" action="{{ url_for('note_lock', note_id=note.id) }}" class="inline"
+            {%- if other_fields and vault_state.set_up %} data-confirm="Lock this note?&#10;&#10;Locking encrypts the note’s text. Its fields from another app ({{ other_fields }}) stay readable in the file, like its title and tags."{% endif %}>
         <button type="submit" class="icon-btn" data-tour="lock" aria-label="Lock this note" title="{{ 'Lock this note (encrypt its text)' if vault_state.set_up else 'Lock this note: set up a password first' }}">{{ icon("lock") }}</button>
       </form>
       {%- endif %}
@@ -91,6 +92,47 @@
           <span>{% if r.entry %}{{ r.entry.author }} {{ r.entry.year }}. <em>{{ r.entry.title }}</em>.{% else %}{{ r.key }}{% endif %}</span>
           {%- endfor %}
         </div>
+        {%- endif %}
+        {%- if outline is not none %}
+        {#- 5.3: what makes a manuscript more than a note, on its own page:
+            add notes, a whole thread and headings here (they used to be
+            only in the side panel, which can be hidden). #}
+        <section class="ms-build" id="build" aria-labelledby="build-h">
+          <h2 id="build-h">Build this manuscript</h2>
+          <p class="ms-lead">{% if not outline["items"] and not note.body.strip() %}It’s empty so far. {% endif %}A manuscript is where notes are assembled into one text. Add notes, a whole thread, or section headings below; each goes at the end, and shows its current text above. Press <strong>Edit</strong> to write your own passages around them.</p>
+          {%- if note.title == manuscript_new_title %}
+          <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ms-row">
+            <input type="hidden" name="action" value="rename"><input type="hidden" name="from" value="page">
+            <label for="ms-title">Name it</label>
+            <input type="text" id="ms-title" name="title" maxlength="200" placeholder="e.g. Chapter 2: Tethered autonomy" required>
+            <button class="btn" type="submit">Rename</button>
+          </form>
+          {%- endif %}
+          <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ms-row">
+            <input type="hidden" name="action" value="add_note"><input type="hidden" name="from" value="page">
+            <label for="ms-add-note">Add a note</label>
+            <input type="text" id="ms-add-note" name="note" list="ms-notes-page" placeholder="Type part of its title, then choose it" required data-ms-notes autocomplete="off">
+            <datalist id="ms-notes-page"></datalist>
+            <button class="btn" type="submit">Add</button>
+          </form>
+          {%- if all_threads %}
+          <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ms-row">
+            <input type="hidden" name="action" value="add_thread"><input type="hidden" name="from" value="page">
+            <label for="ms-add-thread">Add a thread</label>
+            <select id="ms-add-thread" name="thread">{% for tname, count in all_threads %}<option value="{{ tname }}">{{ tname }} ({{ count }} note{{ '' if count == 1 else 's' }})</option>{% endfor %}</select>
+            <button class="btn" type="submit">Add</button>
+          </form>
+          {%- else %}
+          <p class="ms-row ms-none"><span class="ms-label">Add a thread</span><span>You have no threads yet. A thread is a sequence of notes: start one with <em>Add to a thread</em> in any note’s side panel, and it can be added here whole.</span></p>
+          {%- endif %}
+          <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ms-row">
+            <input type="hidden" name="action" value="add_heading"><input type="hidden" name="from" value="page">
+            <label for="ms-add-heading">Add a heading</label>
+            <input type="text" id="ms-add-heading" name="heading" maxlength="200" placeholder="e.g. Methods" required>
+            <button class="btn" type="submit">Add</button>
+          </form>
+          <p class="hint">To reorder or remove what you’ve added, use the <strong>Manuscript</strong> list in the side panel. <button type="button" class="link-btn ms-show-rail" data-toggle-rail>Show the side panel</button> A thread is added as it stands now: notes that join the thread later aren’t added by themselves. <a href="{{ url_for('export_view', source_type='note', source_id=note.id) }}">Export</a> turns the whole manuscript into one document. <a href="{{ url_for('help_page') }}#manuscripts">More on manuscripts</a></p>
+        </section>
         {%- endif %}
       </article>
     </div>
@@ -159,7 +201,7 @@
       {%- if outline is not none %}
       <section class="rail-section" id="outline">
         <h3><span>Manuscript</span><span>{{ outline.words }} words</span></h3>
-        <p class="rail-note">{{ outline.notes }} note{{ '' if outline.notes == 1 else 's' }}, in this order. Move them, add more, or export the whole thing.</p>
+        <p class="rail-note">{{ outline.notes }} note{{ '' if outline.notes == 1 else 's' }}, in this order. Move them with ↑ ↓, take one out with ×, add more, or export the whole thing.</p>
         <ol class="outline">
           {%- for it in outline["items"] %}
           {%- if it.kind == "heading" %}
@@ -181,7 +223,7 @@
           </li>
           {%- endif %}
           {%- else %}
-          <li class="rail-empty">Nothing yet. Add notes below, or type <kbd>![[</kbd> on its own line while editing.</li>
+          <li class="rail-empty"><span>Nothing yet. Add notes, a thread or a heading below or under the manuscript’s text, or type <kbd>![[</kbd> on its own line while editing.</span></li>
           {%- endfor %}
         </ol>
         <form method="post" action="{{ url_for('manuscript_outline', note_id=note.id) }}" class="ol-add">

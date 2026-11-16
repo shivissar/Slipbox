@@ -184,13 +184,18 @@ def changed_outside(note):
         return False
 
 
-def write_note(note):
+def write_note(note, touch=True):
     """Serialize a Note back to disk with updated frontmatter.
 
     A locked note's body is encrypted before it touches the disk. If the
     note was read while locked notes were closed (unreadable), only its
     frontmatter changes and the encrypted body is written back untouched;
-    a locked body is never written in plain text."""
+    a locked body is never written in plain text.
+
+    touch=False (5.3) is for a change that isn't an edit of the note: its
+    place in a thread. The "modified" date stays as it is and no version
+    goes into the note's history, so lists sorted by last change don't
+    reshuffle and history doesn't fill with identical text."""
     if note.locked:
         if note.unreadable:
             if not note.cipher:
@@ -201,7 +206,8 @@ def write_note(note):
             note.cipher = content
     else:
         content = note.body
-    note.modified = now_iso()
+    if touch or not note.modified:
+        note.modified = now_iso()
     note.outgoing_links = set() if note.unreadable else extract_wikilinks(note.body)
     # Other apps' fields first, then Slipbox's own, which always win. Set
     # through the dict, not as keyword arguments: a field called "content"
@@ -226,7 +232,7 @@ def write_note(note):
         from . import history
         if changed_outside(note):
             note.kept_outside_version = history.snapshot(note.path, "external", force=True) is not None
-        else:
+        elif touch:
             history.snapshot(note.path)
     except Exception as e:  # history must never block a save
         print("[history] snapshot failed: %s" % e)

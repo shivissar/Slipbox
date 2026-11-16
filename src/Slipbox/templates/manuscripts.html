@@ -14,10 +14,12 @@
       {{ squiggle() }}
       {%- if not rows %}
       <div class="empty-card">
-        <p><strong>Turn notes into a draft.</strong> A manuscript is a note that gathers other notes in the order you choose, under your own headings. It reads as one piece here, and exports as one Word, LaTeX or HTML document with your citations formatted.</p>
-        <p class="hint">Each note is pulled in with a line like <code>![[20261107184817]]</code>, so the manuscript always shows its notes’ latest text. <a href="{{ url_for('help_page') }}#manuscripts">More on manuscripts</a></p>
+        <p><strong>Turn notes into a draft.</strong> A manuscript is where notes are assembled into one text. Add notes one at a time or a whole thread at once, in the order you want; put section headings between them; write your own passages around them. It reads as one piece here, and exports as one Word, LaTeX or HTML document with your citations formatted.</p>
+        <p><strong>New manuscript</strong> opens its page, where you name it and start adding.</p>
+        <p class="hint">A manuscript doesn’t copy its notes: each is pulled in with a line like <code>![[20261107184817]]</code>, so the manuscript always shows a note’s latest text, and the note stays a note of its own. <a href="{{ url_for('help_page') }}#manuscripts">More on manuscripts</a></p>
       </div>
       {%- else %}
+      <p class="hint">A manuscript assembles notes and whole threads into one text, under your own headings, with your own writing around them. Open one to add to it, reorder it or export it. <a href="{{ url_for('help_page') }}#manuscripts">More on manuscripts</a></p>
       <ul class="cards">
         {%- for r in rows %}
         <li><a class="nc" href="{{ url_for('view', note_id=r.id) }}">

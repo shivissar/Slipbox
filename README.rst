@@ -42,7 +42,8 @@ What it does
   never sent to an AI provider.
 * **Qualitative coding.** Code passages, then gather them in a codebook with
   definitions, overlaps and CSV export.
-* **Manuscripts and templates.** Assemble notes into one draft; start notes
+* **Manuscripts and templates.** Assemble notes and whole threads into one
+  draft, under your own headings, and write around them; start notes
   from templates for interview memos, fieldnotes, reading notes and lecture
   plans, or your own.
 * **Search.** ⌘K finds any note or runs any command; filters such as

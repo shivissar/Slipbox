@@ -353,11 +353,11 @@
         <section class="set-section" id="import">
           <h2>Import notes</h2>
           {%- if import_msg %}<div class="flash warn">{{ import_msg }}</div>{% endif %}
-          <form method="post" action="{{ url_for('import_preview') }}" class="set-group">
+          <form method="post" action="{{ url_for('import_preview') }}" class="set-group" data-busy="Reading the folder…">
             <div class="set-row">
               <div class="set-text">
                 <label class="field-label" for="import-folder">Folder to import from</label>
-                <span>Brings Markdown files from another app or folder into Slipbox: an Obsidian vault, Zettlr or Bear notes, a Notion export, or plain <code>.md</code> files, subfolders included. Each file is copied into a new note with its title, tags and dates, tagged <code>imported</code>, and links between the files become Slipbox links. The original files aren’t changed, and pictures and other attachments aren’t copied. You’ll see what will happen before anything is imported.</span>
+                <span>Brings Markdown files from another app or folder into Slipbox: an Obsidian vault, Zettlr or Bear notes, a Notion export, or plain <code>.md</code> files, subfolders included. Each file is copied into a new note with its title, tags and dates, tagged <code>imported</code>, and links between the files become Slipbox links. The original files aren’t changed, and pictures and other attachments aren’t copied. You’ll see what will happen before anything is imported. One import takes up to {{ "{:,}".format(import_max) }} files; bring a larger collection in a subfolder at a time.</span>
                 <span>To get a folder’s path, select it in Finder, press <kbd>⌥⌘C</kbd>, then paste it here.</span>
               </div>
               <div class="set-control"><input type="text" id="import-folder" name="folder" value="{{ import_folder }}" placeholder="~/Documents/Obsidian Vault" required></div>
@@ -386,7 +386,7 @@
           <div class="set-group">
             <div class="set-row stack">
               <div class="set-text"><strong>Encrypt the notes you choose</strong>
-                <span>A locked note’s text is encrypted on disk, so it reads as gibberish in Finder, other apps, backups and sync services. Its title, tags, kind, threads and dates stay readable, so your lists and threads still work. Locked notes are never sent to an AI provider. <a href="{{ url_for('help_page') }}#locked-notes">How it works</a></span>
+                <span>A locked note’s text is encrypted on disk, so it reads as gibberish in Finder, other apps, backups and sync services. Its title, tags, kind, threads and dates stay readable, so your lists and threads still work; so do any fields another app put at the top of the file (an imported note’s <code>aliases</code>, say). Locked notes are never sent to an AI provider. <a href="{{ url_for('help_page') }}#locked-notes">How it works</a></span>
               </div>
               <form method="post" action="{{ url_for('vault_setup') }}" class="vault-form" data-unlock-form>
                 <label class="field-label" for="v-pw">Choose a password</label>
@@ -449,7 +449,7 @@
             </form>
             {%- endif %}
             <div class="set-row">
-              <div class="set-text"><strong>Encryption</strong><span>Note text: AES-256-GCM, a new key for every save. Password: {{ vault_kdf }}. Keys are stored, wrapped, in <code>.slipbox-vault.json</code> in your notes folder and inside each locked note. <a href="{{ url_for('help_page') }}#locked-notes">Details</a></span></div>
+              <div class="set-text"><strong>Encryption</strong><span>Only a note’s text is encrypted: its title, tags, dates and any fields another app put at the top of its file stay readable. Note text: AES-256-GCM, a new key for every save. Password: {{ vault_kdf }}. Keys are stored, wrapped, in <code>.slipbox-vault.json</code> in your notes folder and inside each locked note. <a href="{{ url_for('help_page') }}#locked-notes">Details</a></span></div>
             </div>
           </div>
           {%- endif %}
