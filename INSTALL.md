@@ -21,7 +21,7 @@ tested on Apple-silicon Macs (M1 and later).
 
 ### Step 1: Copy it into Applications
 
-1. Double-click the `Slipbox-5.3.0.dmg` file you downloaded or were given. A window opens.
+1. Double-click the `Slipbox-5.4.0.dmg` file you downloaded or were given. A window opens.
 2. Drag **Slipbox** onto the **Applications** folder in that window.
 3. Eject the disk image (the drive icon on your desktop or in Finder's sidebar).
 

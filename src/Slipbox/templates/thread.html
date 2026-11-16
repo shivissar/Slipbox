@@ -1,15 +1,48 @@
 {% extends "base.html" %}
 {%- from "_ui.html" import icon -%}
 {% block title %}Thread: {{ name }}{% endblock %}
+{#- 5.4: the branches that leave a note, drawn under it; each branch lists
+    its own notes and, under those, its own branches, ten levels deep. #}
+{%- macro branches(list, lost=false) %}
+<ul class="tb">
+  {%- for b in list %}
+  <li>
+    <div class="tb-head">
+      <span class="tl">{{ b.label }}</span>
+      <a href="{{ url_for('thread_view', thread_name=b.name) }}" title="Open this branch">{{ icon("branch", "i sm") }}{{ b.name }}</a>
+      <span class="meta">{{ b.count }} note{{ '' if b.count == 1 else 's' }}{% if lost %} · its note has left this thread{% endif %}</span>
+    </div>
+    <ol class="tb-notes">
+      {%- for n in b.notes %}
+      <li><span class="tl">{{ n.label }}</span><a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
+        {%- if n.branches %}{{ branches(n.branches) }}{% endif %}
+      </li>
+      {%- endfor %}
+    </ol>
+    {%- if b.loose %}{{ branches(b.loose, true) }}{% endif %}
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
 {% block content %}
   <h1>⛓ {{ name }}</h1>
+  {%- if crumbs %}
+  <p class="thread-crumbs" aria-label="Where this branch leaves from">
+    {{ icon("branch", "i sm") }}Branch of
+    {%- for c in crumbs %}
+    <a href="{{ url_for('thread_view', thread_name=c.name) }}#n-{{ c.from_id }}">{{ c.name }}</a>, from “{{ c.from_title }}”{{ " ›" if not loop.last }}
+    {%- endfor %}
+  </p>
+  {%- endif %}
   <p class="meta">
-    {{ chain|length }} note{{ 's' if chain|length != 1 else '' }} in sequence ·
+    {{ chain|length }} note{{ 's' if chain|length != 1 else '' }} in sequence
+    {%- if node.all %} · {{ node.all|length }} branch{{ 'es' if node.all|length != 1 else '' }}{% endif %} ·
     <a href="{{ url_for('export_view', source_type='thread', source_id=name) }}">export this thread</a>
   </p>
   <ol class="thread-chain">
-    {%- for n in chain %}
+    {%- for n in node.notes %}
     <li id="n-{{ n.id }}">
+      <span class="tl">{{ n.label }}</span>
       <a href="{{ url_for('view', note_id=n.id) }}">{{ n.title }}</a>
       <code class="muted">{{ n.id }}</code>
       <span class="ol-tools">
@@ -17,26 +50,33 @@
         <form method="post" action="{{ url_for('thread_change') }}" class="inline">
           <input type="hidden" name="action" value="up"><input type="hidden" name="note" value="{{ n.id }}">
           <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
-          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” up" title="Move up">↑</button>
+          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” up" title="Move up{% if n.branches %} (its branches go with it){% endif %}">↑</button>
         </form>
         {%- endif %}
         {%- if not loop.last %}
         <form method="post" action="{{ url_for('thread_change') }}" class="inline">
           <input type="hidden" name="action" value="down"><input type="hidden" name="note" value="{{ n.id }}">
           <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
-          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” down" title="Move down">↓</button>
+          <button type="submit" class="icon-btn tiny" aria-label="Move “{{ n.title }}” down" title="Move down{% if n.branches %} (its branches go with it){% endif %}">↓</button>
         </form>
         {%- endif %}
         <form method="post" action="{{ url_for('thread_change') }}" class="inline"
-              data-confirm="Take “{{ n.title }}” out of this thread?&#10;&#10;The note itself stays.{% if not loop.first and not loop.last %} The notes either side will be joined up.{% elif loop.length == 1 %} It’s the only note, so the thread will go.{% endif %}">
+              data-confirm="Take “{{ n.title }}” out of this thread?&#10;&#10;The note itself stays.{% if not loop.first and not loop.last %} The notes either side will be joined up.{% elif loop.length == 1 %} It’s the only note, so the thread will go.{% endif %}{% if n.branches %}&#10;&#10;{{ 'The branch that leaves' if n.branches|length == 1 else 'The branches that leave' }} from it will {% if loop.length == 1 %}{{ 'move up to where this thread left from' if crumbs else 'become ' ~ ('a thread' if n.branches|length == 1 else 'threads') ~ ' of ' ~ ('its' if n.branches|length == 1 else 'their') ~ ' own' }}{% else %}move to the note {{ 'after' if loop.first else 'before' }} it{% endif %}.{% endif %}">
           <input type="hidden" name="action" value="remove"><input type="hidden" name="note" value="{{ n.id }}">
           <input type="hidden" name="thread" value="{{ name }}"><input type="hidden" name="back" value="thread">
           <button type="submit" class="icon-btn tiny" aria-label="Take “{{ n.title }}” out of the thread" title="Take out of the thread (the note itself stays)">×</button>
         </form>
       </span>
+      {%- if n.branches %}{{ branches(n.branches) }}{% endif %}
     </li>
     {%- endfor %}
   </ol>
+  {%- if node.loose %}
+  <div class="thread-loose">
+    <p class="hint">{{ 'This branch' if node.loose|length == 1 else 'These branches' }} left from a note that is no longer in this thread. Open {{ 'it' if node.loose|length == 1 else 'one' }} and choose the note it should leave from.</p>
+    {{ branches(node.loose, true) }}
+  </div>
+  {%- endif %}
 
   <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-note">
     <input type="hidden" name="action" value="add">
@@ -57,4 +97,84 @@
     </div>
     <p class="hint">↑ and ↓ move a note along the thread; × takes it out, and the notes either side are joined up. A note can be in several threads.</p>
   </form>
+
+  {#- 5.4: a second line of thought leaving from one of this thread's notes. #}
+  {%- if can_branch %}
+  <form method="post" action="{{ url_for('thread_change') }}" class="thread-add-note thread-branch-form" id="branch" data-branch-form>
+    <input type="hidden" name="action" value="branch">
+    <input type="hidden" name="thread" value="{{ name }}">
+    <input type="hidden" name="back" value="thread">
+    <h2>Start a branch</h2>
+    <p class="hint">A branch is a second line of thought that leaves this thread at one of its notes, while the thread itself carries on. It is a thread in its own right, and can branch again.</p>
+    <div class="tbf-row">
+      <label class="field-label" for="branch-anchor">Leaving from</label>
+      <select id="branch-anchor" name="anchor">
+        {%- for n in node.notes %}
+        <option value="{{ n.id }}"{% if n.id == anchor %} selected{% endif %}>{{ n.label }} · {{ n.title|truncate(60, True, "…") }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="tbf-row">
+      <label class="field-label" for="branch-start">Start it with</label>
+      <select id="branch-start" name="start" data-branch-start>
+        <option value="new">a new note (opens the editor)</option>
+        <option value="note">a note I’ve already written</option>
+        <option value="rest">the notes after it in this thread (splits the thread)</option>
+        {%- if other_threads %}<option value="thread">a thread I already have</option>{% endif %}
+      </select>
+    </div>
+    <div class="tbf-row" data-branch-when="new note rest">
+      <label class="field-label" for="branch-name">Name of the branch</label>
+      <input type="text" id="branch-name" name="new_thread" maxlength="80" placeholder="e.g. objections" required>
+    </div>
+    <div class="tbf-row" data-branch-when="note" hidden>
+      <label class="field-label" for="branch-note">The note</label>
+      <input type="text" id="branch-note" name="note" list="branch-notes" placeholder="Start typing a title…" data-ms-notes autocomplete="off">
+      <datalist id="branch-notes"></datalist>
+    </div>
+    {%- if other_threads %}
+    <div class="tbf-row" data-branch-when="thread" hidden>
+      <label class="field-label" for="branch-other">The thread</label>
+      <select id="branch-other" name="other">
+        {%- for tname, count in other_threads %}
+        <option value="{{ tname }}">{{ tname }} ({{ count }} note{{ 's' if count != 1 else '' }})</option>
+        {%- endfor %}
+      </select>
+    </div>
+    {%- endif %}
+    <button type="submit" class="btn btn-small btn-primary">{{ icon("branch", "i sm") }}Start the branch</button>
+  </form>
+  {%- else %}
+  <p class="hint" id="branch">This branch is {{ max_depth }} levels down from its first thread, which is as deep as branches go. To branch further, start from a note nearer the first thread.</p>
+  {%- endif %}
+
+  {%- if parent %}
+  <section class="thread-add-note thread-branch-of" id="this-branch">
+    <h2>This branch</h2>
+    {%- if parent.placed %}
+    <p class="hint">It leaves “{{ parent.name }}” from the note chosen below. If that note is taken out of “{{ parent.name }}”, the branch moves to the note before it.</p>
+    {%- else %}
+    <div class="flash warn">The note this branch left from is no longer in “{{ parent.name }}”. Choose the note it should leave from now.</div>
+    {%- endif %}
+    <form method="post" action="{{ url_for('thread_change') }}" class="tbf-row">
+      <input type="hidden" name="action" value="reattach">
+      <input type="hidden" name="thread" value="{{ name }}">
+      <input type="hidden" name="back" value="thread">
+      <label class="field-label" for="branch-move">Leaves from</label>
+      <select id="branch-move" name="anchor">
+        {%- for n in parent.notes %}
+        <option value="{{ n.id }}"{% if n.id == parent.from_id %} selected{% endif %}>{{ n.label }} · {{ n.title|truncate(60, True, "…") }}</option>
+        {%- endfor %}
+      </select>
+      <button type="submit" class="btn btn-small">Move the branch</button>
+    </form>
+    <form method="post" action="{{ url_for('thread_change') }}" class="tbf-row"
+          data-confirm="Make “{{ name }}” a thread of its own?&#10;&#10;It will no longer leave from “{{ parent.name }}”. Its notes and its own branches stay as they are, and you can attach it again from any thread’s page.">
+      <input type="hidden" name="action" value="detach">
+      <input type="hidden" name="thread" value="{{ name }}">
+      <input type="hidden" name="back" value="thread">
+      <button type="submit" class="btn btn-small btn-quiet">Make it a thread of its own</button>
+    </form>
+  </section>
+  {%- endif %}
 {% endblock %}

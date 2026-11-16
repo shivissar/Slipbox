@@ -5,7 +5,45 @@ rename keep the old name. The full, user-facing history is on the About
 page inside the app (src/Slipbox/templates/about.html). Engineering notes
 are in DEVNOTES.md.
 
-## 5.3.0 (November 2026)
+## 5.4.0 (November 2026)
+
+5.3.0 was finished and tested but never built or released: everything
+under 5.3.0 below ships for the first time in 5.4.0.
+
+* Threads that branch (threads.py, /threads/change, templates/thread.html
+  and threads.html, the note's side panel, the new-note editor). A branch
+  is an ordinary thread whose notes each carry two more fields in their
+  thread entry: "parent" (the thread it leaves) and "from" (the ID of the
+  note it leaves from). Nothing else about a thread changes, so adding,
+  moving and removing notes work on a branch as before, files of ordinary
+  threads are written exactly as in 5.3, and an older version reading a
+  branch sees a plain thread. Branches can branch again, to MAX_DEPTH = 10
+  levels; attaching refuses a loop, and a loop made by editing files by
+  hand is cut at its first thread by name (threads.tree_links).
+  - Start a branch (action "branch"): with a new note (the editor opens
+    with thread_action=branch, and the branch begins when the note is
+    saved), a note already written, the notes after the chosen note
+    (threads.cut: splits the thread; branches that left from the moved
+    notes go with them), or an existing thread (threads.attach).
+  - A branch's page: move it to another note of its parent ("reattach"),
+    or make it a thread of its own ("detach").
+  - Branches follow their note: moving it within the thread needs nothing;
+    taking it out moves them to the note before it (after it, if it was
+    first); when a thread loses its last note, its branches move up to
+    where that thread left from, or become threads of their own. A branch
+    whose note was deleted is still shown, under "left from a note that
+    is no longer in this thread", and can be given a new place.
+  - Display: a thread's page draws each branch under the note it leaves,
+    recursively, with Luhmann-style labels (3, 3a, 3a1, 3a2a) from
+    threads.tree(); the Threads page nests branches (threads.forest());
+    the side panel shows what a note's thread leaves from, the note's
+    label, the branches that leave from it, and "Branch from here".
+  - Index: thread_membership gains parent_thread and from_id (added to an
+    existing database at start; db.thread_links()).
+* Tests: tests/test_v54.py (25); 21 more checks in the threads browser
+  suite.
+
+## 5.3.0 (November 2026; not released, part of 5.4.0)
 
 * Import (importer.py, Settings → Import notes, /import/preview,
   /import/run, /import/done/<token>, templates/import.html): Markdown files

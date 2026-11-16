@@ -929,13 +929,12 @@ input[type="color"] { width: 44px; height: 34px; padding: 0; border: 0; border-r
 
 /* Lists used across smaller pages */
 .note-list, .bib-list, .thread-chain { list-style: none; padding: 0; margin: 1rem 0; display: flex; flex-direction: column; gap: 4px; }
-.note-list li, .bib-list li, .thread-chain li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.note-list li, .bib-list li, .thread-chain > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
 .note-list li a, .thread-chain li a { font-weight: 800; color: var(--ink); text-decoration: none; }
 .note-list li a:hover, .thread-chain li a:hover { color: var(--accent-text); }
 .note-list li.empty { background: transparent; color: var(--ink-3); }
 .note-list .snip { flex-basis: 100%; margin: 0; color: var(--ink-3); font-size: 0.93em; }
-.thread-chain { counter-reset: step; }
-.thread-chain li::before { counter-increment: step; content: counter(step); font-weight: 900; color: var(--accent-text); min-width: 1.4em; }
+.thread-chain .tl, .thread-forest .tl, .tb .tl { font-weight: 900; color: var(--accent-text); min-width: 1.4em; font-variant-numeric: tabular-nums; }
 .thread-chain code { font-size: 0.75em; color: var(--ink-3); background: none; }
 .bib-list .cite-title { font-style: italic; color: var(--ink-2); flex-basis: 100%; }
 .bib-list .year { color: var(--ink-3); }
@@ -1335,7 +1334,7 @@ button.chip-lock-open:hover { background: var(--accent-soft); }
 .thread-add-form .ta-new, .thread-add-form .ta-after { display: flex; flex-direction: column; gap: 6px; }
 .thread-add-form .ta-new[hidden], .thread-add-form .ta-after[hidden] { display: none; }
 .thread-add-form .btn { align-self: flex-start; margin-top: 4px; }
-.thread-chain li .ol-tools { align-self: center; }
+.thread-chain > li > .ol-tools { align-self: center; }
 .thread-chain li:hover .ol-tools, .thread-chain li:focus-within .ol-tools { opacity: 1; }
 .thread-chain li:target { box-shadow: inset 0 0 0 2px var(--accent); }
 .thread-add-note { margin: 1.4rem 0 0; display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
@@ -1375,3 +1374,44 @@ button.chip-lock-open:hover { background: var(--accent-soft); }
 }
 .ms-edit-hint { margin: 0 0 10px; }
 button[aria-busy="true"] { cursor: progress; opacity: 0.75; }
+
+
+/* 5.4: threads that branch. On a thread's page each note's branches are
+   drawn under it, and theirs under them; a rule down the left shows which
+   notes belong to which branch. */
+.thread-crumbs { margin: -0.3rem 0 0.2rem; color: var(--ink-2, var(--ink)); font-weight: 650; }
+.thread-crumbs .i { vertical-align: -3px; margin-right: 4px; }
+.thread-chain > li > .tb { flex-basis: 100%; }
+.tb { list-style: none; margin: 6px 0 2px; padding: 0 0 0 14px; border-left: 3px solid var(--surface-3); display: flex; flex-direction: column; gap: 8px; }
+.tb > li { display: block; padding: 0; background: none; }
+.tb-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.tb-head a { font-weight: 850; }
+.tb-head .i, .tf-row .i { vertical-align: -3px; margin-right: 3px; }
+.tb-notes { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.tb-notes > li { display: block; padding: 0; background: none; font-size: 0.95em; }
+.tb-notes > li > a { font-weight: 650; }
+.tb .tl { margin-right: 6px; font-size: 0.86em; }
+.thread-loose { margin: 0.6rem 0 0; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.thread-forest { list-style: none; margin: 1rem 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.thread-forest .thread-forest { margin: 4px 0 2px; padding-left: 14px; border-left: 3px solid var(--surface-3); }
+.thread-forest > li > .tf-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.thread-forest .thread-forest > li > .tf-row { padding: 6px 12px; }
+.thread-forest a { font-weight: 800; color: var(--ink); text-decoration: none; }
+.thread-forest a:hover { color: var(--accent-text); }
+.thread-branch-form h2, .thread-branch-of h2 { margin: 0 0 4px; font-size: 1.08em; font-weight: 900; }
+.tbf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 0; }
+.tbf-row[hidden] { display: none; }
+.tbf-row .field-label { flex: 0 0 9.5em; margin: 0; }
+.tbf-row select, .tbf-row input[type="text"] { flex: 1 1 16em; min-width: 0; min-height: 34px; }
+.thread-branch-form > .btn { margin-top: 12px; align-self: flex-start; }
+.thread-up { display: flex; gap: 6px; align-items: flex-start; margin: 2px 0 4px; }
+.thread-up .i { flex: none; margin-top: 2px; }
+.thread-branches-here { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 2px; }
+.thread-branches-here > small { font-weight: 800; color: var(--ink-3); }
+.thread-step.branch { display: flex; align-items: baseline; gap: 6px; }
+.thread-step.branch .i { flex: none; align-self: center; }
+.thread-step.branch small { margin-left: auto; white-space: nowrap; }
+.thread-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-top: 2px; }
+.thread-acts .thread-out { margin: 0; }
+.thread-acts .btn .i { margin-right: 3px; }
+.branch-start-note .i { vertical-align: -3px; }

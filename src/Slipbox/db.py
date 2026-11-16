@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS thread_membership (
     note_id     TEXT NOT NULL,
     prev_id     TEXT,
     next_id     TEXT,
+    parent_thread TEXT,   -- 5.4: the thread this one branches from
+    from_id     TEXT,     -- 5.4: the note in that thread it leaves from
     PRIMARY KEY (thread_name, note_id)
 );
 CREATE INDEX IF NOT EXISTS idx_thread_name ON thread_membership(thread_name);
@@ -171,6 +173,14 @@ def init_db():
         except sqlite3.OperationalError as e:
             if "duplicate column" not in str(e).lower():
                 raise
+        # Migration: 5.4 branching threads. No note has these before 5.4,
+        # so the new columns start empty and nothing needs re-reading.
+        for column in ("parent_thread", "from_id"):
+            try:
+                conn.execute("ALTER TABLE thread_membership ADD COLUMN %s TEXT" % column)
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
 
 
 
@@ -241,13 +251,15 @@ def upsert_note(note):
                 continue
             conn.execute(
                 """INSERT OR REPLACE INTO thread_membership
-                   (thread_name, note_id, prev_id, next_id)
-                   VALUES (?, ?, ?, ?)""",
+                   (thread_name, note_id, prev_id, next_id, parent_thread, from_id)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (
                     t["name"],
                     note.id,
                     str(t["prev"]) if t.get("prev") else None,
                     str(t["next"]) if t.get("next") else None,
+                    str(t["parent"]) if t.get("parent") else None,
+                    str(t["from"]) if t.get("parent") and t.get("from") else None,
                 ),
             )
 
@@ -473,6 +485,23 @@ def thread_chain(thread_name):
         if r["id"] not in seen:
             chain.append({"id": r["id"], "title": r["title"]})
     return chain
+
+
+def thread_links():
+    """5.4: {thread name: (parent thread, ID of the note it leaves from)}
+    for every thread that is a branch. Each member note carries the pair;
+    if they ever disagree (a file edited by hand), the commonest wins."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT thread_name, parent_thread, from_id, COUNT(*) AS n
+               FROM thread_membership WHERE parent_thread IS NOT NULL AND parent_thread != ''
+               GROUP BY thread_name, parent_thread, from_id
+               ORDER BY thread_name, n DESC, parent_thread, from_id"""
+        ).fetchall()
+    out = {}
+    for r in rows:
+        out.setdefault(r["thread_name"], (r["parent_thread"], r["from_id"] or ""))
+    return out
 
 
 def threads_for_note(note_id):

@@ -1,17 +1,26 @@
 {% extends "base.html" %}
+{%- from "_ui.html" import icon -%}
 {% block title %}Threads{% endblock %}
+{#- 5.4: a thread's branches are listed inside it, and theirs inside them. #}
+{%- macro rows(list) %}
+<ul class="thread-forest">
+  {%- for t in list %}
+  <li>
+    <div class="tf-row">
+      {%- if t.label %}<span class="tl">{{ t.label }}</span>{% endif %}
+      <a href="{{ url_for('thread_view', thread_name=t.name) }}">{% if t.label %}{{ icon("branch", "i sm") }}{% else %}⛓ {% endif %}{{ t.name }}</a>
+      <span class="meta">{{ t.count }} note{{ 's' if t.count != 1 else '' }}{% if t.all %} · {{ t.all|length }} branch{{ 'es' if t.all|length != 1 else '' }}{% endif %}</span>
+    </div>
+    {%- if t.all %}{{ rows(t.all) }}{% endif %}
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
 {% block content %}
   <h1>Threads</h1>
-  <p class="meta">Named sequences of notes in the order of an argument, like Luhmann’s Folgezettel. A note can belong to several threads.</p>
-  {% if threads %}
-    <ul class="note-list">
-      {% for name, count in threads %}
-        <li>
-          <a href="{{ url_for('thread_view', thread_name=name) }}">⛓ {{ name }}</a>
-          <span class="meta">{{ count }} note{{ 's' if count != 1 else '' }}</span>
-        </li>
-      {% endfor %}
-    </ul>
+  <p class="meta">Named sequences of notes in the order of an argument, like Luhmann’s Folgezettel. A note can belong to several threads, and a thread can branch: a second line of thought leaves from one of its notes.</p>
+  {% if forest %}
+    {{ rows(forest) }}
   {% else %}
     <p class="empty">No threads yet. To start one, open a note and choose <strong>Add to a thread</strong> in the side panel, or choose <strong>Thread → New</strong> in the Details panel when you write a new note.</p>
   {% endif %}

@@ -30,7 +30,8 @@ What it does
   separate streams; tags cut across them.
 * **Threads.** Ordered sequences of notes, like the numbered branches of a
   paper slip box. Any note can join one, at the place you choose, and a note
-  can be in several.
+  can be in several. A thread can branch at any note, and its branches can
+  branch again, ten levels deep.
 * **Citations.** Type ``@`` to cite from a ``.bib`` file exported from Zotero.
 * **Autosave and history.** Notes save as you write; earlier versions are kept,
   as many per note as you choose, so you can compare and restore them.

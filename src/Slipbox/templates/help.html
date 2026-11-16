@@ -168,6 +168,14 @@
           <li><strong>On a thread’s page</strong> (Threads in the sidebar): <em>Add a note</em> finds any note by its title and puts it where you choose; ↑ and ↓ move a note along; × takes one out. The note itself stays, and the notes either side are joined up. <em>Take out of this thread</em> in a note’s side panel does the same.</li>
           <li>Moving notes within a thread, or adding and removing them, doesn’t count as editing them: their “modified” dates stay as they are and nothing is added to their history.</li>
         </ul>
+        <p id="branches"><strong>Branches.</strong> A thread can branch: from any of its notes a second line of thought can leave, while the thread itself carries on. A branch is a thread in its own right, with its own name, and can branch again, ten levels deep. This is how Luhmann’s cards worked: card 1/1 could be followed by 1/1a as well as by 1/2.</p>
+        <ul>
+          <li><strong>Start one</strong> from <em>Branch from here</em> in a note’s side panel, or <em>Start a branch</em> on the thread’s page. Choose the note it leaves from, name it, and say what it starts with: a new note (the editor opens, and the branch begins when the note is saved), a note you’ve already written, the notes after it in the thread (which splits the thread in two there), or a thread you already have.</li>
+          <li><strong>See the whole tree</strong> on a thread’s page: each branch is drawn under the note it leaves, with its own notes and its own branches inside it. The numbers follow Luhmann’s: the third note is 3, the first branch from it 3a, that branch’s notes 3a1 and 3a2, a branch from 3a2 is 3a2a. A note’s side panel shows what its thread leaves from, the note’s number, and any branches that leave from it. <em>Threads</em> in the sidebar lists branches inside their threads.</li>
+          <li><strong>Branches follow their note.</strong> Move a note along its thread and its branches go with it. Take it out of the thread and they move to the note before it. If a whole thread goes, its branches move up to where it left from.</li>
+          <li><strong>On a branch’s page</strong>, <em>This branch</em> moves it to another note of the thread it leaves, or makes it a thread of its own again.</li>
+          <li>Exporting a thread, or adding it to a manuscript, takes that thread’s own notes; a branch is exported or added the same way, by its own name.</li>
+        </ul>
         <p>Thread data lives in each note’s front matter: every note records the notes before and after it.</p>
 
         <h3 id="embedding">Embedding notes</h3>
@@ -185,7 +193,7 @@
 
         <h3 id="history">Note history</h3>
         <p>Slipbox keeps earlier versions of each note: one at most every 10 minutes while you edit, and always one before a restore, a lock, a link added from <em>Unlinked mentions</em>, a code rename or a manuscript reorder. The clock button above a note opens its history. Pick a version to see its text and what has changed since (− lines are only in that version, + lines only in the note now), then <strong>Restore</strong> it if you want. Restoring brings back the title, tags, kind and text, and saves the current version first, so you can undo it.</p>
-        <p>Versions are kept in the app-data folder. <a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a> sets how many are kept per note (10 to 200; 50 for a new install, 200 for one from before 5.3); when a note has more, the oldest go first. More versions take more disk space, and that section shows how much the history uses. Lowering the number takes effect for each note the next time a version of it is kept; <em>Trim now</em> applies it to every note at once. A locked note’s versions are encrypted, and locking a note encrypts its earlier versions too.</p>
+        <p>Versions are kept in the app-data folder. <a href="{{ url_for('settings_page') }}#housekeeping">Settings → Trash and history</a> sets how many are kept per note (10 to 200; 50 for a new install, 200 for one in use before 5.4); when a note has more, the oldest go first. More versions take more disk space, and that section shows how much the history uses. Lowering the number takes effect for each note the next time a version of it is kept; <em>Trim now</em> applies it to every note at once. A locked note’s versions are encrypted, and locking a note encrypts its earlier versions too.</p>
 
         <!-- ============================================================ -->
         <h2 id="finding">Finding things</h2>

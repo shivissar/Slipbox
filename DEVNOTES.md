@@ -2,6 +2,45 @@
 
 (Called Zetteling until 5.2.0; older entries keep that name.)
 
+## 5.4 (November 2026)
+
+5.3.0 was never built: Shiv tried the branch with `briefcase dev`, `main`
+was moved to it, and 5.4.0 is the next release after 5.2.0. So 5.4.0's
+release notes and About entry cover everything since 5.2.0.
+
+- Branching threads. The design choice was between (a) a branch as a
+  thread that records where it leaves, (b) one thread stored as a tree
+  (each note with a parent and several followers), and (c) nesting notes by
+  embedding. (a) was taken: files stay compatible in both directions, the
+  5.3 thread code is reused unchanged, and each branch has a name. (b) is
+  closer to Luhmann but needs a new file format and new reorder logic.
+  (c) would put structure into a note's text.
+- Storage: every member of a branch carries "parent" and "from" in its
+  entry for that thread, not only the first, so the link survives the loss
+  of any one note. db.thread_links() takes the commonest pair per thread.
+  threads._write(link=...) sets, clears or keeps the pair for all members;
+  an entry without a parent has neither key, so ordinary threads' files
+  don't change.
+- threads.tree_links() is the only reader of the raw links: it drops links
+  to threads that no longer exist and cuts loops, so everything else
+  (ancestors, children, depth, height, label, tree, forest) can recurse
+  without guards. Don't read db.thread_links() elsewhere.
+- Labels are derived each time from the order of notes and the names of
+  sibling branches (alphabetical); nothing is stored. They change when
+  notes are reordered or a sibling branch is added before another by name.
+  That is deliberate: Luhmann's numbers were fixed because cards were
+  paper, and here the thread's name is the stable handle.
+- A change that touches several threads (cut, remove with branches)
+  reads every note involved first (threads._readable) so that an
+  unreadable file stops it before the first write.
+- The branch form on a thread's page posts fields "anchor" (the note left
+  from), "start" (new, note, rest, thread), "new_thread", "note", "other".
+  app.js disables the fields a choice doesn't need, so they aren't sent.
+  "from" is avoided as a field and query name: it is a reserved word in
+  Jinja's url_for keyword arguments.
+- Not done: adding a thread to a manuscript, or exporting it, with its
+  branches in place; reordering sibling branches by hand.
+
 ## 5.3 (November 2026)
 
 - Import (importer.py). scan() reads and plans without writing: files

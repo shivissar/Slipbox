@@ -97,6 +97,14 @@
 
       {%- if not note %}
       <fieldset class="rail-section" id="thread-fieldset" style="border: 0; margin: 0; padding: 0">
+        {%- if branch_start %}
+        <legend class="field-label" style="padding: 0; margin-bottom: 10px">Branch</legend>
+        <input type="hidden" name="thread_action" value="branch">
+        <input type="hidden" name="branch_name" value="{{ branch_start.name }}">
+        <input type="hidden" name="branch_parent" value="{{ branch_start.parent }}">
+        <input type="hidden" name="branch_anchor" value="{{ branch_start.anchor }}">
+        <p class="hint branch-start-note">{{ icon("branch", "i sm") }} This note starts the branch <strong>{{ branch_start.name }}</strong>, which leaves “{{ branch_start.parent }}” from “{{ branch_start.anchor_title }}”. The branch begins when the note is saved. <a href="{{ url_for('new') }}">Write an ordinary note</a></p>
+        {%- else %}
         <legend class="field-label" style="padding: 0; margin-bottom: 10px">Thread <span class="muted" style="font-weight: 600">(optional)</span></legend>
         <div class="seg full">
           <label><input type="radio" name="thread_action" value="" checked>None</label>
@@ -118,6 +126,7 @@
           </select>
           <p class="hint">The new note goes at the end. To move it, use ↑ and ↓ on the thread’s page.</p>
         </div>
+        {%- endif %}
       </fieldset>
       {%- endif %}
 

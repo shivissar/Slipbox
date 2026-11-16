@@ -110,13 +110,80 @@ with sync_playwright() as p:
     check("journal note starts a thread", chain("diary line") == [JOURNAL], chain("diary line"))
     check("side panel shows it", "1 of 1" in pg.inner_text("#threads"))
     pg.goto(f"{BASE}/threads"); pg.wait_for_timeout(300)
-    check("Threads lists both", pg.locator(".note-list li").count() == 2)
+    check("Threads lists both", pg.locator(".thread-forest > li").count() == 2)
 
     # New-note form: Thread for every kind
     pg.goto(f"{BASE}/new?kind=journal"); pg.wait_for_timeout(400)
     check("Thread section shown for a journal note", pg.is_visible("#thread-fieldset"))
     pg.click('#thread-fieldset label:has-text("Existing")'); pg.wait_for_timeout(200)
     check("Existing lists threads", pg.is_visible("#existing-thread") and pg.locator("#existing-thread option").count() == 3)
+
+    # ---- 5.4: branches ----------------------------------------------------
+    from Slipbox import threads as TH
+    pg.goto(f"{BASE}/note/{R2}"); pg.wait_for_timeout(400)
+    link = pg.locator('.thread-acts a:has-text("Branch from here")')
+    check("a note in a thread offers Branch from here", link.count() == 1)
+    link.click(); pg.wait_for_timeout(500)
+    check("it opens the thread's page with that note chosen", f"/thread/{T}" in pg.url and pg.input_value("#branch-anchor") == R2, pg.url)
+    check("a new note is the default, so no picker shows",
+          pg.input_value("#branch-start") == "new" and pg.is_visible("#branch-name") and not pg.is_visible("#branch-note"))
+    pg.select_option("#branch-start", "thread"); pg.wait_for_timeout(150)
+    check("an existing thread needs no new name", pg.is_visible("#branch-other") and not pg.is_visible("#branch-name"))
+    pg.select_option("#branch-start", "note"); pg.wait_for_timeout(150)
+    check("an existing note shows its picker", pg.is_visible("#branch-note") and pg.is_visible("#branch-name") and not pg.is_visible("#branch-other"))
+    pg.fill("#branch-name", "objections")
+    pg.click("#branch-note"); pg.keyboard.type("Garden"); pg.wait_for_timeout(500)
+    opts = pg.eval_on_selector_all("#branch-notes option", "els => els.map(e => e.value)")
+    pg.fill("#branch-note", next((o for o in opts if GARDEN in o), ""))
+    pg.screenshot(path=f"{SH}/v54_branch_form.png", full_page=True)
+    pg.click(".thread-branch-form button[type=submit]"); pg.wait_for_timeout(800)
+    e = entry(GARDEN, "objections") or {}
+    check("the branch is started and records where it leaves", chain("objections") == [GARDEN]
+          and e.get("parent") == T and e.get("from") == R2, e)
+    check("the thread itself is unchanged", chain() == [R1, R2, R3, R4] and "parent" not in entry(R2))
+    check("it is drawn under its note, numbered as Luhmann numbered",
+          pg.locator(f"#n-{R2} .tb-head .tl").inner_text() == "2a" and pg.locator(f"#n-{R2} .tb-notes .tl").inner_text() == "2a1")
+    check("toast says so", "Started the branch “objections”" in pg.inner_text("#toast"), pg.inner_text("#toast"))
+
+    # A branch from the branch, started with a new note
+    pg.click(f"#n-{R2} .tb-head a"); pg.wait_for_timeout(500)
+    check("the branch's page says where it leaves", "Branch of" in pg.inner_text(".thread-crumbs") and T in pg.inner_text(".thread-crumbs"))
+    pg.fill("#branch-name", "replies")
+    pg.click(".thread-branch-form button[type=submit]"); pg.wait_for_timeout(700)
+    check("a new note opens in the editor, marked as starting the branch",
+          "/new" in pg.url and "This note starts the branch" in pg.inner_text("#thread-fieldset"), pg.url)
+    check("nothing exists until it is saved", chain("replies") == [])
+    pg.fill("#title-input", "A reply to the objection"); pg.click("#body"); pg.keyboard.type("Because of this.")
+    pg.wait_for_timeout(2300)
+    pg.click('#edit-form button[type=submit]'); pg.wait_for_timeout(900)
+    reply = chain("replies")
+    check("saving the note begins the branch", len(reply) == 1 and TH.parent_of("replies") == ("objections", GARDEN), reply)
+    side = pg.inner_text("#threads")
+    check("its side panel says what it leaves and gives its number", "Leaves" in side and "objections" in side and "2a1a1" in side, side)
+    pg.screenshot(path=f"{SH}/v54_branch_note.png")
+
+    # Split the thread: the notes after the second go into a branch
+    pg.goto(f"{BASE}/thread/{T}?anchor={R2}"); pg.wait_for_timeout(400)
+    pg.select_option("#branch-start", "rest"); pg.fill("#branch-name", "second half")
+    pg.click(".thread-branch-form button[type=submit]"); pg.wait_for_timeout(800)
+    check("splitting moves the rest into a branch", chain() == [R1, R2] and chain("second half") == [R3, R4]
+          and TH.parent_of("second half") == (T, R2), chain())
+    check("both branches hang from the note, in name order",
+          pg.locator(f"#n-{R2} > .tb > li > .tb-head .tl").all_inner_texts() == ["2a", "2b"])
+    pg.screenshot(path=f"{SH}/v54_thread_tree.png", full_page=True)
+
+    # Threads page nests them; a branch can stand on its own again
+    pg.goto(f"{BASE}/threads"); pg.wait_for_timeout(300)
+    check("Threads nests branches inside their thread", pg.locator(".thread-forest .thread-forest .thread-forest").count() == 1
+          and pg.locator(".thread-forest > li").count() >= 5)
+    pg.screenshot(path=f"{SH}/v54_threads_page.png")
+    pg.goto(f"{BASE}/thread/objections"); pg.wait_for_timeout(300)
+    pg.select_option("#branch-move", R1)
+    pg.click('#this-branch button:has-text("Move the branch")'); pg.wait_for_timeout(700)
+    check("a branch can be moved to another note", TH.parent_of("objections") == (T, R1) and TH.label("objections") == "1a")
+    pg.click('#this-branch button:has-text("Make it a thread of its own")'); pg.wait_for_timeout(700)
+    check("and made a thread of its own, keeping its own branch", TH.parent_of("objections") is None
+          and TH.parent_of("replies") == ("objections", GARDEN) and pg.locator("#this-branch").count() == 0)
 
     check("no script errors", not errs, errs[:3])
     b.close()

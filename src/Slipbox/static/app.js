@@ -1086,6 +1086,25 @@
     inp.addEventListener("focus", fill);
   });
 
+  /* 5.4: "Start a branch" on a thread's page. What the branch starts with
+   * decides which fields are needed; the others are hidden and not sent. */
+  document.querySelectorAll("form[data-branch-form]").forEach(function (f) {
+    var how = f.querySelector("[data-branch-start]");
+    if (!how) return;
+    var sync = function () {
+      f.querySelectorAll("[data-branch-when]").forEach(function (row) {
+        var on = row.getAttribute("data-branch-when").split(" ").indexOf(how.value) !== -1;
+        row.hidden = !on;
+        row.querySelectorAll("input, select").forEach(function (el) {
+          el.disabled = !on;
+          if (el.type === "text") el.required = on;
+        });
+      });
+    };
+    how.addEventListener("change", sync);
+    sync();
+  });
+
   /* 5.3: "Add to a thread" in a note's side panel. Choosing a thread lists
    * its notes under "Place it"; "New thread…" asks for a name instead. */
   document.querySelectorAll("form[data-thread-add]").forEach(function (f) {

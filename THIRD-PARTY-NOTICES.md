@@ -25,7 +25,7 @@ licence. Those licences apply to those components, not to Slipbox.
 ## Other Python packages
 
 Each ships with its own licence file in its `*.dist-info` folder inside
-`app_packages/`. Versions are those resolved for Slipbox 5.3.0 on macOS;
+`app_packages/`. Versions are those resolved for Slipbox 5.4.0 on macOS;
 a given build may differ slightly (the exact set is in `app_packages/`).
 
 | Package | Version | Licence |

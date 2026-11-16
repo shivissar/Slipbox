@@ -46,7 +46,7 @@ from . import watcher
 from . import importer
 from . import threads as thread_ops
 
-__version__ = "5.3.0"
+__version__ = "5.4.0"
 
 app = Flask(__name__)
 
@@ -795,6 +795,7 @@ def view(note_id):
             ),
         })
     thread_contexts = _thread_positions(note_id, thread_contexts)
+    _thread_branches(note_id, thread_contexts)
     similar = embed.find_related(note_id, k=8) if db.SQLITE_VEC_AVAILABLE else []
     all_threads = db.all_threads()
     in_threads = {tc["name"] for tc in thread_contexts}
@@ -823,6 +824,25 @@ def _thread_positions(note_id, thread_contexts):
         tc["length"] = len(ids)
         tc["position"] = ids.index(note_id) + 1 if note_id in ids else None
     return thread_contexts
+
+
+def _thread_branches(note_id, thread_contexts):
+    """5.4: for each thread the note is in, what that thread branches from,
+    the branches that leave from this note, and the note's label in the
+    tree (Luhmann's: 3a2 is the second note of the first branch from the
+    third note)."""
+    if not thread_contexts:
+        return
+    links = thread_ops.tree_links()
+    counts = dict(db.all_threads())
+    for tc in thread_contexts:
+        up = links.get(tc["name"])
+        tc["parent"] = {"name": up[0], "from_id": up[1], "from_title": db.title_for(up[1])} if up else None
+        tc["branches"] = [{"name": b, "count": counts.get(b, 0)} for b in thread_ops.children(tc["name"], links)
+                          if links[b][1] == note_id]
+        prefix = thread_ops.label(tc["name"], links)
+        tc["label"] = "%s%d" % (prefix, tc["position"]) if tc["position"] and (prefix or tc["branches"]) else ""
+        tc["can_branch"] = thread_ops.depth(tc["name"], links) < thread_ops.MAX_DEPTH
 
 
 def _note_page_context(note, rendered):
@@ -910,9 +930,15 @@ def _apply_thread_action(note, form):
             name = form.get("existing_thread_name", "").strip()
             if not name:
                 return
+        elif action == "branch":
+            # 5.4: the note was begun from "Start a branch" on a thread's page.
+            thread_ops.start_branch(form.get("branch_name", ""), form.get("branch_parent", "").strip(),
+                                    form.get("branch_anchor", "").strip(), note.id)
+            name = None
         else:
             return
-        thread_ops.add(note.id, name)
+        if name is not None:
+            thread_ops.add(note.id, name)
     except thread_ops.ThreadError as e:
         _SWEEP["msg"] = "The note is saved, but it isn’t in a thread: %s" % e
         return
@@ -1045,6 +1071,17 @@ def new():
     prefill = note_templates.render(request.args.get("template", "").strip()) if request.args.get("template") else None
     if prefill:
         preselect_kind = prefill["kind"]
+    branch_start = None
+    if request.args.get("branch"):
+        # 5.4: "Start a branch → with a new note" on a thread's page.
+        parent, anchor = request.args.get("parent", "").strip(), request.args.get("anchor", "").strip()
+        try:
+            branch_start = {"name": thread_ops.new_name(request.args.get("branch", "")), "parent": parent,
+                            "anchor": anchor, "anchor_title": db.title_for(anchor) or anchor}
+            thread_ops.check_branch_point(parent, anchor)
+        except thread_ops.ThreadError as e:
+            _SWEEP["msg"] = str(e)
+            return redirect(url_for("thread_view", thread_name=parent) if db.thread_chain(parent) else url_for("threads_index"))
     if _kind_locked(preselect_kind) and not vault.is_unlocked():
         return redirect(url_for("unlock_page", next=request.full_path.rstrip("?")))
     return render_template(
@@ -1053,6 +1090,7 @@ def new():
         all_threads=db.all_threads(),
         preselect_kind=preselect_kind,
         prefill=prefill,
+        branch_start=branch_start,
         note_templates=note_templates.list_templates(),
         autosave=bool(settings.get("autosave", True)),
     )
@@ -1350,7 +1388,7 @@ def tag_view(tag_name):
 
 @app.route("/threads")
 def threads_index():
-    return render_template("threads.html", threads=db.all_threads())
+    return render_template("threads.html", forest=thread_ops.forest())
 
 
 @app.route("/thread/<path:thread_name>")
@@ -1358,7 +1396,25 @@ def thread_view(thread_name):
     chain = db.thread_chain(thread_name)
     if not chain:
         return redirect(url_for("threads_index"))
-    return render_template("thread.html", name=thread_name, chain=chain)
+    links = thread_ops.tree_links()
+    node = thread_ops.tree(thread_name, links)
+    up = thread_ops.ancestors(thread_name, links)
+    # 5.4: where this thread sits. crumbs runs from the first thread down.
+    crumbs = [{"name": p, "from_id": f, "from_title": db.title_for(f) or "a note that has gone"} for p, f in reversed(up)]
+    parent = None
+    if up:
+        siblings = thread_ops.tree(up[0][0], links)["notes"]
+        parent = {"name": up[0][0], "from_id": up[0][1], "notes": siblings,
+                  "placed": any(n["id"] == up[0][1] for n in siblings)}
+    mine = {thread_name} | {p for p, _ in up}
+    depth = len(up)
+    return render_template(
+        "thread.html", name=thread_name, chain=chain, node=node, crumbs=crumbs, parent=parent,
+        can_branch=depth < thread_ops.MAX_DEPTH, max_depth=thread_ops.MAX_DEPTH,
+        # Threads that could be hung here as a branch: not this one, nor any it branches from.
+        other_threads=[(t, n) for t, n in db.all_threads() if t not in mine and links.get(t, ("",))[0] != thread_name
+                       and depth + 1 + thread_ops.height(t, links) <= thread_ops.MAX_DEPTH],
+        anchor=request.args.get("anchor", ""))
 
 
 # --- 5.3: existing notes in threads -------------------------------------
@@ -1379,12 +1435,18 @@ def thread_change():
     note_id = _picked_id(request.form.get("note", ""))
     name = (request.form.get("thread") or "").strip()
     back = request.form.get("back", "note")
+    anchor = (request.form.get("anchor") or "").strip()
     msg = ""
-    try:
+    goto = None
+
+    def need_note():
         if not note_id or not db.get_note_meta(note_id):
             raise thread_ops.ThreadError("Choose a note from the suggestions as you type.")
+
+    try:
         with _SAVE_LOCK:
             if action == "add":
+                need_note()
                 if not name:
                     name = thread_ops.clean_name(request.form.get("new_thread", ""))
                 after = (request.form.get("after") or "").strip() or None
@@ -1392,21 +1454,60 @@ def thread_change():
                 msg = ("Started the thread “%s”." % name if length == 1
                        else "Added to “%s”, %d of %d." % (name, pos, length))
             elif action == "remove":
+                need_note()
                 left = thread_ops.remove(note_id, name)
                 msg = "Taken out of “%s”." % name
                 if not left:
                     msg += " It had no other notes, so the thread is gone."
             elif action in ("up", "down"):
+                need_note()
                 thread_ops.move(note_id, name, -1 if action == "up" else 1)
+            elif action == "branch":
+                # 5.4: a branch leaves thread `name` from its note `anchor`.
+                start = request.form.get("start", "new")
+                where = "“%s”" % (db.title_for(anchor) or "that note")
+                if start == "thread":
+                    other = (request.form.get("other") or "").strip()
+                    thread_ops.attach(other, name, anchor)
+                    msg = "“%s” now branches from %s." % (other, where)
+                else:
+                    branch = thread_ops.new_name(request.form.get("new_thread", ""))
+                    if start == "note":
+                        need_note()
+                        thread_ops.start_branch(branch, name, anchor, note_id)
+                        msg = "Started the branch “%s” from %s." % (branch, where)
+                    elif start == "rest":
+                        moved = thread_ops.cut(name, anchor, branch)
+                        msg = "Moved %s into the branch “%s”, which leaves from %s." % (_plural(moved, "note"), branch, where)
+                    else:
+                        # With a new note: the branch begins when that note is saved.
+                        thread_ops.check_branch_point(name, anchor)
+                        goto = url_for("new", branch=branch, parent=name, anchor=anchor)
+                note_id = anchor
+            elif action == "reattach":
+                up = thread_ops.parent_of(name)
+                if not up:
+                    raise thread_ops.ThreadError("“%s” isn’t a branch." % name)
+                thread_ops.attach(name, up[0], anchor)
+                msg = "“%s” now leaves from “%s”." % (name, db.title_for(anchor) or "that note")
+                note_id = ""
+            elif action == "detach":
+                thread_ops.detach(name)
+                msg = "“%s” is now a thread of its own." % name
+                note_id = ""
             else:
                 abort(400)
     except thread_ops.ThreadError as e:
         msg = str(e)
+        if action == "branch":
+            note_id = anchor if db.get_note_meta(anchor) else ""
     except vault.VaultLocked:
         msg = ("A locked note in this thread couldn’t be saved. Open locked notes with your "
                "password and try again.")
     if msg:
         _SWEEP["msg"] = msg
+    if goto:
+        return redirect(goto)
     if back == "thread":
         if name and db.thread_chain(name):
             return redirect(url_for("thread_view", thread_name=name) + ("#n-%s" % note_id if note_id else ""))
